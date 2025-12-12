@@ -3,7 +3,7 @@ name = "ha-climate-dashboard"
 version = "0.0.1"
 description = "The missing management layer for Home Assistant Climate."
 readme = "README.md"
-requires-python = ">=3.13, <3.14"
+requires-python = ">=3.12"
 dependencies = [
     "homeassistant",
 ]
