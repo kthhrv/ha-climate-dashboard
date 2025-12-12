@@ -1,0 +1,51 @@
+[project]
+name = "ha-climate-dashboard"
+version = "0.0.1"
+description = "The missing management layer for Home Assistant Climate."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "homeassistant",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "ruff",
+    "mypy",
+    "pre-commit",
+    "pytest",
+    "pytest-homeassistant-custom-component",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "RUF",# ruff-specific rules
+]
+ignore = []
+
+[tool.ruff.lint.isort]
+known-first-party = ["custom_components.climate_dashboard"]
+
+[tool.mypy]
+python_version = "3.11"
+platform = "linux"
+show_error_codes = true
+follow_imports = "silent"
+ignore_missing_imports = true
+check_untyped_defs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_return_any = true
+warn_unused_ignores = true
