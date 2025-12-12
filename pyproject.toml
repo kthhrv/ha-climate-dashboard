@@ -3,7 +3,7 @@ name = "ha-climate-dashboard"
 version = "0.0.1"
 description = "The missing management layer for Home Assistant Climate."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.13, <3.14"
 dependencies = [
     "homeassistant",
 ]
@@ -18,8 +18,8 @@ dev-dependencies = [
 ]
 
 [tool.ruff]
-target-version = "py311"
-line-length = 88
+target-version = "py312"
+line-length = 120
 
 [tool.ruff.lint]
 select = [
@@ -36,7 +36,7 @@ ignore = []
 known-first-party = ["custom_components.climate_dashboard"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.13"
 platform = "linux"
 show_error_codes = true
 follow_imports = "silent"
