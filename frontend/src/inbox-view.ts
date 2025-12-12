@@ -110,7 +110,9 @@ export class InboxView extends LitElement {
                   </div>
                 </div>
               </div>
-              <mwc-button @click=${() => this._adopt(device)}>ADOPT</mwc-button>
+              <mwc-button @click=${() => this._adoptEntity(device.entity_id)}
+                >ADOPT</mwc-button
+              >
             </div>
           `,
         )}
@@ -118,8 +120,17 @@ export class InboxView extends LitElement {
     `;
   }
 
-  private _adopt(device: ClimateEntity) {
-    console.log("Adopt requested for", device.entity_id);
-    // Adoption flow to be implemented in Phase 4
+  private async _adoptEntity(entityId: string) {
+    try {
+      await this.hass.callWS({
+        type: "climate_dashboard/adopt",
+        actuator_id: entityId,
+      });
+      // Refresh the list to remove the adopted item
+      this._fetchDevices();
+    } catch (err) {
+      console.error("Failed to adopt", err);
+      alert("Failed to adopt entity: " + (err as Error).message);
+    }
   }
 }

@@ -7,16 +7,37 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.typing import ConfigType
 
 from .panel import async_register_panel
+from .storage import ClimateDashboardStorage
 from .websocket import async_register_api
+
+PLATFORMS = ["climate"]
+DOMAIN = "climate_dashboard"  # Temporary for syntax correctness
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the Climate Dashboard component."""
+    hass.data.setdefault(DOMAIN, {})
+
+    # Init Storage
+    storage = ClimateDashboardStorage(hass)
+    await storage.async_load()
+    hass.data[DOMAIN]["storage"] = storage
+
     # Register the panel (also works without config entry for simple testing)
     await async_register_panel(hass)
 
     # Register WebSocket API
     async_register_api(hass)
+
+    # Use async_forward_entry_setup is for config entries, but we are using async_setup for MVP
+    # We need to load platform manually for now as we don't have a config entry yet?
+    # Actually, custom components usually use config entries or discovery.
+    # For MVP Skeleton we used async_setup.
+    # To load the climate platform, we should use discovery or add a config entry.
+    # Easiest for MVP: Use helpers.discovery
+    from homeassistant.helpers.discovery import async_load_platform
+
+    hass.async_create_task(async_load_platform(hass, "climate", DOMAIN, {}, config))
 
     return True
 
