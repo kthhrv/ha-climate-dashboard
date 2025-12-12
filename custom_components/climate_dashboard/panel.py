@@ -1,10 +1,8 @@
 """Panel registration for Climate Dashboard."""
+
 from homeassistant.core import HomeAssistant
 
-DOMAIN = "climate_dashboard"
-PANEL_URL = "/climate_dashboard/climate-dashboard.mjs"
-PANEL_TITLE = "Climate"
-PANEL_ICON = "mdi:thermostat"
+from .const import DOMAIN, PANEL_ICON, PANEL_TITLE, PANEL_URL
 
 
 async def async_register_panel(hass: HomeAssistant) -> None:

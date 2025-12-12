@@ -1,5 +1,6 @@
 import { LitElement, html, css } from "lit";
 import { customElement, property } from "lit/decorators.js";
+import "./inbox-view";
 
 @customElement("climate-dashboard")
 export class ClimateDashboard extends LitElement {
@@ -23,12 +24,6 @@ export class ClimateDashboard extends LitElement {
   `;
 
   protected render() {
-    return html`
-      <div>
-        <h1>Climate Dashboard</h1>
-        <p>Hello World! The missing management layer is being built.</p>
-        <p>Hass instance is ${this.hass ? "connected" : "disconnected"}.</p>
-      </div>
-    `;
+    return html` <inbox-view .hass=${this.hass}></inbox-view> `;
   }
 }
