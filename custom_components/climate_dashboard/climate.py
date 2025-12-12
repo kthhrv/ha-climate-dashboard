@@ -35,6 +35,7 @@ async def async_setup_platform(
                 name=zone_config["name"],
                 sensor_entity_id=zone_config["sensor"],
                 actuator_entity_id=zone_config["actuator"],
+                schedule=zone_config.get("schedule"),
             )
         )
 

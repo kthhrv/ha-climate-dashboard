@@ -16,6 +16,17 @@ STORAGE_VERSION: Final = 1
 STORAGE_KEY: Final = DOMAIN
 
 
+class ScheduleBlock(TypedDict):
+    """Typed dictionary for schedule block."""
+
+    id: str
+    name: str
+    days: list[str]  # ["mon", "tue", ...]
+    start_time: str  # "08:00"
+    target_temp: float
+    hvac_mode: str  # "heat", "off"
+
+
 class ZoneConfig(TypedDict):
     """Typed dictionary for zone configuration."""
 
@@ -23,6 +34,7 @@ class ZoneConfig(TypedDict):
     name: str
     actuator: str
     sensor: str
+    schedule: list[ScheduleBlock]
 
 
 class ClimateDashboardStorage:
