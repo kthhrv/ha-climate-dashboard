@@ -156,6 +156,8 @@ export class ZonesView extends LitElement {
           ${hvacAction ? html`${hvacAction}` : html`${zone.state}`}
         </div>
 
+        ${this._renderStatus(zone)}
+
         <div class="actions">
           <button
             class="mode-btn ${zone.state === "off" ? "active" : ""}"
@@ -176,6 +178,38 @@ export class ZonesView extends LitElement {
             Auto
           </button>
         </div>
+      </div>
+    `;
+  }
+
+  private _renderStatus(zone: HassEntity): TemplateResult {
+    const nextChange = zone.attributes.next_scheduled_change;
+    const overrideEnd = zone.attributes.manual_override_end;
+    const mode = zone.state;
+
+    let message = "";
+
+    if (mode !== "auto" && overrideEnd) {
+      const time = new Date(overrideEnd).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      message = `Resumes Auto at ${time}`;
+    } else if (mode === "auto" && nextChange) {
+      const time = new Date(nextChange).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      message = `Next change at ${time}`;
+    }
+
+    if (!message) return html``;
+
+    return html`
+      <div
+        style="font-size: 0.75rem; color: var(--secondary-text-color); margin-top: 4px;"
+      >
+        ${message}
       </div>
     `;
   }

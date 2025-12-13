@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, ClassVar
 
 import homeassistant.util.dt as dt_util
@@ -81,6 +81,9 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self._attr_hvac_mode = HVACMode.OFF
         self._attr_hvac_action = HVACAction.IDLE
 
+        self._attr_next_scheduled_change: str | None = None
+        self._attr_manual_override_end: str | None = None
+
     async def async_update_config(
         self,
         name: str,
@@ -144,6 +147,8 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             "coolers": self._coolers,
             "window_sensors": self._window_sensors,
             "restore_delay_minutes": self._restore_delay_minutes,
+            "next_scheduled_change": self._attr_next_scheduled_change,
+            "manual_override_end": self._attr_manual_override_end,
         }
 
     # ... (skipping unchanged methods until async_set_hvac_mode)
@@ -215,8 +220,61 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             if active_block["hvac_mode"] == "heat":
                 self._attr_target_temperature = active_block["target_temp"]
 
+        # Calculate next scheduled change
+        self._calculate_next_scheduled_change(now)
+
         self.async_write_ha_state()
         self.hass.async_create_task(self._async_control_actuator())
+
+    def _calculate_next_scheduled_change(self, now: datetime) -> None:
+        """Calculate the next scheduled change."""
+        self._attr_next_scheduled_change = None
+
+        if not self._schedule:
+            return
+
+        # Days of week map (0=Mon, 6=Sun) to match storage format
+        days_map = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+        current_day_idx = now.weekday()
+        current_time_str = now.strftime("%H:%M")
+
+        # 1. Search remaining blocks today
+        day_name = days_map[current_day_idx]
+        todays_blocks = [b for b in self._schedule if day_name in b["days"]]
+        todays_blocks.sort(key=lambda b: b["start_time"])
+
+        for block in todays_blocks:
+            if block["start_time"] > current_time_str:
+                # Found next block today
+                next_dt = now.replace(
+                    hour=int(block["start_time"][:2]),
+                    minute=int(block["start_time"][3:]),
+                    second=0,
+                    microsecond=0,
+                )
+                self._attr_next_scheduled_change = next_dt.isoformat()
+                return
+
+        # 2. Search next days (up to 7 days ahead)
+        for i in range(1, 8):
+            next_day_idx = (current_day_idx + i) % 7
+            next_day_name = days_map[next_day_idx]
+
+            next_day_blocks = [b for b in self._schedule if next_day_name in b["days"]]
+            if next_day_blocks:
+                # Found earliest block on next active day
+                next_day_blocks.sort(key=lambda b: b["start_time"])
+                first_block = next_day_blocks[0]
+
+                next_dt = now + timedelta(days=i)
+                next_dt = next_dt.replace(
+                    hour=int(first_block["start_time"][:2]),
+                    minute=int(first_block["start_time"][3:]),
+                    second=0,
+                    microsecond=0,
+                )
+                self._attr_next_scheduled_change = next_dt.isoformat()
+                return
 
     @callback
     def _async_sensor_changed(self, event: Any) -> None:
@@ -257,6 +315,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         if self._restore_timer:
             self._restore_timer()  # Cancel existing
             self._restore_timer = None
+            self._attr_manual_override_end = None
 
         if hvac_mode == HVACMode.AUTO:
             self._apply_schedule()
@@ -264,6 +323,11 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             # If manual mode and delay is set, schedule restore
             if self._restore_delay_minutes > 0:
                 _LOGGER.info("Scheduling auto-restore to AUTO in %s minutes", self._restore_delay_minutes)
+
+                # Calculate end time
+                end_time = dt_util.now() + timedelta(minutes=self._restore_delay_minutes)
+                self._attr_manual_override_end = end_time.isoformat()
+
                 self._restore_timer = async_call_later(
                     self.hass, self._restore_delay_minutes * 60, self._restore_schedule
                 )
@@ -276,6 +340,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         """Restore schedule after delay."""
         _LOGGER.info("Auto-restoring zone %s to AUTO mode", self.entity_id)
         self._restore_timer = None
+        self._attr_manual_override_end = None
         self.hass.async_create_task(self.async_set_hvac_mode(HVACMode.AUTO))
 
     async def async_set_temperature(self, **kwargs: Any) -> None:

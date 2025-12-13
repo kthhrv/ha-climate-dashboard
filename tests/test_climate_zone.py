@@ -1,5 +1,6 @@
 """Test the ClimateZone entity."""
 
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -408,3 +409,97 @@ async def test_last_mile_coverage(hass: HomeAssistant) -> None:
     with patch.object(zone, "_apply_schedule") as mock_apply:
         await zone.async_set_hvac_mode(HVACMode.AUTO)
         mock_apply.assert_called_once()
+
+
+async def test_next_schedule_and_override(hass: HomeAssistant) -> None:
+    """Test next_scheduled_change and manual_override_end logic."""
+    from datetime import timedelta
+
+    import homeassistant.util.dt as dt_util
+
+    zone = ClimateZone(hass, "zone_sched", "Sched Zone", SENSOR_ID, [], [], [])
+    zone._schedule = [
+        # Today (Mock Monday)
+        {
+            "id": "1",
+            "name": "Morning",
+            "start_time": "08:00",
+            "days": ["mon"],
+            "hvac_mode": "heat",
+            "target_temp": 20.0,
+        },
+        {
+            "id": "2",
+            "name": "Evening",
+            "start_time": "18:00",
+            "days": ["mon"],
+            "hvac_mode": "heat",
+            "target_temp": 21.0,
+        },
+        # Tomorrow (Mock Tuesday)
+        {
+            "id": "3",
+            "name": "Morning",
+            "start_time": "07:00",
+            "days": ["tue"],
+            "hvac_mode": "heat",
+            "target_temp": 22.0,
+        },
+        # Skip Wed
+        # Thursday
+        {
+            "id": "4",
+            "name": "Morning",
+            "start_time": "09:00",
+            "days": ["thu"],
+            "hvac_mode": "heat",
+            "target_temp": 23.0,
+        },
+    ]
+
+    # 1. Test Manual Override End
+    # Set restore delay
+    zone._restore_delay_minutes = 60
+
+    # Mock Time: Monday 10:00
+    mock_now = datetime(2023, 1, 2, 10, 0, 0, tzinfo=dt_util.UTC)  # Jan 2 2023 is Monday
+
+    with patch("custom_components.climate_dashboard.climate_zone.dt_util.now", return_value=mock_now):
+        # Set Manual Heat
+        await zone.async_set_hvac_mode(HVACMode.HEAT)
+
+        # Check override end
+        expected_end = mock_now + timedelta(minutes=60)
+        assert zone.extra_state_attributes["manual_override_end"] == expected_end.isoformat()
+
+        # Restore to Auto clears it
+        await zone.async_set_hvac_mode(HVACMode.AUTO)
+        assert zone.extra_state_attributes["manual_override_end"] is None
+
+    # 2. Test Next Change (Same Day Loop)
+    # Time: Monday 10:00. Next block is 18:00
+    with patch("custom_components.climate_dashboard.climate_zone.dt_util.now", return_value=mock_now):
+        zone._calculate_next_scheduled_change(mock_now)
+        expected_next = mock_now.replace(hour=18, minute=0, second=0, microsecond=0)
+        assert zone.extra_state_attributes["next_scheduled_change"] == expected_next.isoformat()
+
+    # 3. Test Next Change (Next Day Loop)
+    # Time: Monday 19:00. Next block is Tuesday 07:00
+    mock_now_evening = datetime(2023, 1, 2, 19, 0, 0, tzinfo=dt_util.UTC)
+    with patch("custom_components.climate_dashboard.climate_zone.dt_util.now", return_value=mock_now_evening):
+        zone._calculate_next_scheduled_change(mock_now_evening)
+        expected_next = mock_now_evening + timedelta(days=1)  # Tuesday
+        expected_next = expected_next.replace(hour=7, minute=0, second=0, microsecond=0)
+        assert zone.extra_state_attributes["next_scheduled_change"] == expected_next.isoformat()
+
+    # 4. Test Next Change (Skip Day Loop - Mon -> Thu)
+    # Schedule only Mon, Tue, Thu.
+    # Time: Tuesday 08:00. Next block is Thursday 09:00
+    # Note: Logic scans up to 7 days.
+    mock_now_tue = datetime(2023, 1, 3, 8, 0, 0, tzinfo=dt_util.UTC)  # Tuesday
+    with patch("custom_components.climate_dashboard.climate_zone.dt_util.now", return_value=mock_now_tue):
+        zone._calculate_next_scheduled_change(mock_now_tue)
+        # Expected: Thursday (Tue+2) at 09:00
+        expected_next = mock_now_tue + timedelta(days=2)  # Thursday
+        expected_next = expected_next.replace(hour=9, minute=0, second=0, microsecond=0)
+        assert zone.extra_state_attributes["next_scheduled_change"] == expected_next.isoformat()
