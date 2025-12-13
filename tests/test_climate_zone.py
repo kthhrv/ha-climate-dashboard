@@ -150,6 +150,13 @@ async def test_cooling_logic(hass: HomeAssistant) -> None:
         hass, "zone_cool", "Cool Zone", SENSOR_ID, heaters=[], coolers=[CLIMATE_COOLER_ID], window_sensors=[]
     )
 
+    # Mock cooler
+    hass.states.async_set(
+        CLIMATE_COOLER_ID,
+        HVACMode.OFF,
+        {"supported_features": ClimateEntityFeature.TARGET_TEMPERATURE, "hvac_modes": [HVACMode.COOL, HVACMode.OFF]},
+    )
+
     zone._attr_hvac_mode = HVACMode.AUTO  # Or Heat/Cool, but Cool logic runs here
     # For now, simplistic logic: active_mode relies on HVACMode or Auto
     # But wait, code says: if HVACMode.HEAT or AUTO.
@@ -379,6 +386,14 @@ async def test_last_mile_coverage(hass: HomeAssistant) -> None:
     """Hit the remaining missing lines."""
     CLIMATE_COOLER_ID = "climate.ac"
     zone = ClimateZone(hass, "z_last", "L", SENSOR_ID, [], [CLIMATE_COOLER_ID], [])
+
+    # Mock cooler for set_coolers(True)
+    hass.states.async_set(
+        CLIMATE_COOLER_ID,
+        HVACMode.OFF,
+        {"supported_features": ClimateEntityFeature.TARGET_TEMPERATURE, "hvac_modes": [HVACMode.COOL, HVACMode.OFF]},
+    )
+
     mock_services = MagicMock()
     zone.hass.services = mock_services
     mock_services.async_call = AsyncMock()
@@ -503,3 +518,43 @@ async def test_next_schedule_and_override(hass: HomeAssistant) -> None:
         expected_next = mock_now_tue + timedelta(days=2)  # Thursday
         expected_next = expected_next.replace(hour=9, minute=0, second=0, microsecond=0)
         assert zone.extra_state_attributes["next_scheduled_change"] == expected_next.isoformat()
+
+
+async def test_actuator_range_only(hass: HomeAssistant) -> None:
+    """Test controlling an actuator that only supports temperature range."""
+    RANGE_ACTUATOR_ID = "climate.ecobee_mock"
+
+    # Mock entity supporting ONLY Range and Heat_Cool (typical for some smart stats)
+    hass.states.async_set(
+        RANGE_ACTUATOR_ID,
+        HVACMode.HEAT_COOL,
+        {
+            "supported_features": ClimateEntityFeature.TARGET_TEMPERATURE_RANGE,
+            "hvac_modes": [HVACMode.HEAT_COOL, HVACMode.OFF],
+        },
+    )
+
+    zone = ClimateZone(
+        hass, "zone_range", "Range Zone", SENSOR_ID, heaters=[RANGE_ACTUATOR_ID], coolers=[], window_sensors=[]
+    )
+
+    # Zone wants to HEAT to 22
+    zone._attr_hvac_mode = HVACMode.HEAT
+    zone._attr_target_temperature = 22.0
+    zone._attr_current_temperature = 18.0  # Cold
+
+    mock_services = MagicMock()
+    zone.hass.services = mock_services
+    mock_services.async_call = AsyncMock()
+
+    await zone._async_control_actuator()
+
+    mock_services.async_call.assert_called_once()
+    call_args = mock_services.async_call.call_args
+    # call_args is (args, kwargs). key args are domain, service, service_data
+    service_data = call_args[0][2]
+
+    # Expect failure/bug confirmation
+    assert "temperature" not in service_data, "Should not send temperature scalar to range-only entity"
+    assert "target_temp_low" in service_data, "Should send target_temp_low"
+    assert "target_temp_high" in service_data, "Should send target_temp_high"

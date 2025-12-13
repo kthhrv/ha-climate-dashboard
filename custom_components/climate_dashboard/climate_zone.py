@@ -433,15 +433,19 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
                 if enable:
                     # Smart Thermostat Logic
-                    if (features & ClimateEntityFeature.TARGET_TEMPERATURE) or (
-                        features & ClimateEntityFeature.TARGET_TEMPERATURE_RANGE
-                    ):
-                        # Use set_temperature
-                        service_data = {
-                            "entity_id": entity_id,
-                            "temperature": self._attr_target_temperature,
-                        }
+                    service_data: dict[str, Any] = {"entity_id": entity_id}
 
+                    if features & ClimateEntityFeature.TARGET_TEMPERATURE:
+                        service_data["temperature"] = self._attr_target_temperature
+                    elif features & ClimateEntityFeature.TARGET_TEMPERATURE_RANGE:
+                        # Range only (e.g. Heat/Cool mode)
+                        service_data["target_temp_low"] = self._attr_target_temperature
+                        service_data["target_temp_high"] = self._attr_target_temperature + 5  # Safety gap
+                    else:
+                        # Fallback to On/Off
+                        pass
+
+                    if "temperature" in service_data or "target_temp_low" in service_data:
                         # Determine valid HVAC mode
                         valid_modes = state.attributes.get("hvac_modes", [])
                         if HVACMode.HEAT in valid_modes:
@@ -496,16 +500,31 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             domain = entity_id.split(".")[0]
             if domain == "climate":
                 if enable:
-                    await self.hass.services.async_call(
-                        "climate",
-                        "set_temperature",
-                        {
-                            "entity_id": entity_id,
-                            "temperature": self._attr_target_temperature,
-                            "hvac_mode": HVACMode.COOL,
-                        },  # Cool mode
-                        blocking=True,
-                    )
+                    state = self.hass.states.get(entity_id)
+                    if not state:
+                        continue
+                    features = state.attributes.get("supported_features", 0)
+
+                    service_data: dict[str, Any] = {
+                        "entity_id": entity_id,
+                        "hvac_mode": HVACMode.COOL,
+                    }
+
+                    if features & ClimateEntityFeature.TARGET_TEMPERATURE:
+                        service_data["temperature"] = self._attr_target_temperature
+                    elif features & ClimateEntityFeature.TARGET_TEMPERATURE_RANGE:
+                        service_data["hvac_mode"] = HVACMode.HEAT_COOL  # Range usually implies Heat/Cool
+                        service_data["target_temp_high"] = self._attr_target_temperature
+                        service_data["target_temp_low"] = self._attr_target_temperature - 5  # Safety gap
+
+                    # Ensure we have a target
+                    if "temperature" in service_data or "target_temp_high" in service_data:
+                        await self.hass.services.async_call(
+                            "climate",
+                            "set_temperature",
+                            service_data,
+                            blocking=True,
+                        )
                 else:
                     await self.hass.services.async_call(
                         "climate", "set_hvac_mode", {"entity_id": entity_id, "hvac_mode": HVACMode.OFF}
