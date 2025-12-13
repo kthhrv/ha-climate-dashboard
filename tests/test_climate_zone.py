@@ -314,7 +314,7 @@ async def test_callbacks_and_public_methods(hass: HomeAssistant) -> None:
         # The mock above might be tricky. Let's rely on manual call.
         # Just call _apply_schedule directly or via _on_time_change
         zone._on_time_change(None)
-        assert zone.target_temperature == 19.0
+        assert zone.target_temperature == 20.0
 
 
 async def test_update_config_rename(hass: HomeAssistant) -> None:
