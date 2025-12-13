@@ -47,8 +47,8 @@ export class TimelineView extends LitElement {
   protected render(): TemplateResult {
     if (!this.hass) return html``;
 
-    const zones = Object.values(this.hass.states).filter((s: any) =>
-      s.entity_id.startsWith("climate.zone_"),
+    const zones = Object.values(this.hass.states).filter(
+      (s: any) => s.attributes.is_climate_dashboard_zone,
     );
 
     return html`

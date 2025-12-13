@@ -1,35 +1,40 @@
 """Panel registration for Climate Dashboard."""
 
+from homeassistant.components.http import StaticPathConfig
+from homeassistant.components.panel_custom import async_register_panel as hass_async_register_panel
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN, PANEL_ICON, PANEL_TITLE, PANEL_URL
+from .const import PANEL_ICON, PANEL_TITLE, PANEL_URL
 
 
 async def async_register_panel(hass: HomeAssistant) -> None:
     """Register the Cool Dashboard panel."""
     # Ensure the URL is registered to serve the static file
-    # In full implementation, we might need a custom view to serve this if not in www
-    # But often referencing the file in local folder is enough if we register it as a resource
-    # For now, we assume simple panel registration.
 
     # We must first register the static path
-    hass.http.register_static_path(
-        PANEL_URL,
-        hass.config.path(f"custom_components/{DOMAIN}/www/climate-dashboard.mjs"),
+    # We must first register the static path
+    import os
+
+    current_dir = os.path.dirname(__file__)
+    js_path = os.path.join(current_dir, "www", "climate-dashboard.mjs")
+
+    await hass.http.async_register_static_paths(
+        [
+            StaticPathConfig(
+                PANEL_URL,
+                js_path,
+                cache_headers=False,
+            )
+        ]
     )
 
-    await hass.components.frontend.async_register_panel(
-        component_name="custom",
+    await hass_async_register_panel(
+        hass,
+        webcomponent_name="climate-dashboard",
+        frontend_url_path="climate-dashboard",
         sidebar_title=PANEL_TITLE,
         sidebar_icon=PANEL_ICON,
-        frontend_url_path="climate-dashboard",
-        config={
-            "_panel_custom": {
-                "name": "climate-dashboard",
-                "embed_iframe": False,
-                "trust_external": False,
-                "js_url": PANEL_URL,
-            }
-        },
+        module_url=PANEL_URL,
+        embed_iframe=False,
         require_admin=False,
     )

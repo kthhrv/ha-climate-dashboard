@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "bluetooth.remote_scanners",
+  "data": {
+    "FC:6D:77:4D:47:5B": {
+      "connectable": true,
+      "expire_seconds": 195.0,
+      "discovered_device_advertisement_datas": {},
+      "discovered_device_timestamps": {},
+      "discovered_device_raw": {}
+    }
+  }
+}

@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Climate Dashboard - Setup Mockup</title>
+    <!-- Import Lit from CDN for standalone execution -->
+    <script type="module">
+      import {
+        html,
+        css,
+        LitElement,
+      } from "https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js";
+
+      /* * =================================================================
+       * MOCK COMPONENT: <hui-tile-card>
+       * Standard HA Tile Card behavior
+       * =================================================================
+       */
+      class MockHuiTileCard extends LitElement {
+        static properties = {
+          hass: { type: Object },
+          config: { type: Object },
+        };
+
+        static styles = css`
+          :host {
+            display: block;
+            background: transparent;
+            border-radius: 0;
+            border: none;
+            overflow: hidden;
+            transition: all 0.3s ease-in-out;
+          }
+          .tile-container {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            gap: 16px;
+            height: 50px;
+          }
+          .icon-container {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background-color: rgba(123, 123, 123, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #444;
+            flex-shrink: 0;
+          }
+          .icon-container.active {
+            background-color: rgba(255, 152, 0, 0.2);
+            color: #f57c00;
+          }
+          .info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            overflow: hidden;
+          }
+          .name {
+            font-weight: 500;
+            font-size: 14px;
+            color: var(--primary-text-color, #212121);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+          .state {
+            font-size: 12px;
+            color: var(--secondary-text-color, #757575);
+            margin-top: 2px;
+          }
+        `;
+
+        render() {
+          const entityId = this.config?.entity || "unknown.entity";
+          const entity = this.hass?.states[entityId] || {
+            attributes: { friendly_name: entityId },
+            state: "unknown",
+          };
+          const isHeating = entity.state === "heat";
+
+          return html`
+            <div class="tile-container">
+              <div class="icon-container ${isHeating ? "active" : ""}">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                  <path
+                    fill="currentColor"
+                    d="M12,18A6,6 0 0,1 6,12C6,11.66 6.04,11.32 6.12,11C7.5,12.23 9.61,13 12,13C14.39,13 16.5,12.23 17.88,11C17.96,11.32 18,11.66 18,12A6,6 0 0,1 12,18M12,2C8.13,2 5,5.13 5,9C5,11.38 6.19,13.47 8,14.74V17A1,1 0 0,0 9,18H15A1,1 0 0,0 16,17V14.74C17.81,13.47 19,11.38 19,9C19,5.13 15.87,2 12,2Z"
+                  />
+                </svg>
+              </div>
+              <div class="info">
+                <span class="name">${entity.attributes.friendly_name}</span>
+                <span class="state"
+                  >${entity.state} •
+                  ${entity.attributes.current_temperature || "--"}°C</span
+                >
+              </div>
+            </div>
+          `;
+        }
+      }
+      customElements.define("hui-tile-card", MockHuiTileCard);
+
+      /* * =================================================================
+       * MAIN APPLICATION: <climate-dashboard-panel>
+       * =================================================================
+       */
+      class ClimateDashboardPanel extends LitElement {
+        static styles = css`
+          :host {
+            display: block;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+            font-family:
+              Roboto,
+              -apple-system,
+              sans-serif;
+            background-color: #f8f9fa;
+            min-height: 100vh;
+            color: #212121;
+          }
+
+          /* --- HEADER & NAVIGATION --- */
+          .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+          }
+
+          h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 400;
+            color: #212121;
+          }
+
+          .nav-button {
+            background: white;
+            border: 1px solid #e0e0e0;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #616161;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            transition: all 0.2s;
+          }
+          .nav-button:hover {
+            background: #f5f5f5;
+            color: #212121;
+          }
+          .nav-button.active {
+            background: #e3f2fd;
+            color: #0277bd;
+            border-color: #0277bd;
+          }
+
+          .badge {
+            background: #d32f2f;
+            color: white;
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: 700;
+          }
+
+          /* --- SETUP / INBOX STYLES (Reused) --- */
+          .hero-card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            margin-bottom: 40px;
+            border: 1px solid #e0e0e0;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+          }
+          .hero-icon {
+            background: #e3f2fd;
+            color: #039be5;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+          }
+          .hero-content h2 {
+            margin: 0 0 8px 0;
+            font-size: 20px;
+            font-weight: 500;
+          }
+          .hero-content p {
+            margin: 0;
+            color: #616161;
+            line-height: 1.5;
+            font-size: 15px;
+          }
+
+          .floor-group {
+            margin-bottom: 48px;
+          }
+          .floor-header {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: #757575;
+            margin-bottom: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+          }
+          .floor-header::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: #e0e0e0;
+          }
+          .area-group {
+            margin-bottom: 24px;
+          }
+          .area-header {
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 12px;
+            color: #424242;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+
+          .device-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 16px;
+          }
+          .device-wrapper {
+            background: white;
+            border-radius: 12px;
+            padding: 0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            border: 1px solid #eee;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+          }
+          .card-content {
+            padding: 4px;
+          }
+          .actions {
+            display: flex;
+            gap: 8px;
+            padding: 8px 12px;
+            background-color: #fafafa;
+            border-top: 1px solid #eee;
+            justify-content: flex-end;
+          }
+          button {
+            border: none;
+            border-radius: 6px;
+            padding: 0 12px;
+            height: 32px;
+            font-weight: 500;
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+          }
+          .btn-adopt {
+            background-color: #03a9f4;
+            color: white;
+          }
+          .btn-adopt:hover {
+            background-color: #0288d1;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+          }
+          .btn-link {
+            background-color: white;
+            color: #616161;
+            border: 1px solid #e0e0e0;
+          }
+          .btn-link:hover {
+            background-color: #f5f5f5;
+            border-color: #bdbdbd;
+            color: #212121;
+          }
+
+          /* --- DASHBOARD MOCK STYLES --- */
+          .dashboard-placeholder {
+            background: white;
+            border-radius: 16px;
+            height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #bdbdbd;
+            border: 2px dashed #e0e0e0;
+            margin-bottom: 24px;
+          }
+          .dashboard-zone-card {
+            background: white;
+            padding: 16px;
+            border-radius: 16px;
+            border: 1px solid #e0e0e0;
+            margin-bottom: 16px;
+          }
+          .zone-title {
+            font-size: 18px;
+            font-weight: 500;
+            margin-bottom: 12px;
+          }
+          .timeline-bar {
+            height: 40px;
+            background: #eee;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+          }
+          .timeline-segment {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: white;
+            font-weight: 500;
+          }
+        `;
+
+        static properties = {
+          _unmanagedDevices: { state: true },
+          _hassMock: { state: true },
+          _view: { state: true }, // 'dashboard' or 'setup'
+        };
+
+        constructor() {
+          super();
+          this._view = "dashboard"; // Default View
+
+          // Mock Data
+          this._unmanagedDevices = {
+            floor_ground: {
+              name: "Ground Floor",
+              level: 0,
+              icon: "mdi:floor-plan",
+              areas: {
+                area_living: {
+                  name: "Living Room",
+                  devices: [
+                    "climate.living_room_trv",
+                    "switch.living_room_heater",
+                  ],
+                },
+                area_kitchen: {
+                  name: "Kitchen",
+                  devices: ["climate.kitchen_ac"],
+                },
+              },
+            },
+            floor_first: {
+              name: "First Floor",
+              level: 1,
+              icon: "mdi:stairs",
+              areas: {
+                area_bedroom: {
+                  name: "Master Bedroom",
+                  devices: [
+                    "climate.master_bedroom_trv",
+                    "cover.bedroom_velux",
+                  ],
+                },
+              },
+            },
+          };
+
+          this._hassMock = {
+            states: {
+              "climate.living_room_trv": {
+                state: "heat",
+                attributes: {
+                  friendly_name: "Living Room TRV (Tuya)",
+                  current_temperature: 19.5,
+                },
+              },
+              "switch.living_room_heater": {
+                state: "off",
+                attributes: {
+                  friendly_name: "Electric Heater Plug",
+                  current_temperature: 20.0,
+                },
+              },
+              "climate.kitchen_ac": {
+                state: "off",
+                attributes: {
+                  friendly_name: "Kitchen Split Unit",
+                  current_temperature: 22.0,
+                },
+              },
+              "climate.master_bedroom_trv": {
+                state: "heat",
+                attributes: {
+                  friendly_name: "Master TRV",
+                  current_temperature: 18.0,
+                },
+              },
+              "cover.bedroom_velux": {
+                state: "closed",
+                attributes: {
+                  friendly_name: "Skylight",
+                  current_temperature: null,
+                },
+              },
+            },
+          };
+        }
+
+        render() {
+          const unmanagedCount = 5; // Calculated from mock data
+
+          return html`
+            <div class="panel-header">
+              <h1>
+                ${this._view === "dashboard"
+                  ? "Climate Dashboard"
+                  : "Setup & Discovery"}
+              </h1>
+
+              <div style="display:flex; gap:12px;">
+                <!-- View Switcher / Navigation -->
+                <button
+                  class="nav-button ${this._view === "dashboard"
+                    ? "active"
+                    : ""}"
+                  @click=${() => (this._view = "dashboard")}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="18"
+                    height="18"
+                    fill="currentColor"
+                  >
+                    <path
+                      d="M3,13H11V3H3V13M3,21H11V15H3V21M13,21H21V11H13V21M13,3V9H21V3H13Z"
+                    />
+                  </svg>
+                  Dashboard
+                </button>
+
+                <button
+                  class="nav-button ${this._view === "setup" ? "active" : ""}"
+                  @click=${() => (this._view = "setup")}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="18"
+                    height="18"
+                    fill="currentColor"
+                  >
+                    <path
+                      d="M19,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M19,19H5V5H19V19M17,17H7V7H17V17Z"
+                    />
+                  </svg>
+                  Setup
+                  ${unmanagedCount > 0
+                    ? html`<span class="badge">${unmanagedCount}</span>`
+                    : ""}
+                </button>
+              </div>
+            </div>
+
+            ${this._view === "dashboard"
+              ? this._renderDashboard()
+              : this._renderSetup()}
+          `;
+        }
+
+        /* --- VIEW: DASHBOARD (Active Zones) --- */
+        _renderDashboard() {
+          return html`
+            <!-- Example of a Managed Zone Card (Mock) -->
+            <div class="dashboard-zone-card">
+              <div style="display:flex; justify-content:space-between;">
+                <div class="zone-title">🛋️ Office Zone</div>
+                <div style="color: #f57c00; font-weight:500;">
+                  Heating to 21°C
+                </div>
+              </div>
+              <div class="timeline-bar">
+                <div
+                  class="timeline-segment"
+                  style="left:0%; width:30%; background:#9e9e9e;"
+                >
+                  Sleep 18°
+                </div>
+                <div
+                  class="timeline-segment"
+                  style="left:30%; width:50%; background:#f57c00;"
+                >
+                  Work 21°
+                </div>
+                <div
+                  class="timeline-segment"
+                  style="left:80%; width:20%; background:#9e9e9e;"
+                >
+                  Evening 19°
+                </div>
+              </div>
+            </div>
+
+            <div class="dashboard-zone-card">
+              <div style="display:flex; justify-content:space-between;">
+                <div class="zone-title">🛌 Guest Room Zone</div>
+                <div style="color: #757575; font-weight:500;">Idle (Eco)</div>
+              </div>
+              <div class="timeline-bar">
+                <div
+                  class="timeline-segment"
+                  style="left:0%; width:100%; background:#bdbdbd;"
+                >
+                  Eco 16° (Unoccupied)
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
+        /* --- VIEW: SETUP (Was Inbox) --- */
+        _renderSetup() {
+          return html`
+            <div class="hero-card">
+              <div class="hero-icon">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="32"
+                  height="32"
+                  fill="currentColor"
+                >
+                  <path
+                    d="M12,3L2,12H5V20H19V12H22L12,3M12,7.7C14.1,7.7 15.8,9.4 15.8,11.5C15.8,14.5 12,18 12,18C12,18 8.2,14.5 8.2,11.5C8.2,9.4 9.9,7.7 12,7.7Z"
+                  />
+                </svg>
+              </div>
+              <div class="hero-content">
+                <h2>Let's organize your home</h2>
+                <p>
+                  We found <strong>5 unmanaged devices</strong> in your system.
+                  "Adopting" a device wraps it in a Smart Zone for advanced
+                  scheduling.
+                </p>
+              </div>
+            </div>
+
+            ${Object.entries(this._unmanagedDevices)
+              .sort(([, a], [, b]) => b.level - a.level)
+              .map(([floorId, floor]) => this._renderFloor(floorId, floor))}
+          `;
+        }
+
+        _renderFloor(floorId, floor) {
+          return html`
+            <div class="floor-group">
+              <div class="floor-header">${floor.name}</div>
+              ${Object.entries(floor.areas).map(([areaId, area]) =>
+                this._renderArea(areaId, area),
+              )}
+            </div>
+          `;
+        }
+
+        _renderArea(areaId, area) {
+          return html`
+            <div class="area-group">
+              <div class="area-header">${area.name}</div>
+              <div class="device-list">
+                ${area.devices.map((entityId) =>
+                  this._renderDeviceItem(entityId, area.name),
+                )}
+              </div>
+            </div>
+          `;
+        }
+
+        _renderDeviceItem(entityId, areaName) {
+          return html`
+            <div class="device-wrapper">
+              <div class="card-content">
+                <hui-tile-card
+                  .hass=${this._hassMock}
+                  .config=${{ entity: entityId }}
+                ></hui-tile-card>
+              </div>
+              <div class="actions">
+                <button
+                  class="btn-link"
+                  @click=${() => this._handleLink(entityId)}
+                >
+                  Link to Zone
+                </button>
+                <button
+                  class="btn-adopt"
+                  @click=${() => this._handleAdopt(entityId, areaName)}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    fill="currentColor"
+                  >
+                    <path d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" />
+                  </svg>
+                  Create Zone
+                </button>
+              </div>
+            </div>
+          `;
+        }
+
+        _handleAdopt(entityId, areaName) {
+          const zoneName = prompt(`Name your new Climate Zone:`, `${areaName}`);
+          if (zoneName) alert(`🚀 CREATING ZONE: ${zoneName}`);
+        }
+
+        _handleLink(entityId) {
+          alert(`🔗 LINK MODE for ${entityId}`);
+        }
+      }
+
+      customElements.define("climate-dashboard-panel", ClimateDashboardPanel);
+    </script>
+  </head>
+  <body style="margin: 0; padding: 0; background: #f8f9fa">
+    <climate-dashboard-panel></climate-dashboard-panel>
+  </body>
+</html>

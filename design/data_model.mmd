@@ -1,0 +1,55 @@
+erDiagram
+    %% Core Storage
+    ClimateDashboardStorage ||--o{ ClimateZoneConfig : persists
+
+    %% Config & Runtime
+    ClimateZoneConfig ||--o{ ScheduleBlock : contains
+    ClimateZone ||--o{ ScheduleBlock : uses
+    ClimateZone ||..|| ClimateZoneConfig : from
+
+    %% External Entities
+    ClimateZone ||..o{ SensorEntity : reads
+    ClimateZone ||..o{ ActuatorEntity : controls
+
+    class ClimateDashboardStorage {
+        int version
+        string key "climate_dashboard"
+        list listeners
+    }
+
+    class ClimateZoneConfig {
+        string unique_id
+        string name
+        string actuator
+        string sensor
+        list schedule
+    }
+
+    class ClimateZone {
+        string unique_id
+        string name
+        string entity_id
+        float current_temp
+        float target_temp
+        string hvac_mode
+    }
+
+    class ScheduleBlock {
+        string id
+        string name
+        list days
+        string start_time
+        float target_temp
+        string hvac_mode
+    }
+
+    class SensorEntity {
+        string entity_id
+        string state
+    }
+
+    class ActuatorEntity {
+        string entity_id
+        string domain
+        string state
+    }

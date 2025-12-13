@@ -4,7 +4,7 @@
 * **Name:** Climate Dashboard
 * **Repo:** `ha-climate-dashboard`
 * **Tagline:** "The missing management layer for Home Assistant Climate."
-* **Vision:** A Sidebar Dashboard that replaces the "List of Cards" with a true management system. It acts as an Operating System for heating/cooling, offering "Inbox Zero" setup, unified timeline scheduling, and adaptive logic.
+* **Vision:** A Sidebar Dashboard that replaces the "List of Cards" with a true management system. It acts as an Operating System for heating/cooling, offering "Setup" based workflows, unified timeline scheduling, and adaptive logic.
 
 ## 2. Core Philosophy (The "Why")
 1.  **Manager, not just a Controller:** We don't just provide entities; we provide a UI to organize them.
@@ -18,7 +18,7 @@
 * **Type:** Custom Sidebar Panel (registered via `async_register_panel`).
 * **Tech:** Custom Element (Lit/React) talking to Backend via WebSocket.
 * **Key Views:**
-    * **Inbox:** A list of unmanaged `climate.*` and `switch.*` entities.
+    * **Setup:** A list of unmanaged `climate.*` and `switch.*` entities.
     * **Timeline:** A Gantt-chart style scheduler for all zones.
     * **Zone Editor:** Visual configuration of the specific zone's schedule and rules.
 
@@ -41,7 +41,7 @@
 
 ## 4. Data Model Concepts
 
-* **Area (Physical):** The HA Area (e.g., "Kitchen"). Used for grouping suggestions in the Inbox.
+* **Area (Physical):** The HA Area (e.g., "Kitchen"). Used for grouping suggestions in the Setup list.
 * **Zone (Logical):** The `climate.zone_*` entity we create. Contains the Schedule, the Actuator(s), and the Sensor(s).
 * **Actuator:** The hardware doing the work (TRV, AC, Boiler Relay).
 * **Sensor:** The truth source (Room Temp, Window Contact, Presence).
@@ -57,7 +57,7 @@
 
 ## 6. MVP Roadmap
 1.  **Skeleton:** Sidebar Panel registration + WebSocket "Hello World".
-2.  **The Inbox:** Scan `hass.states` and list "Unmanaged" climate devices.
+2.  **The Setup:** Scan `hass.states` and list "Unmanaged" climate devices.
 3.  **The Engine:** `SmartZone` class that can take a `climate` entity and "wrap" it (mirroring state).
 4.  **Adoption Flow:** UI button to convert "Unmanaged" -> "SmartZone".
 5.  **Scheduling:** Basic time-block logic attached directly to the Zone.

@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "minor_version": 2,
+  "key": "repairs.issue_registry",
+  "data": {
+    "issues": [
+      {
+        "created": "2025-12-12T16:01:15.687090+00:00",
+        "dismissed_version": null,
+        "domain": "homeassistant",
+        "is_persistent": false,
+        "issue_id": "platform_integration_no_support_switch_demo"
+      },
+      {
+        "created": "2025-12-12T16:01:15.687163+00:00",
+        "dismissed_version": null,
+        "domain": "homeassistant",
+        "is_persistent": false,
+        "issue_id": "platform_integration_no_support_sensor_demo"
+      },
+      {
+        "created": "2025-12-12T16:01:15.687207+00:00",
+        "dismissed_version": null,
+        "domain": "homeassistant",
+        "is_persistent": false,
+        "issue_id": "platform_integration_no_support_climate_demo"
+      },
+      {
+        "created": "2025-12-12T16:01:15.800525+00:00",
+        "dismissed_version": null,
+        "domain": "homeassistant",
+        "is_persistent": false,
+        "issue_id": "deprecated_method"
+      }
+    ]
+  }
+}

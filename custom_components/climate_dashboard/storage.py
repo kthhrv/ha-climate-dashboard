@@ -27,13 +27,15 @@ class ScheduleBlock(TypedDict):
     hvac_mode: str  # "heat", "off"
 
 
-class ZoneConfig(TypedDict):
+class ClimateZoneConfig(TypedDict):
     """Typed dictionary for zone configuration."""
 
     unique_id: str
     name: str
-    actuator: str
-    sensor: str
+    temperature_sensor: str
+    heaters: list[str]
+    coolers: list[str]
+    window_sensors: list[str]
     schedule: list[ScheduleBlock]
 
 
@@ -55,13 +57,13 @@ class ClimateDashboardStorage:
         self._data = data
 
     @property
-    def zones(self) -> list[ZoneConfig]:
+    def zones(self) -> list[ClimateZoneConfig]:
         """Return list of zones."""
         if self._data is None:
             return []
-        return cast(list[ZoneConfig], self._data.get("zones", []))
+        return cast(list[ClimateZoneConfig], self._data.get("zones", []))
 
-    async def async_add_zone(self, zone: ZoneConfig) -> None:
+    async def async_add_zone(self, zone: ClimateZoneConfig) -> None:
         """Add a new zone."""
         if self._data is None:
             self._data = {"zones": []}
@@ -73,6 +75,32 @@ class ClimateDashboardStorage:
         # Notify listeners
         for listener in self._listeners:
             listener()
+
+    async def async_update_zone(self, zone_config: ClimateZoneConfig) -> None:
+        """Update an existing zone."""
+        if self._data is None:
+            return
+
+        zones = self._data["zones"]
+        for i, zone in enumerate(zones):
+            if zone["unique_id"] == zone_config["unique_id"]:
+                # Preserve schedule if not provided in update (though TypedDict suggests it might be)
+                # For this MVP update, we might be overwriting everything including schedule if passed.
+                # Let's assume the API passes the full config back, or we merge?
+                # The Plan says "update fields". Let's replace the whole config for simplicity of the API
+                # but ensure we don't lose the schedule if the frontend didn't send it.
+                # However, the typed dict requires schedule.
+                # Let's assume the caller provides the full object or we merge.
+                # For safety, let's update the existing object with new values.
+                zones[i].update(zone_config)
+                await self._store.async_save(self._data)
+
+                # Notify listeners
+                for listener in self._listeners:
+                    listener()
+                return
+
+        raise ValueError(f"Zone {zone_config['unique_id']} not found")
 
     def async_add_listener(self, callback: Any) -> None:
         """Add a listener for data changes."""

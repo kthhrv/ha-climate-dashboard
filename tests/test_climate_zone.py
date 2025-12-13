@@ -27,8 +27,10 @@ def mock_climate_zone(hass: HomeAssistant) -> ClimateZone:
         hass,
         unique_id=ZONE_ID,
         name=ZONE_NAME,
-        sensor_entity_id=SENSOR_ID,
-        actuator_entity_id=SWITCH_ID,
+        temperature_sensor=SENSOR_ID,
+        heaters=[SWITCH_ID],
+        coolers=[],
+        window_sensors=[],
     )
 
 

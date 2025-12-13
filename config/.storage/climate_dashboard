@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "climate_dashboard",
+  "data": {
+    "zones": [
+      {
+        "unique_id": "zone_50cc180a",
+        "name": "Office",
+        "temperature_sensor": "climate.heatpump",
+        "heaters": [
+          "climate.heatpump"
+        ],
+        "coolers": [],
+        "window_sensors": [],
+        "schedule": []
+      }
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+# Validating the configuration requires 'default_config'
+default_config:
+
+# Load frontend
+frontend:
+  themes: !include_dir_merge_named themes
+
+# Http settings
+http:
+  cors_allowed_origins:
+    - "*"
+
+# Load our custom component
+climate_dashboard:
+
+# Logger for debugging
+logger:
+  default: info
+  logs:
+    custom_components.climate_dashboard: debug
+
+# Load Demo integration
+demo:

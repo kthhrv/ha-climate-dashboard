@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from homeassistant.core import HomeAssistant
 
-from custom_components.climate_dashboard.storage import ClimateDashboardStorage, ZoneConfig
+from custom_components.climate_dashboard.storage import ClimateDashboardStorage, ClimateZoneConfig
 
 
 @pytest.fixture
@@ -29,7 +29,18 @@ async def test_load_empty(hass: HomeAssistant, mock_store: Any) -> None:
 
 async def test_load_existing(hass: HomeAssistant, mock_store: Any) -> None:
     """Test loading existing data."""
-    data = {"zones": [{"unique_id": "z1", "name": "Zone 1", "actuator": "switch.s1", "sensor": "sensor.s1"}]}
+    data = {
+        "zones": [
+            {
+                "unique_id": "z1",
+                "name": "Zone 1",
+                "temperature_sensor": "sensor.s1",
+                "heaters": ["switch.h1"],
+                "coolers": [],
+                "window_sensors": [],
+            }
+        ]
+    }
     mock_store.async_load.return_value = data
 
     storage = ClimateDashboardStorage(hass)
@@ -37,6 +48,7 @@ async def test_load_existing(hass: HomeAssistant, mock_store: Any) -> None:
 
     assert len(storage.zones) == 1
     assert storage.zones[0]["unique_id"] == "z1"
+    assert storage.zones[0]["heaters"] == ["switch.h1"]
 
 
 async def test_add_zone(hass: HomeAssistant, mock_store: Any) -> None:
@@ -44,7 +56,17 @@ async def test_add_zone(hass: HomeAssistant, mock_store: Any) -> None:
     storage = ClimateDashboardStorage(hass)
     await storage.async_load()
 
-    zone = cast(ZoneConfig, {"unique_id": "z2", "name": "Zone 2", "actuator": "climate.c1", "sensor": "climate.c1"})
+    zone = cast(
+        ClimateZoneConfig,
+        {
+            "unique_id": "z2",
+            "name": "Zone 2",
+            "temperature_sensor": "sensor.s2",
+            "heaters": ["climate.c1"],
+            "coolers": ["climate.c1"],
+            "window_sensors": ["binary_sensor.w1"],
+        },
+    )
 
     await storage.async_add_zone(zone)
 

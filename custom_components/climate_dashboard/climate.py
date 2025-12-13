@@ -26,62 +26,36 @@ async def async_setup_platform(
 
     storage = hass.data[DOMAIN]["storage"]
 
-    entities = []
-    for zone_config in storage.zones:
-        entities.append(
-            ClimateZone(
-                hass,
-                unique_id=zone_config["unique_id"],
-                name=zone_config["name"],
-                sensor_entity_id=zone_config["sensor"],
-                actuator_entity_id=zone_config["actuator"],
-                schedule=zone_config.get("schedule"),
-            )
-        )
+    # Keep track of added entities
+    added_ids: set[str] = set()
 
-    async_add_entities(entities)
-
-    # Listen for updates
     @callback
-    def _storage_update() -> None:
-        """Handle storage update."""
-        # This is tricky: We need to know WHICH items are new.
-        # For simple MVP: We only support adding NEW items on restart?
-        # OR: We keep track of added IDs.
-        pass
-
-    # For MVP 4: We'll require a reload/restart OR we can implement dynamic adding here
-    # Dynamic adding requires us to verify what is already added.
-
-    # Better: The 'adopt' command should probably trigger config entry reload if we used config entries.
-    # Since we are using legacy platform setup...
-
-    async def _async_add_new_zone(unique_id: str) -> None:
-        # Find the zone config
-        for zone in storage.zones:
-            if zone["unique_id"] == unique_id:
-                async_add_entities(
-                    [
-                        ClimateZone(
-                            hass,
-                            unique_id=zone["unique_id"],
-                            name=zone["name"],
-                            sensor_entity_id=zone["sensor"],
-                            actuator_entity_id=zone["actuator"],
-                        )
-                    ]
+    def _add_new_entities() -> None:
+        """Add new entities from storage."""
+        new_entities = []
+        for zone_config in storage.zones:
+            # unique_id is guaranteed by ClimateZoneConfig
+            uid = zone_config["unique_id"]
+            if uid not in added_ids:
+                new_entities.append(
+                    ClimateZone(
+                        hass,
+                        unique_id=uid,
+                        name=zone_config["name"],
+                        temperature_sensor=zone_config["temperature_sensor"],
+                        heaters=zone_config["heaters"],
+                        coolers=zone_config["coolers"],
+                        window_sensors=zone_config["window_sensors"],
+                        schedule=zone_config.get("schedule"),
+                    )
                 )
-                return
+                added_ids.add(uid)
 
-    # To hook this up, storage needs to emit event or we pass this callback to storage
-    # Let's keep it simple: WEBSOCKET command response triggers frontend to reload?
-    # Backend-side: Use a callback registry on storage.
+        if new_entities:
+            async_add_entities(new_entities)
 
-    @callback
-    def on_storage_change() -> None:
-        # Ideally diff and add.
-        # Simplified: Just check for items not in our known list?
-        # We don't have a persistent known list here easily accessible.
-        pass
+    # Add listener
+    storage.async_add_listener(_add_new_entities)
 
-    # storage.async_add_listener(on_storage_change)
+    # Initial load
+    _add_new_entities()
