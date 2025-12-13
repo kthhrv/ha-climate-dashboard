@@ -82,6 +82,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self._attr_hvac_action = HVACAction.IDLE
 
         self._attr_next_scheduled_change: str | None = None
+        self._attr_next_scheduled_temp: float | None = None
         self._attr_manual_override_end: str | None = None
 
     async def async_update_config(
@@ -148,6 +149,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             "window_sensors": self._window_sensors,
             "restore_delay_minutes": self._restore_delay_minutes,
             "next_scheduled_change": self._attr_next_scheduled_change,
+            "next_scheduled_temp": self._attr_next_scheduled_temp,
             "manual_override_end": self._attr_manual_override_end,
         }
 
@@ -229,6 +231,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
     def _calculate_next_scheduled_change(self, now: datetime) -> None:
         """Calculate the next scheduled change."""
         self._attr_next_scheduled_change = None
+        self._attr_next_scheduled_temp = None
 
         if not self._schedule:
             return
@@ -253,6 +256,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                     microsecond=0,
                 )
                 self._attr_next_scheduled_change = next_dt.isoformat()
+                self._attr_next_scheduled_temp = block["target_temp"]
                 return
 
         # 2. Search next days (up to 7 days ahead)
@@ -274,6 +278,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                     microsecond=0,
                 )
                 self._attr_next_scheduled_change = next_dt.isoformat()
+                self._attr_next_scheduled_temp = first_block["target_temp"]
                 return
 
     @callback

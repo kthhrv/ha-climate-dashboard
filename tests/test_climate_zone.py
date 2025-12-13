@@ -497,6 +497,7 @@ async def test_next_schedule_and_override(hass: HomeAssistant) -> None:
         zone._calculate_next_scheduled_change(mock_now)
         expected_next = mock_now.replace(hour=18, minute=0, second=0, microsecond=0)
         assert zone.extra_state_attributes["next_scheduled_change"] == expected_next.isoformat()
+        assert zone.extra_state_attributes["next_scheduled_temp"] == 21.0
 
     # 3. Test Next Change (Next Day Loop)
     # Time: Monday 19:00. Next block is Tuesday 07:00
@@ -506,6 +507,7 @@ async def test_next_schedule_and_override(hass: HomeAssistant) -> None:
         expected_next = mock_now_evening + timedelta(days=1)  # Tuesday
         expected_next = expected_next.replace(hour=7, minute=0, second=0, microsecond=0)
         assert zone.extra_state_attributes["next_scheduled_change"] == expected_next.isoformat()
+        assert zone.extra_state_attributes["next_scheduled_temp"] == 22.0
 
     # 4. Test Next Change (Skip Day Loop - Mon -> Thu)
     # Schedule only Mon, Tue, Thu.
@@ -518,6 +520,7 @@ async def test_next_schedule_and_override(hass: HomeAssistant) -> None:
         expected_next = mock_now_tue + timedelta(days=2)  # Thursday
         expected_next = expected_next.replace(hour=9, minute=0, second=0, microsecond=0)
         assert zone.extra_state_attributes["next_scheduled_change"] == expected_next.isoformat()
+        assert zone.extra_state_attributes["next_scheduled_temp"] == 23.0
 
 
 async def test_actuator_range_only(hass: HomeAssistant) -> None:

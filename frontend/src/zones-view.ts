@@ -200,7 +200,12 @@ export class ZonesView extends LitElement {
         hour: "2-digit",
         minute: "2-digit",
       });
-      message = `Next change at ${time}`;
+      const nextTemp = zone.attributes.next_scheduled_temp;
+      if (nextTemp != null) {
+        message = `Next change at ${time} -> ${nextTemp}°`;
+      } else {
+        message = `Next change at ${time}`;
+      }
     }
 
     if (!message) return html``;
