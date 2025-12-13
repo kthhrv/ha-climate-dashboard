@@ -189,7 +189,7 @@ export class ZonesView extends LitElement {
 
     let message = "";
 
-    if (mode !== "auto" && overrideEnd) {
+    if (overrideEnd) {
       const time = new Date(overrideEnd).toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",

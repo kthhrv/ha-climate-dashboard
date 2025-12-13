@@ -88,8 +88,8 @@ const ke = (s) => new ye(typeof s == "string" ? s : s + "", void 0, re),
  */
 const {
     is: Ce,
-    defineProperty: Pe,
-    getOwnPropertyDescriptor: Oe,
+    defineProperty: Oe,
+    getOwnPropertyDescriptor: Pe,
     getOwnPropertyNames: De,
     getOwnPropertySymbols: Te,
     getPrototypeOf: ze,
@@ -160,11 +160,11 @@ let j = class extends HTMLElement {
     ) {
       const o = Symbol(),
         i = this.getPropertyDescriptor(e, o, t);
-      i !== void 0 && Pe(this.prototype, e, i);
+      i !== void 0 && Oe(this.prototype, e, i);
     }
   }
   static getPropertyDescriptor(e, t, o) {
-    const { get: i, set: r } = Oe(this.prototype, e) ?? {
+    const { get: i, set: r } = Pe(this.prototype, e) ?? {
       get() {
         return this[t];
       },
@@ -485,7 +485,7 @@ const Z = globalThis,
   N = Symbol.for("lit-noChange"),
   _ = Symbol.for("lit-nothing"),
   ge = /* @__PURE__ */ new WeakMap(),
-  P = D.createTreeWalker(D, 129);
+  O = D.createTreeWalker(D, 129);
 function Se(s, e) {
   if (!ne(s) || !s.hasOwnProperty("raw"))
     throw Error("invalid template strings array");
@@ -553,13 +553,13 @@ class V {
       [p, u] = Ne(e, t);
     if (
       ((this.el = V.createElement(p, o)),
-      (P.currentNode = this.el.content),
+      (O.currentNode = this.el.content),
       t === 2 || t === 3)
     ) {
       const c = this.el.content.firstChild;
       c.replaceWith(...c.childNodes);
     }
-    for (; (i = P.nextNode()) !== null && n.length < d; ) {
+    for (; (i = O.nextNode()) !== null && n.length < d; ) {
       if (i.nodeType === 1) {
         if (i.hasAttributes())
           for (const c of i.getAttributeNames())
@@ -586,7 +586,7 @@ class V {
             i.textContent = G ? G.emptyScript : "";
             for (let $ = 0; $ < b; $++)
               (i.append(c[$], q()),
-                P.nextNode(),
+                O.nextNode(),
                 n.push({ type: 2, index: ++r }));
             i.append(c[b], q());
           }
@@ -636,8 +636,8 @@ class He {
         parts: o,
       } = this._$AD,
       i = ((e == null ? void 0 : e.creationScope) ?? D).importNode(t, !0);
-    P.currentNode = i;
-    let r = P.nextNode(),
+    O.currentNode = i;
+    let r = O.nextNode(),
       a = 0,
       d = 0,
       n = o[0];
@@ -652,9 +652,9 @@ class He {
           this._$AV.push(p),
           (n = o[++d]));
       }
-      a !== (n == null ? void 0 : n.index) && ((r = P.nextNode()), a++);
+      a !== (n == null ? void 0 : n.index) && ((r = O.nextNode()), a++);
     }
-    return ((P.currentNode = D), i);
+    return ((O.currentNode = D), i);
   }
   p(e) {
     let t = 0;
@@ -892,7 +892,7 @@ const qe = (s, e, t) => {
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const O = globalThis;
+const P = globalThis;
 class y extends j {
   constructor() {
     (super(...arguments),
@@ -929,10 +929,10 @@ class y extends j {
 var be;
 ((y._$litElement$ = !0),
   (y.finalized = !0),
-  (be = O.litElementHydrateSupport) == null || be.call(O, { LitElement: y }));
-const se = O.litElementPolyfillSupport;
+  (be = P.litElementHydrateSupport) == null || be.call(P, { LitElement: y }));
+const se = P.litElementPolyfillSupport;
 se == null || se({ LitElement: y });
-(O.litElementVersions ?? (O.litElementVersions = [])).push("4.2.1");
+(P.litElementVersions ?? (P.litElementVersions = [])).push("4.2.1");
 /**
  * @license
  * Copyright 2017 Google LLC
@@ -1839,7 +1839,7 @@ let Q = class extends y {
       o = s.state;
     let i = "";
     if (o !== "auto" && t)
-      i = `Resumes Auto at ${new Date(t).toLocaleTimeString([], {
+      i = `Overridden until ${new Date(t).toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
       })}`;

@@ -203,7 +203,23 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         if not self._schedule:
             return
 
+        # Check Temporary Hold in Auto
         now = dt_util.now()
+        if self._attr_manual_override_end:
+            try:
+                override_end = datetime.fromisoformat(self._attr_manual_override_end)
+                if now < override_end:
+                    # Hold active, do NOT apply schedule
+                    # Recalculate next change (it might still be relevant for display)
+                    self._calculate_next_scheduled_change(now)
+                    self.async_write_ha_state()
+                    self.hass.async_create_task(self._async_control_actuator())
+                    return
+                else:
+                    # Hold expired
+                    self._attr_manual_override_end = None
+            except ValueError:
+                self._attr_manual_override_end = None
         day_name = now.strftime("%a").lower()
         current_time_str = now.strftime("%H:%M")
 
@@ -362,6 +378,13 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         if (temp := kwargs.get(ATTR_TEMPERATURE)) is None:
             return
         self._attr_target_temperature = temp
+
+        # Implement Temporary Hold if in Auto
+        if self._attr_hvac_mode == HVACMode.AUTO and self._attr_next_scheduled_change:
+            # Lookahead already calculated. Hold until then.
+            # Only set if not already set or different?
+            self._attr_manual_override_end = self._attr_next_scheduled_change
+
         await self._async_control_actuator()
         self.async_write_ha_state()
 

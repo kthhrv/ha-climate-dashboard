@@ -612,3 +612,63 @@ async def test_sensor_loop_prevention(hass: HomeAssistant) -> None:
 
     # Verify NO NEW CALLS
     control_mock.assert_not_called()
+
+
+async def test_auto_mode_temporary_hold(hass: HomeAssistant) -> None:
+    """Test that manual temperature changes in Auto mode are held until next schedule block."""
+    import homeassistant.util.dt as dt_util
+
+    zone = ClimateZone(hass, "zone_hold", "Hold Zone", SENSOR_ID, [], [], [])
+    zone._schedule = [
+        {
+            "id": "1",
+            "name": "Block 1",
+            "start_time": "08:00",
+            "days": ["mon"],
+            "hvac_mode": "heat",
+            "target_temp": 20.0,
+        },
+        {
+            "id": "2",
+            "name": "Block 2",
+            "start_time": "12:00",
+            "days": ["mon"],
+            "hvac_mode": "heat",
+            "target_temp": 21.0,
+        },
+    ]
+
+    # Mock Time: Monday 09:00 (In Block 1)
+    mock_now = datetime(2023, 1, 2, 9, 0, 0, tzinfo=dt_util.UTC)
+    with patch("custom_components.climate_dashboard.climate_zone.dt_util.now", return_value=mock_now):
+        # Initial Setup
+        await zone.async_set_hvac_mode(HVACMode.AUTO)
+        zone._apply_schedule()
+        assert zone.target_temperature == 20.0
+        assert zone.extra_state_attributes.get("manual_override_end") is None
+
+        # 1. Manual User Override (Set to 25.0)
+        await zone.async_set_temperature(temperature=25.0)
+
+        # Verify Override is Set
+        assert zone.target_temperature == 25.0
+        # Should be held until 12:00
+        expected_end = mock_now.replace(hour=12, minute=0, second=0, microsecond=0)
+        assert zone.extra_state_attributes["manual_override_end"] == expected_end.isoformat()
+
+    # 2. Simulate Time Tick (09:01) - Should NOT revert to schedule (20.0)
+    mock_now_tick = datetime(2023, 1, 2, 9, 1, 0, tzinfo=dt_util.UTC)
+    with patch("custom_components.climate_dashboard.climate_zone.dt_util.now", return_value=mock_now_tick):
+        zone._on_time_change(mock_now_tick)
+        assert zone.target_temperature == 25.0  # Still 25.0
+
+    # 3. Simulate Expiration (12:00) - Should revert to schedule (21.0)
+    mock_now_expiry = datetime(2023, 1, 2, 12, 0, 0, tzinfo=dt_util.UTC)
+    with patch("custom_components.climate_dashboard.climate_zone.dt_util.now", return_value=mock_now_expiry):
+        # Need to call calculate_next in apply_schedule, so logic handles expiry
+        zone._on_time_change(mock_now_expiry)
+
+        # Override should be cleared
+        assert zone.extra_state_attributes.get("manual_override_end") is None
+        # Target should be new block (21.0)
+        assert zone.target_temperature == 21.0
