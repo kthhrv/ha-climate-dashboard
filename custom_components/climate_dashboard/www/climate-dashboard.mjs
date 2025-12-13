@@ -36,7 +36,7 @@ let ye = class {
   }
 };
 const ke = (s) => new ye(typeof s == "string" ? s : s + "", void 0, re),
-  z = (s, ...e) => {
+  T = (s, ...e) => {
     const t =
       s.length === 1
         ? s[0]
@@ -91,8 +91,8 @@ const {
     defineProperty: Pe,
     getOwnPropertyDescriptor: Oe,
     getOwnPropertyNames: De,
-    getOwnPropertySymbols: ze,
-    getPrototypeOf: Te,
+    getOwnPropertySymbols: Te,
+    getPrototypeOf: ze,
   } = Object,
   k = globalThis,
   he = k.trustedTypes,
@@ -143,7 +143,7 @@ const {
 (Symbol.metadata ?? (Symbol.metadata = Symbol("metadata")),
   k.litPropertyMetadata ??
     (k.litPropertyMetadata = /* @__PURE__ */ new WeakMap()));
-let j = class extends HTMLElement {
+let N = class extends HTMLElement {
   static addInitializer(e) {
     (this._$Ei(), (this.l ?? (this.l = [])).push(e));
   }
@@ -187,7 +187,7 @@ let j = class extends HTMLElement {
   }
   static _$Ei() {
     if (this.hasOwnProperty(R("elementProperties"))) return;
-    const e = Te(this);
+    const e = ze(this);
     (e.finalize(),
       e.l !== void 0 && (this.l = [...e.l]),
       (this.elementProperties = new Map(e.elementProperties)));
@@ -198,7 +198,7 @@ let j = class extends HTMLElement {
       ((this.finalized = !0), this._$Ei(), this.hasOwnProperty(R("properties")))
     ) {
       const t = this.properties,
-        o = [...De(t), ...ze(t)];
+        o = [...De(t), ...Te(t)];
       for (const i of o) this.createProperty(i, t[i]);
     }
     const e = this[Symbol.metadata];
@@ -439,11 +439,11 @@ let j = class extends HTMLElement {
   updated(e) {}
   firstUpdated(e) {}
 };
-((j.elementStyles = []),
-  (j.shadowRootOptions = { mode: "open" }),
-  (j[R("elementProperties")] = /* @__PURE__ */ new Map()),
-  (j[R("finalized")] = /* @__PURE__ */ new Map()),
-  ee == null || ee({ ReactiveElement: j }),
+((N.elementStyles = []),
+  (N.shadowRootOptions = { mode: "open" }),
+  (N[R("elementProperties")] = /* @__PURE__ */ new Map()),
+  (N[R("finalized")] = /* @__PURE__ */ new Map()),
+  ee == null || ee({ ReactiveElement: N }),
   (k.reactiveElementVersions ?? (k.reactiveElementVersions = [])).push(
     "2.1.1",
   ));
@@ -478,11 +478,11 @@ const Z = globalThis,
   ve = /'/g,
   ge = /"/g,
   we = /^(?:script|style|textarea|title)$/i,
-  je =
+  Ne =
     (s) =>
     (e, ...t) => ({ _$litType$: s, strings: e, values: t }),
-  l = je(1),
-  N = Symbol.for("lit-noChange"),
+  l = Ne(1),
+  j = Symbol.for("lit-noChange"),
   _ = Symbol.for("lit-nothing"),
   fe = /* @__PURE__ */ new WeakMap(),
   P = D.createTreeWalker(D, 129);
@@ -491,7 +491,7 @@ function Se(s, e) {
     throw Error("invalid template strings array");
   return ue !== void 0 ? ue.createHTML(e) : e;
 }
-const Ne = (s, e) => {
+const je = (s, e) => {
   const t = s.length - 1,
     o = [];
   let i,
@@ -550,7 +550,7 @@ class V {
       a = 0;
     const d = e.length - 1,
       n = this.parts,
-      [p, u] = Ne(e, t);
+      [p, u] = je(e, t);
     if (
       ((this.el = V.createElement(p, o)),
       (P.currentNode = this.el.content),
@@ -608,7 +608,7 @@ class V {
 }
 function H(s, e, t = s, o) {
   var a, d;
-  if (e === N) return e;
+  if (e === j) return e;
   let i = o !== void 0 ? ((a = t._$Co) == null ? void 0 : a[o]) : t._$Cl;
   const r = W(e) ? void 0 : e._$litDirective$;
   return (
@@ -702,7 +702,7 @@ class J {
       W(e)
         ? e === _ || e == null || e === ""
           ? (this._$AH !== _ && this._$AR(), (this._$AH = _))
-          : e !== this._$AH && e !== N && this._(e)
+          : e !== this._$AH && e !== j && this._(e)
         : e._$litType$ !== void 0
           ? this.$(e)
           : e.nodeType !== void 0
@@ -797,14 +797,14 @@ class X {
     let a = !1;
     if (r === void 0)
       ((e = H(this, e, t, 0)),
-        (a = !W(e) || (e !== this._$AH && e !== N)),
+        (a = !W(e) || (e !== this._$AH && e !== j)),
         a && (this._$AH = e));
     else {
       const d = e;
       let n, p;
       for (e = r[0], n = 0; n < r.length - 1; n++)
         ((p = H(this, d[o + n], t, n)),
-          p === N && (p = this._$AH[n]),
+          p === j && (p = this._$AH[n]),
           a || (a = !W(p) || p !== this._$AH[n]),
           p === _ ? (e = _) : e !== _ && (e += (p ?? "") + r[n + 1]),
           (this._$AH[n] = p));
@@ -838,7 +838,7 @@ class Re extends X {
     (super(e, t, o, i, r), (this.type = 5));
   }
   _$AI(e, t = this) {
-    if ((e = H(this, e, t, 0) ?? _) === N) return;
+    if ((e = H(this, e, t, 0) ?? _) === j) return;
     const o = this._$AH,
       i =
         (e === _ && o !== _) ||
@@ -893,7 +893,7 @@ const qe = (s, e, t) => {
  * SPDX-License-Identifier: BSD-3-Clause
  */
 const O = globalThis;
-class y extends j {
+class y extends N {
   constructor() {
     (super(...arguments),
       (this.renderOptions = { host: this }),
@@ -923,7 +923,7 @@ class y extends j {
       (e = this._$Do) == null || e.setConnected(!1));
   }
   render() {
-    return N;
+    return j;
   }
 }
 var be;
@@ -938,7 +938,7 @@ se == null || se({ LitElement: y });
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const T = (s) => (e, t) => {
+const z = (s) => (e, t) => {
   t !== void 0
     ? t.addInitializer(() => {
         customElements.define(s, e);
@@ -1174,7 +1174,7 @@ let f = class extends y {
     `;
   }
 };
-f.styles = z`
+f.styles = T`
     :host {
       display: none;
       position: fixed;
@@ -1265,7 +1265,7 @@ x([h()], f.prototype, "_temperatureSensor", 2);
 x([h()], f.prototype, "_heaters", 2);
 x([h()], f.prototype, "_coolers", 2);
 x([h()], f.prototype, "_windowSensors", 2);
-f = x([T("adopt-dialog")], f);
+f = x([z("adopt-dialog")], f);
 var Ke = Object.defineProperty,
   Ye = Object.getOwnPropertyDescriptor,
   B = (s, e, t, o) => {
@@ -1372,7 +1372,7 @@ let E = class extends y {
       this._fetchDevices());
   }
 };
-E.styles = z`
+E.styles = T`
     :host {
       display: block;
       padding: 16px;
@@ -1440,7 +1440,7 @@ B([h()], E.prototype, "_devices", 2);
 B([h()], E.prototype, "_loading", 2);
 B([h()], E.prototype, "_dialogOpen", 2);
 B([h()], E.prototype, "_selectedEntity", 2);
-E = B([T("setup-view")], E);
+E = B([z("setup-view")], E);
 var Ge = Object.defineProperty,
   Qe = Object.getOwnPropertyDescriptor,
   le = (s, e, t, o) => {
@@ -1580,7 +1580,7 @@ let F = class extends y {
     );
   }
 };
-F.styles = z`
+F.styles = T`
     :host {
       display: block;
       padding: 16px;
@@ -1748,7 +1748,7 @@ F.styles = z`
   `;
 le([m({ attribute: !1 })], F.prototype, "hass", 2);
 le([h()], F.prototype, "_selectedDay", 2);
-F = le([T("timeline-view")], F);
+F = le([z("timeline-view")], F);
 var Xe = Object.defineProperty,
   et = Object.getOwnPropertyDescriptor,
   Ae = (s, e, t, o) => {
@@ -1838,28 +1838,30 @@ let Q = class extends y {
       t = s.attributes.manual_override_end,
       o = s.state;
     let i = "";
-    return (
-      o !== "auto" && t
-        ? (i = `Resumes Auto at ${new Date(t).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}`)
-        : o === "auto" &&
-          e &&
-          (i = `Next change at ${new Date(e).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}`),
-      i
-        ? l`
+    if (o !== "auto" && t)
+      i = `Resumes Auto at ${new Date(t).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`;
+    else if (o === "auto" && e) {
+      const r = new Date(e).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        a = s.attributes.next_scheduled_temp;
+      a != null
+        ? (i = `Next change at ${r} -> ${a}°`)
+        : (i = `Next change at ${r}`);
+    }
+    return i
+      ? l`
       <div
         style="font-size: 0.75rem; color: var(--secondary-text-color); margin-top: 4px;"
       >
         ${i}
       </div>
     `
-        : l``
-    );
+      : l``;
   }
   async _setMode(s, e, t) {
     (s.stopPropagation(),
@@ -1878,7 +1880,7 @@ let Q = class extends y {
     );
   }
 };
-Q.styles = z`
+Q.styles = T`
     :host {
       display: block;
       padding: 16px;
@@ -1959,7 +1961,7 @@ Q.styles = z`
     }
   `;
 Ae([m({ attribute: !1 })], Q.prototype, "hass", 2);
-Q = Ae([T("zones-view")], Q);
+Q = Ae([z("zones-view")], Q);
 var tt = Object.defineProperty,
   it = Object.getOwnPropertyDescriptor,
   g = (s, e, t, o) => {
@@ -2199,7 +2201,7 @@ let v = class extends y {
     `;
   }
 };
-v.styles = z`
+v.styles = T`
     :host {
       display: block;
       padding: 16px;
@@ -2293,7 +2295,7 @@ g([h()], v.prototype, "_windowSensors", 2);
 g([h()], v.prototype, "_restoreDelayMinutes", 2);
 g([h()], v.prototype, "_loading", 2);
 g([h()], v.prototype, "_error", 2);
-v = g([T("zone-editor")], v);
+v = g([z("zone-editor")], v);
 var st = Object.defineProperty,
   ot = Object.getOwnPropertyDescriptor,
   U = (s, e, t, o) => {
@@ -2489,7 +2491,7 @@ let w = class extends y {
     `;
   }
 };
-w.styles = z`
+w.styles = T`
     :host {
       display: block;
       padding: 16px;
@@ -2609,7 +2611,7 @@ U([h()], w.prototype, "_schedule", 2);
 U([h()], w.prototype, "_loading", 2);
 U([h()], w.prototype, "_uniqueId", 2);
 U([h()], w.prototype, "_config", 2);
-w = U([T("schedule-editor")], w);
+w = U([z("schedule-editor")], w);
 var at = Object.defineProperty,
   nt = Object.getOwnPropertyDescriptor,
   I = (s, e, t, o) => {
@@ -2761,7 +2763,7 @@ let S = class extends y {
     `;
   }
 };
-S.styles = z`
+S.styles = T`
     :host {
       display: flex;
       flex-direction: column;
@@ -2828,7 +2830,7 @@ I([m({ attribute: !1 })], S.prototype, "panel", 2);
 I([h()], S.prototype, "_view", 2);
 I([h()], S.prototype, "_editingZoneId", 2);
 I([h()], S.prototype, "_unmanagedCount", 2);
-S = I([T("climate-dashboard")], S);
+S = I([z("climate-dashboard")], S);
 console.info(
   "%c CLIMATE-DASHBOARD %c 0.0.1 ",
   "color: white; background: #03a9f4; font-weight: 700;",

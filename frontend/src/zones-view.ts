@@ -202,9 +202,9 @@ export class ZonesView extends LitElement {
       });
       const nextTemp = zone.attributes.next_scheduled_temp;
       if (nextTemp != null) {
-        message = `Next change at ${time} -> ${nextTemp}°`;
+        message = `${time} -> ${nextTemp}°`;
       } else {
-        message = `Next change at ${time}`;
+        message = `${time}`;
       }
     }
 
