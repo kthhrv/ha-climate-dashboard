@@ -194,7 +194,7 @@ export class ZonesView extends LitElement {
         hour: "2-digit",
         minute: "2-digit",
       });
-      message = `Resumes Auto at ${time}`;
+      message = `Overridden until ${time}`;
     } else if (mode === "auto" && nextChange) {
       const time = new Date(nextChange).toLocaleTimeString([], {
         hour: "2-digit",

@@ -143,7 +143,7 @@ const {
 (Symbol.metadata ?? (Symbol.metadata = Symbol("metadata")),
   k.litPropertyMetadata ??
     (k.litPropertyMetadata = /* @__PURE__ */ new WeakMap()));
-let N = class extends HTMLElement {
+let j = class extends HTMLElement {
   static addInitializer(e) {
     (this._$Ei(), (this.l ?? (this.l = [])).push(e));
   }
@@ -439,11 +439,11 @@ let N = class extends HTMLElement {
   updated(e) {}
   firstUpdated(e) {}
 };
-((N.elementStyles = []),
-  (N.shadowRootOptions = { mode: "open" }),
-  (N[R("elementProperties")] = /* @__PURE__ */ new Map()),
-  (N[R("finalized")] = /* @__PURE__ */ new Map()),
-  ee == null || ee({ ReactiveElement: N }),
+((j.elementStyles = []),
+  (j.shadowRootOptions = { mode: "open" }),
+  (j[R("elementProperties")] = /* @__PURE__ */ new Map()),
+  (j[R("finalized")] = /* @__PURE__ */ new Map()),
+  ee == null || ee({ ReactiveElement: j }),
   (k.reactiveElementVersions ?? (k.reactiveElementVersions = [])).push(
     "2.1.1",
   ));
@@ -476,22 +476,22 @@ const Z = globalThis,
     "g",
   ),
   ve = /'/g,
-  ge = /"/g,
+  fe = /"/g,
   we = /^(?:script|style|textarea|title)$/i,
-  Ne =
+  je =
     (s) =>
     (e, ...t) => ({ _$litType$: s, strings: e, values: t }),
-  l = Ne(1),
-  j = Symbol.for("lit-noChange"),
+  l = je(1),
+  N = Symbol.for("lit-noChange"),
   _ = Symbol.for("lit-nothing"),
-  fe = /* @__PURE__ */ new WeakMap(),
+  ge = /* @__PURE__ */ new WeakMap(),
   P = D.createTreeWalker(D, 129);
 function Se(s, e) {
   if (!ne(s) || !s.hasOwnProperty("raw"))
     throw Error("invalid template strings array");
   return ue !== void 0 ? ue.createHTML(e) : e;
 }
-const je = (s, e) => {
+const Ne = (s, e) => {
   const t = s.length - 1,
     o = [];
   let i,
@@ -520,8 +520,8 @@ const je = (s, e) => {
                 ? (c = -2)
                 : ((c = a.lastIndex - u[2].length),
                   (p = u[1]),
-                  (a = u[3] === void 0 ? C : u[3] === '"' ? ge : ve))
-            : a === ge || a === ve
+                  (a = u[3] === void 0 ? C : u[3] === '"' ? fe : ve))
+            : a === fe || a === ve
               ? (a = C)
               : a === _e || a === me
                 ? (a = L)
@@ -550,7 +550,7 @@ class V {
       a = 0;
     const d = e.length - 1,
       n = this.parts,
-      [p, u] = je(e, t);
+      [p, u] = Ne(e, t);
     if (
       ((this.el = V.createElement(p, o)),
       (P.currentNode = this.el.content),
@@ -608,7 +608,7 @@ class V {
 }
 function H(s, e, t = s, o) {
   var a, d;
-  if (e === j) return e;
+  if (e === N) return e;
   let i = o !== void 0 ? ((a = t._$Co) == null ? void 0 : a[o]) : t._$Cl;
   const r = W(e) ? void 0 : e._$litDirective$;
   return (
@@ -702,7 +702,7 @@ class J {
       W(e)
         ? e === _ || e == null || e === ""
           ? (this._$AH !== _ && this._$AR(), (this._$AH = _))
-          : e !== this._$AH && e !== j && this._(e)
+          : e !== this._$AH && e !== N && this._(e)
         : e._$litType$ !== void 0
           ? this.$(e)
           : e.nodeType !== void 0
@@ -740,8 +740,8 @@ class J {
     }
   }
   _$AC(e) {
-    let t = fe.get(e.strings);
-    return (t === void 0 && fe.set(e.strings, (t = new V(e))), t);
+    let t = ge.get(e.strings);
+    return (t === void 0 && ge.set(e.strings, (t = new V(e))), t);
   }
   k(e) {
     ne(this._$AH) || ((this._$AH = []), this._$AR());
@@ -797,14 +797,14 @@ class X {
     let a = !1;
     if (r === void 0)
       ((e = H(this, e, t, 0)),
-        (a = !W(e) || (e !== this._$AH && e !== j)),
+        (a = !W(e) || (e !== this._$AH && e !== N)),
         a && (this._$AH = e));
     else {
       const d = e;
       let n, p;
       for (e = r[0], n = 0; n < r.length - 1; n++)
         ((p = H(this, d[o + n], t, n)),
-          p === j && (p = this._$AH[n]),
+          p === N && (p = this._$AH[n]),
           a || (a = !W(p) || p !== this._$AH[n]),
           p === _ ? (e = _) : e !== _ && (e += (p ?? "") + r[n + 1]),
           (this._$AH[n] = p));
@@ -838,7 +838,7 @@ class Re extends X {
     (super(e, t, o, i, r), (this.type = 5));
   }
   _$AI(e, t = this) {
-    if ((e = H(this, e, t, 0) ?? _) === j) return;
+    if ((e = H(this, e, t, 0) ?? _) === N) return;
     const o = this._$AH,
       i =
         (e === _ && o !== _) ||
@@ -893,7 +893,7 @@ const qe = (s, e, t) => {
  * SPDX-License-Identifier: BSD-3-Clause
  */
 const O = globalThis;
-class y extends N {
+class y extends j {
   constructor() {
     (super(...arguments),
       (this.renderOptions = { host: this }),
@@ -923,7 +923,7 @@ class y extends N {
       (e = this._$Do) == null || e.setConnected(!1));
   }
   render() {
-    return j;
+    return N;
   }
 }
 var be;
@@ -1018,7 +1018,7 @@ var Fe = Object.defineProperty,
       (a = s[r]) && (i = (o ? a(e, t, i) : a(i)) || i);
     return (o && i && Fe(e, t, i), i);
   };
-let f = class extends y {
+let g = class extends y {
   constructor() {
     (super(...arguments),
       (this.open = !1),
@@ -1174,7 +1174,7 @@ let f = class extends y {
     `;
   }
 };
-f.styles = T`
+g.styles = T`
     :host {
       display: none;
       position: fixed;
@@ -1256,16 +1256,16 @@ f.styles = T`
       color: white;
     }
   `;
-x([m({ attribute: !1 })], f.prototype, "hass", 2);
-x([m({ type: Boolean, reflect: !0 })], f.prototype, "open", 2);
-x([m({ attribute: !1 })], f.prototype, "entities", 2);
-x([m({ attribute: !1 })], f.prototype, "preselected", 2);
-x([h()], f.prototype, "_name", 2);
-x([h()], f.prototype, "_temperatureSensor", 2);
-x([h()], f.prototype, "_heaters", 2);
-x([h()], f.prototype, "_coolers", 2);
-x([h()], f.prototype, "_windowSensors", 2);
-f = x([z("adopt-dialog")], f);
+x([m({ attribute: !1 })], g.prototype, "hass", 2);
+x([m({ type: Boolean, reflect: !0 })], g.prototype, "open", 2);
+x([m({ attribute: !1 })], g.prototype, "entities", 2);
+x([m({ attribute: !1 })], g.prototype, "preselected", 2);
+x([h()], g.prototype, "_name", 2);
+x([h()], g.prototype, "_temperatureSensor", 2);
+x([h()], g.prototype, "_heaters", 2);
+x([h()], g.prototype, "_coolers", 2);
+x([h()], g.prototype, "_windowSensors", 2);
+g = x([z("adopt-dialog")], g);
 var Ke = Object.defineProperty,
   Ye = Object.getOwnPropertyDescriptor,
   B = (s, e, t, o) => {
@@ -1849,9 +1849,7 @@ let Q = class extends y {
           minute: "2-digit",
         }),
         a = s.attributes.next_scheduled_temp;
-      a != null
-        ? (i = `Next change at ${r} -> ${a}°`)
-        : (i = `Next change at ${r}`);
+      a != null ? (i = `${r} -> ${a}°`) : (i = `${r}`);
     }
     return i
       ? l`
@@ -1964,7 +1962,7 @@ Ae([m({ attribute: !1 })], Q.prototype, "hass", 2);
 Q = Ae([z("zones-view")], Q);
 var tt = Object.defineProperty,
   it = Object.getOwnPropertyDescriptor,
-  g = (s, e, t, o) => {
+  f = (s, e, t, o) => {
     for (
       var i = o > 1 ? void 0 : o ? it(e, t) : e, r = s.length - 1, a;
       r >= 0;
@@ -2283,19 +2281,19 @@ v.styles = T`
       margin-right: auto;
     }
   `;
-g([m({ attribute: !1 })], v.prototype, "hass", 2);
-g([m({ attribute: !1 })], v.prototype, "zoneId", 2);
-g([m({ attribute: !1 })], v.prototype, "allEntities", 2);
-g([h()], v.prototype, "_uniqueId", 2);
-g([h()], v.prototype, "_name", 2);
-g([h()], v.prototype, "_temperatureSensor", 2);
-g([h()], v.prototype, "_heaters", 2);
-g([h()], v.prototype, "_coolers", 2);
-g([h()], v.prototype, "_windowSensors", 2);
-g([h()], v.prototype, "_restoreDelayMinutes", 2);
-g([h()], v.prototype, "_loading", 2);
-g([h()], v.prototype, "_error", 2);
-v = g([z("zone-editor")], v);
+f([m({ attribute: !1 })], v.prototype, "hass", 2);
+f([m({ attribute: !1 })], v.prototype, "zoneId", 2);
+f([m({ attribute: !1 })], v.prototype, "allEntities", 2);
+f([h()], v.prototype, "_uniqueId", 2);
+f([h()], v.prototype, "_name", 2);
+f([h()], v.prototype, "_temperatureSensor", 2);
+f([h()], v.prototype, "_heaters", 2);
+f([h()], v.prototype, "_coolers", 2);
+f([h()], v.prototype, "_windowSensors", 2);
+f([h()], v.prototype, "_restoreDelayMinutes", 2);
+f([h()], v.prototype, "_loading", 2);
+f([h()], v.prototype, "_error", 2);
+v = f([z("zone-editor")], v);
 var st = Object.defineProperty,
   ot = Object.getOwnPropertyDescriptor,
   U = (s, e, t, o) => {
