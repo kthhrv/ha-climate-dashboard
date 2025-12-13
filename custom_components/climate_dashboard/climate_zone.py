@@ -279,7 +279,13 @@ class ClimateZone(ClimateEntity, RestoreEntity):
     @callback
     def _async_sensor_changed(self, event: Any) -> None:
         """Handle sensor state changes."""
+        old_temp = self._attr_current_temperature
         self._async_update_temp()
+
+        # Prevent feedback loops: Only act if temperature actually changed
+        if self._attr_current_temperature == old_temp:
+            return
+
         self.hass.async_create_task(self._async_control_actuator())
         self.async_write_ha_state()
 
