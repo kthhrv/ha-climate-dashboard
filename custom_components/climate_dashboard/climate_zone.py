@@ -10,6 +10,7 @@ import homeassistant.util.dt as dt_util
 from homeassistant.components.climate import (
     ClimateEntity,
     ClimateEntityFeature,
+    HVACAction,
     HVACMode,
 )
 from homeassistant.const import (
@@ -18,7 +19,11 @@ from homeassistant.const import (
     UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.event import async_track_state_change_event, async_track_time_change
+from homeassistant.helpers.event import (
+    async_call_later,
+    async_track_state_change_event,
+    async_track_time_change,
+)
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.util import slugify
 
@@ -54,6 +59,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         coolers: list[str],
         window_sensors: list[str],
         schedule: list[ScheduleBlock] | None = None,
+        restore_delay_minutes: int = 0,
     ) -> None:
         """Initialize the climate zone."""
         self.hass = hass
@@ -67,22 +73,80 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self._coolers = coolers
         self._window_sensors = window_sensors
         self._schedule = schedule or []
+        self._restore_delay_minutes = restore_delay_minutes
+        self._restore_timer = None
 
         self._attr_current_temperature: float | None = None
         self._attr_target_temperature = DEFAULT_TARGET_TEMP
         self._attr_hvac_mode = HVACMode.OFF
+        self._attr_hvac_action = HVACAction.IDLE
+
+    async def async_update_config(
+        self,
+        name: str,
+        temperature_sensor: str,
+        heaters: list[str],
+        coolers: list[str],
+        window_sensors: list[str],
+        schedule: list[ScheduleBlock] | None = None,
+        restore_delay_minutes: int | None = None,
+    ) -> None:
+        """Update configuration dynamically."""
+        self._attr_name = name
+        self.entity_id = f"climate.zone_{slugify(name)}"
+
+        self._temperature_sensor = temperature_sensor
+        self._heaters = heaters
+        self._coolers = coolers
+        self._window_sensors = window_sensors
+        self._schedule = schedule or []
+
+        if restore_delay_minutes is not None:
+            self._restore_delay_minutes = restore_delay_minutes
+
+        # Handle Entity ID Change (Rename)
+        new_entity_id = f"climate.zone_{slugify(name)}"
+        if new_entity_id != self.entity_id:
+            old_entity_id = self.entity_id
+
+            # 1. Update Registry
+            from homeassistant.helpers import entity_registry as er
+
+            registry = er.async_get(self.hass)
+
+            # Check if old entity is in registry
+            if registry.async_get(old_entity_id):
+                _LOGGER.info("Renaming entity %s to %s in registry", old_entity_id, new_entity_id)
+                registry.async_update_entity(old_entity_id, new_entity_id=new_entity_id)
+            else:
+                # If not in registry (dynamic only), we must manually remove old state
+                _LOGGER.info("Renaming dynamic entity %s to %s (removing old state)", old_entity_id, new_entity_id)
+                self.hass.states.async_remove(old_entity_id)
+
+            # 2. Update Self
+            self.entity_id = new_entity_id
+
+        # Re-apply schedule if auto
+        if self._attr_hvac_mode == HVACMode.AUTO:
+            self._apply_schedule()
+
+        self.async_write_ha_state()
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return the extra state attributes."""
         return {
             "is_climate_dashboard_zone": True,
+            "unique_id": self.unique_id,
             "schedule": self._schedule,
             "temperature_sensor": self._temperature_sensor,
             "heaters": self._heaters,
             "coolers": self._coolers,
             "window_sensors": self._window_sensors,
+            "restore_delay_minutes": self._restore_delay_minutes,
         }
+
+    # ... (skipping unchanged methods until async_set_hvac_mode)
 
     async def async_added_to_hass(self) -> None:
         """Run when entity about to be added."""
@@ -171,25 +235,54 @@ class ClimateZone(ClimateEntity, RestoreEntity):
     def _async_update_temp(self) -> None:
         """Update sensor temperature."""
         state = self.hass.states.get(self._temperature_sensor)
-        if state and state.state not in ("unknown", "unavailable"):
+        if not state or state.state in ("unknown", "unavailable"):
+            self._attr_current_temperature = None
+            return
+
+        # If it's a climate entity, get the attribute
+        if state.domain == "climate":
+            self._attr_current_temperature = state.attributes.get("current_temperature")
+        else:
+            # Assume it's a sensor (state is the value)
             try:
                 self._attr_current_temperature = float(state.state)
             except ValueError:
                 self._attr_current_temperature = None
-        else:
-            self._attr_current_temperature = None
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set new target hvac mode."""
         self._attr_hvac_mode = hvac_mode
+
+        # Handle Auto-Restore Timer
+        if self._restore_timer:
+            self._restore_timer()  # Cancel existing
+            self._restore_timer = None
+
         if hvac_mode == HVACMode.AUTO:
             self._apply_schedule()
+        elif hvac_mode in (HVACMode.HEAT, HVACMode.COOL):
+            # If manual mode and delay is set, schedule restore
+            if self._restore_delay_minutes > 0:
+                _LOGGER.info("Scheduling auto-restore to AUTO in %s minutes", self._restore_delay_minutes)
+                self._restore_timer = async_call_later(
+                    self.hass, self._restore_delay_minutes * 60, self._restore_schedule
+                )
 
         await self._async_control_actuator()
         self.async_write_ha_state()
 
+    @callback
+    def _restore_schedule(self, _now: datetime) -> None:
+        """Restore schedule after delay."""
+        _LOGGER.info("Auto-restoring zone %s to AUTO mode", self.entity_id)
+        self._restore_timer = None
+        self.hass.async_create_task(self.async_set_hvac_mode(HVACMode.AUTO))
+
     async def async_set_temperature(self, **kwargs: Any) -> None:
         """Set new target temperature."""
+        if (mode := kwargs.get("hvac_mode")) is not None:
+            self._attr_hvac_mode = mode
+
         if (temp := kwargs.get(ATTR_TEMPERATURE)) is None:
             return
         self._attr_target_temperature = temp
@@ -210,15 +303,21 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         if self._is_window_open():
             # Force everything OFF
             await self._async_turn_off_all()
+            self._attr_hvac_action = HVACAction.OFF
+            self.async_write_ha_state()
             return
 
         if self._attr_hvac_mode == HVACMode.OFF:
             await self._async_turn_off_all()
+            self._attr_hvac_action = HVACAction.OFF
+            self.async_write_ha_state()
             return
 
         if self._attr_hvac_mode in (HVACMode.HEAT, HVACMode.AUTO):
             if self._attr_current_temperature is None:
                 await self._async_turn_off_all()
+                self._attr_hvac_action = HVACAction.IDLE
+                self.async_write_ha_state()
                 return
 
             target = self._attr_target_temperature
@@ -228,19 +327,24 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
             # Heat Logic
             if error > DEFAULT_TOLERANCE:
+                self._attr_hvac_action = HVACAction.HEATING
                 await self._async_set_heaters(True)
                 await self._async_set_coolers(False)
 
             # Cool Logic (if supported, not fully impl in AUTO yet, simplistic)
-            elif error < -DEFAULT_TOLERANCE:
+            elif error < -DEFAULT_TOLERANCE and self._coolers:
+                self._attr_hvac_action = HVACAction.COOLING
                 await self._async_set_heaters(False)
                 await self._async_set_coolers(True)
 
             # Deadband
             else:
+                self._attr_hvac_action = HVACAction.IDLE
                 # Maintain current state? For MVP, turn off when within band to save energy
                 await self._async_set_heaters(False)
                 await self._async_set_coolers(False)
+
+            self.async_write_ha_state()
 
     async def _async_turn_off_all(self) -> None:
         """Turn off all actuators."""
@@ -255,18 +359,67 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                 service = "turn_on" if enable else "turn_off"
                 await self.hass.services.async_call("switch", service, {"entity_id": entity_id})
             elif domain == "climate":
-                # Pass-through logic for Climate Actuators
+                # Check supported features
+                state = self.hass.states.get(entity_id)
+                if not state:
+                    continue
+
+                features = state.attributes.get("supported_features", 0)
+
                 if enable:
-                    await self.hass.services.async_call(
-                        "climate",
-                        "set_temperature",
-                        {
+                    # Smart Thermostat Logic
+                    if (features & ClimateEntityFeature.TARGET_TEMPERATURE) or (
+                        features & ClimateEntityFeature.TARGET_TEMPERATURE_RANGE
+                    ):
+                        # Use set_temperature
+                        service_data = {
                             "entity_id": entity_id,
                             "temperature": self._attr_target_temperature,
-                            "hvac_mode": HVACMode.HEAT,
-                        },
-                        blocking=True,
-                    )
+                        }
+
+                        # Determine valid HVAC mode
+                        valid_modes = state.attributes.get("hvac_modes", [])
+                        if HVACMode.HEAT in valid_modes:
+                            service_data["hvac_mode"] = HVACMode.HEAT
+                        elif HVACMode.HEAT_COOL in valid_modes:
+                            service_data["hvac_mode"] = HVACMode.HEAT_COOL
+                        elif HVACMode.AUTO in valid_modes:
+                            # Some thermostats only work in Auto
+                            service_data["hvac_mode"] = HVACMode.AUTO
+
+                        await self.hass.services.async_call(
+                            "climate",
+                            "set_temperature",
+                            service_data,
+                            blocking=True,
+                        )
+                    else:
+                        # Fallback (Simple On/Off)
+                        # Find a valid "On" mode
+                        valid_modes = state.attributes.get("hvac_modes", [])
+                        target_mode = None
+
+                        if HVACMode.HEAT in valid_modes:
+                            target_mode = HVACMode.HEAT
+                        elif HVACMode.HEAT_COOL in valid_modes:
+                            target_mode = HVACMode.HEAT_COOL
+                        elif HVACMode.AUTO in valid_modes:
+                            target_mode = HVACMode.AUTO
+
+                        if target_mode:
+                            await self.hass.services.async_call(
+                                "climate",
+                                "set_hvac_mode",
+                                {"entity_id": entity_id, "hvac_mode": target_mode},
+                                blocking=True,
+                            )
+                        else:
+                            _LOGGER.warning(
+                                "Entity %s configured as heater but does not support "
+                                "Heat, Heat_Cool, or Auto. Modes: %s",
+                                entity_id,
+                                valid_modes,
+                            )
                 else:
                     await self.hass.services.async_call(
                         "climate", "set_hvac_mode", {"entity_id": entity_id, "hvac_mode": HVACMode.OFF}

@@ -15,18 +15,20 @@ async def async_register_panel(hass: HomeAssistant) -> None:
     # We must first register the static path
     import os
 
-    current_dir = os.path.dirname(__file__)
-    js_path = os.path.join(current_dir, "www", "climate-dashboard.mjs")
+    # Check if HTTP component is loaded (it might not be in tests)
+    if hasattr(hass, "http") and hass.http:
+        current_dir = os.path.dirname(__file__)
+        js_path = os.path.join(current_dir, "www", "climate-dashboard.mjs")
 
-    await hass.http.async_register_static_paths(
-        [
-            StaticPathConfig(
-                PANEL_URL,
-                js_path,
-                cache_headers=False,
-            )
-        ]
-    )
+        await hass.http.async_register_static_paths(
+            [
+                StaticPathConfig(
+                    PANEL_URL,
+                    js_path,
+                    cache_headers=False,
+                )
+            ]
+        )
 
     await hass_async_register_panel(
         hass,

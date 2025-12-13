@@ -24,6 +24,14 @@ def websocket_adopt_zone(
     msg: dict[str, Any],
 ) -> None:
     """Handle adopt zone command."""
+    # We need to run this async, but since this is a callback, we spawn a task.
+    # However, to properly handle errors/result, we should use async handler.
+    # Refactoring to async handler requires removing @callback and changing to async def.
+    # But wait, async_register_command expects a handler.
+    hass.async_create_task(_async_adopt_zone(hass, connection, msg))
+
+
+async def _async_adopt_zone(hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]) -> None:
     name = msg["name"]
     temperature_sensor = msg["temperature_sensor"]
     heaters = msg["heaters"]
@@ -41,6 +49,7 @@ def websocket_adopt_zone(
         "coolers": coolers,
         "window_sensors": window_sensors,
         "schedule": [],  # Empty schedule initially
+        "restore_delay_minutes": msg.get("restore_delay_minutes", 0),
     }
 
     # Save to storage
@@ -50,8 +59,7 @@ def websocket_adopt_zone(
 
     storage = hass.data[DOMAIN]["storage"]
 
-    # We need to run this async
-    hass.async_create_task(storage.async_add_zone(zone_config))
+    await storage.async_add_zone(zone_config)
 
     connection.send_result(msg["id"], {"unique_id": unique_id})
 
@@ -62,6 +70,10 @@ def websocket_update_zone(
     connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
+    hass.async_create_task(_async_update_zone(hass, connection, msg))
+
+
+async def _async_update_zone(hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]) -> None:
     """Handle update zone command."""
     if DOMAIN not in hass.data:
         connection.send_error(msg["id"], "internal_error", "Integration not initialized")
@@ -92,10 +104,41 @@ def websocket_update_zone(
         }
     )
 
+    if "schedule" in msg:
+        updated_config["schedule"] = msg["schedule"]
+
+    if "restore_delay_minutes" in msg:
+        updated_config["restore_delay_minutes"] = msg["restore_delay_minutes"]
+
     # Save
-    hass.async_create_task(storage.async_update_zone(updated_config))
+    await storage.async_update_zone(updated_config)
 
     connection.send_result(msg["id"], {"unique_id": unique_id})
+
+
+@callback
+def websocket_delete_zone(
+    hass: HomeAssistant,
+    connection: ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    hass.async_create_task(_async_delete_zone(hass, connection, msg))
+
+
+async def _async_delete_zone(hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]) -> None:
+    """Handle delete zone command."""
+    if DOMAIN not in hass.data:
+        connection.send_error(msg["id"], "internal_error", "Integration not initialized")
+        return
+
+    storage = hass.data[DOMAIN]["storage"]
+    unique_id = msg["unique_id"]
+
+    try:
+        await storage.async_delete_zone(unique_id)
+        connection.send_result(msg["id"], {"success": True})
+    except ValueError as e:
+        connection.send_error(msg["id"], "not_found", str(e))
 
 
 @callback
@@ -111,7 +154,10 @@ def async_register_api(hass: HomeAssistant) -> None:
                 vol.Required("type"): "climate_dashboard/adopt",
                 vol.Required("name"): str,
                 vol.Required("temperature_sensor"): str,
+                vol.Optional("heaters", default=[]): [str],
+                vol.Optional("coolers", default=[]): [str],
                 vol.Optional("window_sensors", default=[]): [str],
+                vol.Optional("restore_delay_minutes", default=0): int,
             }
         ),
     )
@@ -128,10 +174,19 @@ def async_register_api(hass: HomeAssistant) -> None:
                 vol.Optional("heaters", default=[]): [str],
                 vol.Optional("coolers", default=[]): [str],
                 vol.Optional("window_sensors", default=[]): [str],
-                # Schedule is optional? If not present, we should probably keep existing.
-                # But storage update replaces.
-                # For MVP, let's assume this handles Refactoring/Hardware config.
-                # We'll need to fetch the existing schedule in the handler if we want to preserve it.
+                vol.Optional("schedule"): list,
+                vol.Optional("restore_delay_minutes"): int,
+            }
+        ),
+    )
+    async_register_command(
+        hass,
+        "climate_dashboard/delete",
+        websocket_delete_zone,
+        schema=websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
+            {
+                vol.Required("type"): "climate_dashboard/delete",
+                vol.Required("unique_id"): str,
             }
         ),
     )

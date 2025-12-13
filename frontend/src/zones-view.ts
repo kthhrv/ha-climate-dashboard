@@ -65,6 +65,31 @@ export class ZonesView extends LitElement {
       padding: 32px;
       color: var(--secondary-text-color);
     }
+    .actions {
+      margin-top: 16px;
+      display: flex;
+      gap: 8px;
+      width: 100%;
+      justify-content: center;
+    }
+    .mode-btn {
+      background: transparent;
+      border: 1px solid var(--divider-color);
+      border-radius: 16px;
+      padding: 4px 12px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      color: var(--secondary-text-color);
+      transition: all 0.2s;
+    }
+    .mode-btn:hover {
+      background: var(--secondary-background-color);
+    }
+    .mode-btn.active {
+      background: var(--primary-color, #03a9f4);
+      color: white;
+      border-color: var(--primary-color, #03a9f4);
+    }
   `;
 
   protected render(): TemplateResult {
@@ -92,18 +117,26 @@ export class ZonesView extends LitElement {
   }
 
   private _renderZoneCard(zone: HassEntity): TemplateResult {
-    const isHeating = zone.state === "heat";
-    const isCooling = zone.state === "cool";
+    // We check hvac_action if available for the icon color logic,
+    // but the buttons control hvac_mode.
+    const hvacAction = zone.attributes.hvac_action;
 
     let icon = "mdi:thermostat";
     let iconColor = "";
 
-    if (isHeating) {
+    // Status coloring based on Action (what it's doing) or State (what it's set to)
+    if (hvacAction === "heating") {
       icon = "mdi:fire";
-      iconColor = "var(--state-climate-heat-color, #ff9800)";
-    } else if (isCooling) {
+      iconColor = "var(--deep-orange-color, #ff5722)";
+    } else if (hvacAction === "cooling") {
       icon = "mdi:snowflake";
-      iconColor = "var(--state-climate-cool-color, #2b9af9)";
+      iconColor = "var(--blue-color, #2196f3)";
+    } else if (zone.state === "heat") {
+      icon = "mdi:fire";
+      // Idle heat
+      iconColor = "var(--primary-text-color)";
+    } else if (zone.state === "auto") {
+      icon = "mdi:calendar-clock";
     }
 
     const currentTemp = zone.attributes.current_temperature;
@@ -119,9 +152,40 @@ export class ZonesView extends LitElement {
         <div class="temp">
           ${currentTemp != null ? `${currentTemp}°` : "--"}
         </div>
-        <div class="state">${zone.state}</div>
+        <div class="state">
+          ${hvacAction ? html`${hvacAction}` : html`${zone.state}`}
+        </div>
+
+        <div class="actions">
+          <button
+            class="mode-btn ${zone.state === "off" ? "active" : ""}"
+            @click=${(e: Event) => this._setMode(e, zone.entity_id, "off")}
+          >
+            Off
+          </button>
+          <button
+            class="mode-btn ${zone.state === "heat" ? "active" : ""}"
+            @click=${(e: Event) => this._setMode(e, zone.entity_id, "heat")}
+          >
+            Heat
+          </button>
+          <button
+            class="mode-btn ${zone.state === "auto" ? "active" : ""}"
+            @click=${(e: Event) => this._setMode(e, zone.entity_id, "auto")}
+          >
+            Auto
+          </button>
+        </div>
       </div>
     `;
+  }
+
+  private async _setMode(e: Event, entityId: string, mode: string) {
+    e.stopPropagation();
+    await this.hass.callService("climate", "set_hvac_mode", {
+      entity_id: entityId,
+      hvac_mode: mode,
+    });
   }
 
   private _openZone(entityId: string) {

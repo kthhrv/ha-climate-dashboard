@@ -4,6 +4,7 @@ import "./setup-view";
 import "./timeline-view";
 import "./zones-view";
 import "./zone-editor";
+import "./schedule-editor";
 
 @customElement("climate-dashboard")
 export class ClimateDashboard extends LitElement {
@@ -11,10 +12,14 @@ export class ClimateDashboard extends LitElement {
   @property({ attribute: false }) public narrow!: boolean;
   @property({ attribute: false }) public panel!: any;
 
-  @state() private _view: "zones" | "timeline" | "setup" | "editor" = "zones";
+  @state() private _view:
+    | "zones"
+    | "timeline"
+    | "setup"
+    | "editor"
+    | "schedule" = "zones";
   @state() private _editingZoneId: string | null = null;
   @state() private _unmanagedCount = 0;
-  @state() private _allEntities: any[] = []; // Cache of all candidates for editor
 
   static styles = css`
     :host {
@@ -88,7 +93,6 @@ export class ClimateDashboard extends LitElement {
       const devices: any[] = await this.hass.callWS({
         type: "climate_dashboard/scan",
       });
-      this._allEntities = devices; // Cache for editor
       // Filter for primary devices only (Heaters/AC/Switches) for the badge count
       const candidates = devices.filter((d) =>
         ["climate", "switch"].includes(d.domain),
@@ -97,6 +101,25 @@ export class ClimateDashboard extends LitElement {
     } catch (e) {
       console.error("Badge scan failed", e);
     }
+  }
+
+  private _getEditorCandidates() {
+    if (!this.hass) return [];
+    const domains = ["climate", "switch", "sensor", "binary_sensor"];
+    return Object.values(this.hass.states)
+      .filter(
+        (s: any) =>
+          domains.includes(s.entity_id.split(".")[0]) &&
+          !s.attributes.is_climate_dashboard_zone &&
+          !s.entity_id.startsWith("climate.zone_"),
+      )
+      .map((s: any) => ({
+        entity_id: s.entity_id,
+        domain: s.entity_id.split(".")[0],
+        name: s.attributes.friendly_name || s.entity_id,
+        device_class: s.attributes.device_class,
+        // area_name missing, but acceptable for MVP
+      }));
   }
 
   private _handleZoneClick(e: CustomEvent) {
@@ -112,8 +135,11 @@ export class ClimateDashboard extends LitElement {
               <button
                 class="icon-btn"
                 @click=${() => {
-                  this._view = "zones";
-                  this._editingZoneId = null;
+                  if (this._view === "schedule") this._view = "timeline";
+                  else {
+                    this._view = "zones";
+                    this._editingZoneId = null;
+                  }
                 }}
               >
                 <ha-icon icon="mdi:arrow-left"></ha-icon>
@@ -128,7 +154,9 @@ export class ClimateDashboard extends LitElement {
           <button
             class="icon-btn"
             @click=${() => (this._view = "timeline")}
-            ?hidden=${this._view === "timeline" || this._view === "editor"}
+            ?hidden=${this._view === "timeline" ||
+            this._view === "editor" ||
+            this._view === "schedule"}
           >
             <ha-icon icon="mdi:chart-timeline"></ha-icon>
           </button>
@@ -137,7 +165,7 @@ export class ClimateDashboard extends LitElement {
           <button
             class="icon-btn"
             @click=${() => (this._view = "setup")}
-            ?hidden=${this._view === "editor"}
+            ?hidden=${this._view === "editor" || this._view === "schedule"}
           >
             <ha-icon icon="mdi:cog"></ha-icon>
             ${this._unmanagedCount > 0
@@ -158,19 +186,37 @@ export class ClimateDashboard extends LitElement {
           ? html`<setup-view .hass=${this.hass}></setup-view>`
           : ""}
         ${this._view === "timeline"
-          ? html`<timeline-view .hass=${this.hass}></timeline-view>`
+          ? html` <timeline-view
+              .hass=${this.hass}
+              @schedule-selected=${(e: CustomEvent) => {
+                this._editingZoneId = e.detail.entityId;
+                this._view = "schedule";
+              }}
+            ></timeline-view>`
           : ""}
         ${this._view === "editor" && this._editingZoneId
           ? html`
               <zone-editor
                 .hass=${this.hass}
                 .zoneId=${this._editingZoneId}
-                .allEntities=${this._allEntities}
+                .allEntities=${this._getEditorCandidates()}
                 @close=${() => {
                   this._view = "zones";
                   this._editingZoneId = null;
                 }}
               ></zone-editor>
+            `
+          : ""}
+        ${this._view === "schedule" && this._editingZoneId
+          ? html`
+              <schedule-editor
+                .hass=${this.hass}
+                .zoneId=${this._editingZoneId}
+                @close=${() => {
+                  this._view = "timeline";
+                  this._editingZoneId = null;
+                }}
+              ></schedule-editor>
             `
           : ""}
       </div>

@@ -13,3 +13,18 @@ frontend/dist/
 
 # Dev
 .agent/
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Distribution
+dist/
+build/
+*.egg-info/
+
+# Local Config
+config/

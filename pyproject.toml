@@ -8,14 +8,15 @@ dependencies = [
     "homeassistant",
 ]
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "ruff",
     "mypy",
     "pre-commit",
     "pytest",
     "pytest-homeassistant-custom-component",
     "pycares<5",
+    "invoke",
 ]
 
 [tool.ruff]

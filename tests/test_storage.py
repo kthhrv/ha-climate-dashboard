@@ -73,3 +73,22 @@ async def test_add_zone(hass: HomeAssistant, mock_store: Any) -> None:
     assert len(storage.zones) == 1
     assert storage.zones[0] == zone
     mock_store.async_save.assert_called_once()
+
+
+async def test_delete_zone(hass: HomeAssistant, mock_store: Any) -> None:
+    """Test deleting a zone."""
+    storage = ClimateDashboardStorage(hass)
+    await storage.async_load()
+
+    # 1. Add Zone
+    zone = cast(ClimateZoneConfig, {"unique_id": "z_del", "name": "To Delete", "schedule": []})
+    await storage.async_add_zone(zone)
+    assert len(storage.zones) == 1
+
+    # 2. Delete Zone
+    await storage.async_delete_zone("z_del")
+    assert len(storage.zones) == 0
+
+    # 3. Delete Non-Existent
+    with pytest.raises(ValueError):
+        await storage.async_delete_zone("non_existent")

@@ -14,6 +14,7 @@ export class ZoneEditor extends LitElement {
   @state() private _heaters: Set<string> = new Set();
   @state() private _coolers: Set<string> = new Set();
   @state() private _windowSensors: Set<string> = new Set();
+  @state() private _restoreDelayMinutes = 0;
 
   // UI State
   @state() private _loading = false;
@@ -47,6 +48,7 @@ export class ZoneEditor extends LitElement {
       font-weight: 500;
     }
     input[type="text"],
+    input[type="number"],
     select {
       width: 100%;
       padding: 8px;
@@ -109,72 +111,71 @@ export class ZoneEditor extends LitElement {
     if (!this.hass || !this.zoneId) return;
     this._loading = true;
 
-    // Find existing zone entity
-    // The zoneId passed here is likely "climate.zone_xxx" entity_id
-    // But the update API needs unique_id.
-    // We can get attributes from the state.
+    console.log("Loading config for zoneId:", this.zoneId);
+
+    // 1. Get State
     const state = this.hass.states[this.zoneId];
     if (!state) {
+      console.error("Zone state not found for:", this.zoneId);
       this._error = "Zone not found";
       this._loading = false;
       return;
     }
 
-    // We assume attributes contain keys we need?
-    // Actually, the attributes of climate entity don't expose heaters/coolers list strictly
-    // unless we added them to attributes.
-    // Wait, ClimateZone exposes them as extra_state_attributes?
-    // Let's check ClimateZone code.
-    // It exposes heaters, coolers, window_sensors in extra_state_attributes.
-    // unique_id is NOT in state attributes usually.
-    // We might need to fetch internal config via websocket for "get_zone"?
+    console.log("Zone Attributes:", state.attributes);
 
-    // MVP Shortcut: We can infer most things, but unique_id is crucial for update.
-    // Can we get unique_id from entity_registry?
-    // Or we should assume the passed ID is the entity_id, and we can't update without unique_id.
-
-    // PLAN B: Add a 'climate_dashboard/get_zone' or use existing data?
-    // Actually, if we look at `zones()` in `storage.py`, it returns full config.
-    // Maybe we just add `climate_dashboard/get_zones` in websocket?
-    // Or we rely on state attributes if we put unique_id there?
-    // Putting unique_id in attributes is easy useful debug.
-    // Let's Check `climate_zone.py`.
-
-    // Assuming we have to fetch config.
-    // Let's assume we can fetch all zones or single zone via WS.
-    // Since we don't have that yet, I'll rely on state attributes and...
-    // wait, we can't get unique_id easily from frontend without Registry or Attribute.
-
-    // Let's assume I will add `climate_dashboard/get_zone` command?
-    // OR simpler: `scan` returns everything? No, scan is for unmanaged.
-
-    // Let's rely on stored configuration.
-    // I'll assume for now I can get it.
-    // For MVP, I'll check if I can get unique_id from the entity registry via hass connection?
-    // hass.callWS({type: 'config/entity_registry/get', entity_id: ...})
-    try {
-      const reg = await this.hass.callWS({
-        type: "config/entity_registry/get",
-        entity_id: this.zoneId,
-      });
-      this._uniqueId = reg.unique_id; // "zone_xxxxxxxx"
-
-      // Now we need the full config (heaters list etc).
-      // If these are in attributes, great.
-      const attrs = state.attributes;
-      this._name = attrs.friendly_name || "";
-      this._temperatureSensor =
-        attrs.temperature_sensor || attrs.sensor_entity_id || "";
-      this._heaters = new Set(
-        attrs.heaters ||
-          (attrs.actuator_entity_id ? [attrs.actuator_entity_id] : []),
-      );
-      this._coolers = new Set(attrs.coolers || []);
-      this._windowSensors = new Set(attrs.window_sensors || []);
-    } catch (e) {
-      console.error("Error loading zone config", e);
-      this._error = "Failed to load zone configuration";
+    // 2. Get Unique ID (Try attributes first, then registry)
+    if (state.attributes.unique_id) {
+      this._uniqueId = state.attributes.unique_id;
+    } else {
+      try {
+        const reg = await this.hass.callWS({
+          type: "config/entity_registry/get",
+          entity_id: this.zoneId,
+        });
+        this._uniqueId = reg.unique_id;
+      } catch (e) {
+        console.warn("Could not fetch registry entry:", e);
+      }
     }
+
+    if (!this._uniqueId) {
+      this._error = "Could not determine Unique ID";
+      this._loading = false;
+      return;
+    }
+
+    // 3. Populate Fields
+    const attrs = state.attributes;
+    this._name = attrs.friendly_name || "";
+    this._temperatureSensor =
+      attrs.temperature_sensor || attrs.sensor_entity_id || "";
+
+    // Heaters (ensure array)
+    const heaters =
+      attrs.heaters ||
+      (attrs.actuator_entity_id ? [attrs.actuator_entity_id] : []);
+    this._heaters = new Set(heaters);
+
+    // Coolers
+    const coolers = attrs.coolers || [];
+    this._coolers = new Set(coolers);
+
+    // Window Sensors
+    const windows = attrs.window_sensors || [];
+    this._windowSensors = new Set(windows);
+
+    // Restore Delay
+    this._restoreDelayMinutes = attrs.restore_delay_minutes || 0;
+
+    console.log("Loaded Config:", {
+      name: this._name,
+      temp: this._temperatureSensor,
+      heaters: this._heaters,
+      coolers: this._coolers,
+      restore: this._restoreDelayMinutes,
+    });
+
     this._loading = false;
   }
 
@@ -204,10 +205,25 @@ export class ZoneEditor extends LitElement {
         heaters: Array.from(this._heaters),
         coolers: Array.from(this._coolers),
         window_sensors: Array.from(this._windowSensors),
+        restore_delay_minutes: Number(this._restoreDelayMinutes),
       });
       this._goBack();
     } catch (e: any) {
       alert("Update failed: " + e.message);
+    }
+  }
+
+  private async _delete() {
+    if (!confirm("Are you sure you want to delete this zone?")) return;
+
+    try {
+      await this.hass.callWS({
+        type: "climate_dashboard/delete",
+        unique_id: this._uniqueId,
+      });
+      this._goBack();
+    } catch (e: any) {
+      alert("Delete failed: " + e.message);
     }
   }
 
@@ -271,7 +287,7 @@ export class ZoneEditor extends LitElement {
                     ?checked=${this._heaters.has(e.entity_id)}
                     @change=${() => this._toggleSet(this._heaters, e.entity_id)}
                   />
-                  <span>${e.name || e.entity_id} (${e.domain})</span>
+                  <span>${e.name} (${e.entity_id})</span>
                 </div>
               `,
             )}
@@ -315,13 +331,24 @@ export class ZoneEditor extends LitElement {
           </div>
         </div>
 
-        <div class="actions">
-          <button
-            class="delete"
-            @click=${() => alert("Delete not implemented")}
+        <div class="field">
+          <label>Auto-Restore Delay (Minutes)</label>
+          <div
+            style="font-size: 0.8em; color: var(--secondary-text-color); margin-bottom: 4px;"
           >
-            Delete Helper
-          </button>
+            Automatically revert to Auto/Schedule after this many minutes. Set
+            to 0 to disable.
+          </div>
+          <input
+            type="number"
+            min="0"
+            .value=${this._restoreDelayMinutes}
+            @input=${(e: any) => (this._restoreDelayMinutes = e.target.value)}
+          />
+        </div>
+
+        <div class="actions">
+          <button class="delete" @click=${this._delete}>Delete Helper</button>
           <button class="cancel" @click=${this._goBack}>Cancel</button>
           <button class="save" @click=${this._save}>Save Changes</button>
         </div>

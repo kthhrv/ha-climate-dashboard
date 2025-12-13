@@ -102,6 +102,24 @@ class ClimateDashboardStorage:
 
         raise ValueError(f"Zone {zone_config['unique_id']} not found")
 
+    async def async_delete_zone(self, unique_id: str) -> None:
+        """Delete a zone."""
+        if self._data is None:
+            return
+
+        zones = self._data["zones"]
+        for i, zone in enumerate(zones):
+            if zone["unique_id"] == unique_id:
+                zones.pop(i)
+                await self._store.async_save(self._data)
+
+                # Notify listeners
+                for listener in self._listeners:
+                    listener()
+                return
+
+        raise ValueError(f"Zone {unique_id} not found")
+
     def async_add_listener(self, callback: Any) -> None:
         """Add a listener for data changes."""
         self._listeners.append(callback)
