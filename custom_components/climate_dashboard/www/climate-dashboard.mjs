@@ -1641,13 +1641,13 @@ B.styles = I`
       border-bottom: 1px solid var(--divider-color);
     }
     .time-axis-spacer {
-       width: 136px; /* 120px label + 16px padding */
-       flex-shrink: 0;
+      width: 136px; /* 120px label + 16px padding */
+      flex-shrink: 0;
     }
     .time-axis-track {
-        flex: 1;
-        position: relative;
-        height: 100%;
+      flex: 1;
+      position: relative;
+      height: 100%;
     }
     .time-marker {
       position: absolute;
