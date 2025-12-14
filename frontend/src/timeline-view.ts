@@ -56,29 +56,42 @@ export class TimelineView extends LitElement {
       position: relative;
       margin-top: 20px;
     }
+    /* Time Axis */
     .time-axis {
       display: flex;
-      justify-content: space-between;
+      align-items: flex-end; /* Align labels to bottom */
+      height: 24px;
       margin-bottom: 8px;
-      padding-left: 120px; /* Space for labels */
       font-size: 0.8em;
       color: var(--secondary-text-color);
       border-bottom: 1px solid var(--divider-color);
     }
-    .time-marker {
+    .time-axis-spacer {
+      width: 136px; /* 120px label + 16px padding */
+      flex-shrink: 0;
+    }
+    .time-axis-track {
+      flex: 1;
       position: relative;
-      width: 0;
-      display: flex;
-      justify-content: center;
+      height: 100%;
+    }
+    .time-marker {
+      position: absolute;
+      bottom: 0;
+      transform: translateX(-50%);
+      white-space: nowrap;
     }
     .time-marker::after {
       content: "";
       position: absolute;
-      top: 100%;
+      bottom: 0;
+      left: 50%;
       height: 4px;
       width: 1px;
       background: var(--divider-color);
     }
+
+    /* Zone Rows */
     .zone-row {
       display: flex;
       align-items: center;
@@ -104,6 +117,8 @@ export class TimelineView extends LitElement {
       color: var(--secondary-text-color);
       font-weight: normal;
     }
+
+    /* Track Area */
     .timeline-track {
       flex: 1;
       position: relative;
@@ -112,6 +127,8 @@ export class TimelineView extends LitElement {
       border-radius: 4px;
       overflow: hidden;
     }
+
+    /* Blocks */
     .schedule-block {
       position: absolute;
       top: 0;
@@ -131,6 +148,7 @@ export class TimelineView extends LitElement {
       opacity: 0.9;
       z-index: 2;
     }
+    /* Colors */
     .mode-heat {
       background-color: var(--deep-orange-color, #ff5722);
     }
@@ -143,6 +161,8 @@ export class TimelineView extends LitElement {
     .mode-auto {
       background-color: var(--green-color, #4caf50);
     }
+
+    /* Current Time Indicator */
     .current-time-line {
       position: absolute;
       top: 0;
@@ -156,11 +176,12 @@ export class TimelineView extends LitElement {
       content: "";
       position: absolute;
       top: -4px;
-      left: -3px;
-      width: 8px;
-      height: 8px;
+      left: -1px;
+      width: 4px;
+      height: 4px;
       border-radius: 50%;
       background-color: var(--primary-color, #03a9f4);
+      box-shadow: 0 0 0 2px rgba(3, 169, 244, 0.3);
     }
   `;
 
@@ -204,16 +225,19 @@ export class TimelineView extends LitElement {
               <div class="timeline-container">
                 <!-- Time Axis -->
                 <div class="time-axis">
-                  ${[0, 4, 8, 12, 16, 20, 24].map(
-                    (hour) => html`
-                      <div
-                        class="time-marker"
-                        style="left: ${(hour / 24) * 100}%"
-                      >
-                        ${hour.toString().padStart(2, "0")}:00
-                      </div>
-                    `,
-                  )}
+                  <div class="time-axis-spacer"></div>
+                  <div class="time-axis-track">
+                    ${[0, 4, 8, 12, 16, 20, 24].map(
+                      (hour) => html`
+                        <div
+                          class="time-marker"
+                          style="left: ${(hour / 24) * 100}%"
+                        >
+                          ${hour.toString().padStart(2, "0")}:00
+                        </div>
+                      `,
+                    )}
+                  </div>
                 </div>
 
                 <!-- Zones -->
@@ -290,19 +314,14 @@ export class TimelineView extends LitElement {
   private _renderCurrentTimeLine(): TemplateResult {
     const now = new Date();
     const minutes = now.getHours() * 60 + now.getMinutes();
-    const left = (minutes / 1440) * 100;
+    const pct = (minutes / 1440) * 100;
 
-    // Need to offset for label width?
-    // Actually strictly overlaying on the track area might be cleaner.
-    // But tracks are inside individual rows.
-    // We want a line across ALL rows.
-    // So render it in the container, but position it absolute over rows.
-    // We need to account for the padding-left (120px) of the axis if we put it in the same container context.
-
+    // Offset is 120px (label) + 16px (padding) = 136px
+    // The calc puts the line relative to the entire container width
     return html`
       <div
         class="current-time-line"
-        style="left: calc(120px + (100% - 120px) * ${left / 100})"
+        style="left: calc(136px + (100% - 136px) * ${pct / 100})"
       ></div>
     `;
   }

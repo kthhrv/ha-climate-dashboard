@@ -87,14 +87,18 @@ export class ScheduleEditor extends LitElement {
     .days-selector {
       display: flex;
       gap: 4px;
+      flex-wrap: wrap;
     }
     .day-btn {
-      padding: 4px 8px;
+      padding: 6px 10px;
       border: 1px solid var(--divider-color);
       border-radius: 4px;
       cursor: pointer;
       font-size: 0.8em;
       background: transparent;
+      flex: 1;
+      min-width: 40px;
+      text-align: center;
     }
     .day-btn.active {
       background: var(--primary-color, #03a9f4);
