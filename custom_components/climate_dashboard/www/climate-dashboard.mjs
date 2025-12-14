@@ -1784,7 +1784,7 @@ let Q = class extends y {
     const i = s.attributes.current_temperature;
     return l`
       <div class="card" @click=${() => this._openDetails(s.entity_id)}>
-        <button 
+        <button
           class="settings-btn"
           @click=${(r) => this._openSettings(r, s.entity_id)}
         >
@@ -2649,6 +2649,7 @@ let S = class extends y {
       (this._editingZoneId = null),
       (this._unmanagedCount = 0));
   }
+  // ... (omitted) ...
   firstUpdated() {
     this._scanForBadge();
   }
@@ -2711,18 +2712,16 @@ let S = class extends y {
         <div class="actions">
           <!-- Timeline Toggle -->
           <button
-            class="icon-btn"
+            class="icon-btn ${this._view === "timeline" ? "active" : ""}"
             @click=${() => (this._view = "timeline")}
-            ?hidden=${this._view === "timeline" || this._view === "editor" || this._view === "schedule"}
           >
             <ha-icon icon="mdi:chart-timeline"></ha-icon>
           </button>
 
           <!-- Setup Toggle (Badge) -->
           <button
-            class="icon-btn"
+            class="icon-btn ${this._view === "setup" ? "active" : ""}"
             @click=${() => (this._view = "setup")}
-            ?hidden=${this._view === "editor" || this._view === "schedule"}
           >
             <ha-icon icon="mdi:cog"></ha-icon>
             ${this._unmanagedCount > 0 ? l`<span class="badge">${this._unmanagedCount}</span>` : ""}
@@ -2830,6 +2829,10 @@ S.styles = z`
     }
     .icon-btn:hover {
       background: rgba(255, 255, 255, 0.1);
+    }
+    .icon-btn.active {
+      color: var(--primary-text-color, white);
+      background: rgba(255, 255, 255, 0.2);
     }
     .badge {
       position: absolute;

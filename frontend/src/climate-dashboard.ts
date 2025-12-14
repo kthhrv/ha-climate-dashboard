@@ -62,6 +62,10 @@ export class ClimateDashboard extends LitElement {
     .icon-btn:hover {
       background: rgba(255, 255, 255, 0.1);
     }
+    .icon-btn.active {
+      color: var(--primary-text-color, white);
+      background: rgba(255, 255, 255, 0.2);
+    }
     .badge {
       position: absolute;
       top: 0;
@@ -82,6 +86,8 @@ export class ClimateDashboard extends LitElement {
       overflow-y: auto;
     }
   `;
+
+  // ... (omitted) ...
 
   protected firstUpdated(): void {
     this._scanForBadge();
@@ -150,20 +156,16 @@ export class ClimateDashboard extends LitElement {
         <div class="actions">
           <!-- Timeline Toggle -->
           <button
-            class="icon-btn"
+            class="icon-btn ${this._view === "timeline" ? "active" : ""}"
             @click=${() => (this._view = "timeline")}
-            ?hidden=${this._view === "timeline" ||
-            this._view === "editor" ||
-            this._view === "schedule"}
           >
             <ha-icon icon="mdi:chart-timeline"></ha-icon>
           </button>
 
           <!-- Setup Toggle (Badge) -->
           <button
-            class="icon-btn"
+            class="icon-btn ${this._view === "setup" ? "active" : ""}"
             @click=${() => (this._view = "setup")}
-            ?hidden=${this._view === "editor" || this._view === "schedule"}
           >
             <ha-icon icon="mdi:cog"></ha-icon>
             ${this._unmanagedCount > 0
