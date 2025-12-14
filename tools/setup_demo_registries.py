@@ -7,17 +7,24 @@ STORAGE_DIR = os.path.join(CONFIG_DIR, ".storage")
 
 AREA_REGISTRY_PATH = os.path.join(STORAGE_DIR, "core.area_registry")
 ENTITY_REGISTRY_PATH = os.path.join(STORAGE_DIR, "core.entity_registry")
+FLOOR_REGISTRY_PATH = os.path.join(STORAGE_DIR, "core.floor_registry")
 CLIMATE_DASHBOARD_PATH = os.path.join(STORAGE_DIR, "climate_dashboard")
+
+# Define Floors
+FLOORS = [
+    {"name": "Ground Floor", "id": "ground_floor", "icon": "mdi:home-floor-1"},
+    {"name": "Upstairs", "id": "upstairs", "icon": "mdi:home-floor-2"},
+]
 
 # Define Areas
 AREAS = [
-    {"name": "Living Room", "id": "living_room"},
-    {"name": "Kitchen", "id": "kitchen"},
-    {"name": "Master Bedroom", "id": "master_bedroom"},
-    {"name": "Bedroom 2", "id": "bedroom_2"},
-    {"name": "Bedroom 3", "id": "bedroom_3"},
-    {"name": "Office", "id": "office"},
-    {"name": "Bathroom", "id": "bathroom"},
+    {"name": "Living Room", "id": "living_room", "floor_id": "ground_floor"},
+    {"name": "Kitchen", "id": "kitchen", "floor_id": "ground_floor"},
+    {"name": "Master Bedroom", "id": "master_bedroom", "floor_id": "upstairs"},
+    {"name": "Bedroom 2", "id": "bedroom_2", "floor_id": "upstairs"},
+    {"name": "Bedroom 3", "id": "bedroom_3", "floor_id": "upstairs"},
+    {"name": "Office", "id": "office", "floor_id": "ground_floor"},
+    {"name": "Bathroom", "id": "bathroom", "floor_id": "ground_floor"},
 ]
 
 # Define Entity links (unique_id -> area_id)
@@ -29,6 +36,7 @@ ENTITY_AREA_MAP = {
     "climate_bedroom_2": "bedroom_2",
     "climate_bedroom_3": "bedroom_3",
     "climate_office": "office",
+    "climate_office_ac": "office",
     "climate_bathroom": "bathroom",
 }
 
@@ -46,6 +54,7 @@ INPUT_BOOLEANS = {
     "heater_bedroom_3": {"name": "Bedroom 3 Heater", "icon": "mdi:radiator", "area_id": "bedroom_3"},
     "heater_office": {"name": "Office Heater", "icon": "mdi:radiator", "area_id": "office"},
     "heater_bathroom": {"name": "Bathroom Heater", "icon": "mdi:radiator", "area_id": "bathroom"},
+    "ac_office": {"name": "Office AC", "icon": "mdi:air-conditioner", "area_id": "office"},
     "window_master_bedroom": {
         "name": "Master Bedroom Window",
         "icon": "mdi:window-closed",
@@ -139,6 +148,24 @@ def save_json(path: str, data: dict):
         json.dump(data, f, indent=4)
 
 
+def setup_floors():
+    """Create floors in the registry."""
+    data = {"version": 1, "minor_version": 1, "key": "core.floor_registry", "data": {"floors": []}}
+    
+    current_floors = data["data"]["floors"]
+    
+    for floor in FLOORS:
+        current_floors.append({
+            "aliases": [],
+            "floor_id": floor["id"],
+            "icon": floor["icon"],
+            "level": None,
+            "name": floor["name"]
+        })
+        print(f"Created Floor: {floor['name']}")
+        
+    save_json(FLOOR_REGISTRY_PATH, data)
+
 def setup_areas():
     data = load_json(AREA_REGISTRY_PATH)
     if not isinstance(data.get("data"), dict):
@@ -151,7 +178,19 @@ def setup_areas():
     existing_ids = {a["id"] for a in current_areas}
 
     for area in AREAS:
-        if area["id"] not in existing_ids:
+        floor_id = area.get("floor_id")
+        
+        # Check if area already exists
+        found = False
+        for ex_area in current_areas:
+            if ex_area["id"] == area["id"]:
+                # Update existing area
+                ex_area["floor_id"] = floor_id
+                found = True
+                print(f"Updated Area: {area['name']} (Floor: {floor_id})")
+                break
+        
+        if not found:
             current_areas.append(
                 {
                     "aliases": [],
@@ -159,13 +198,13 @@ def setup_areas():
                     "id": area["id"],
                     "name": area["name"],
                     "picture": None,
-                    "floor_id": None,
+                    "floor_id": floor_id,
                     "labels": [],
                     "humidity_entity_id": None,
                     "temperature_entity_id": None,
                 }
             )
-            print(f"Created Area: {area['name']}")
+            print(f"Created Area: {area['name']} (Floor: {floor_id})")
 
     save_json(AREA_REGISTRY_PATH, data)
 
@@ -230,6 +269,7 @@ def setup_input_helpers():
 
 
 def setup_entities():
+    default_time = "1970-01-01T00:00:00+00:00"
     if not os.path.exists(ENTITY_REGISTRY_PATH):
         data = {"version": 1, "minor_version": 1, "key": "core.entity_registry", "data": {"entities": []}}
     else:
@@ -303,17 +343,24 @@ def setup_entities():
 
             # Common Registry creation
             new_ent = {
+                "aliases": [],
                 "area_id": area_id,
                 "capabilities": {},
+                "categories": {},
                 "config_entry_id": None,
+                "config_subentry_id": None,
+                "created_at": default_time,
+                "modified_at": default_time,
                 "device_class": None,
                 "device_id": None,
                 "disabled_by": None,
                 "entity_category": None,
                 "entity_id": entity_id,
+                "has_entity_name": False,
                 "hidden_by": None,
                 "icon": None,
                 "id": uuid.uuid4().hex,
+                "labels": [],
                 "name": None,
                 "options": {},
                 "original_device_class": None,
@@ -321,6 +368,7 @@ def setup_entities():
                 "original_name": None,
                 "platform": platform,
                 "supported_features": 0,
+                "translation_key": None,
                 "unique_id": unique_id,
                 "unit_of_measurement": None,
             }
@@ -342,7 +390,16 @@ import time
 
 def wipe_dashboard_storage():
     """Delete storage files to force a factory reset."""
-    for path in [CLIMATE_DASHBOARD_PATH, RESTORE_STATE_PATH]:
+    paths = [
+        CLIMATE_DASHBOARD_PATH,
+        RESTORE_STATE_PATH,
+        FLOOR_REGISTRY_PATH,
+        ENTITY_REGISTRY_PATH,
+        AREA_REGISTRY_PATH,
+        INPUT_BOOLEAN_PATH,
+        INPUT_NUMBER_PATH
+    ]
+    for path in paths:
         if os.path.exists(path):
             try:
                 os.remove(path)
@@ -394,7 +451,8 @@ def seed_restore_state():
 
 if __name__ == "__main__":
     wipe_dashboard_storage()  # Factory Reset first
-    setup_areas()
+    setup_floors() # Create Floors
+    setup_areas()  # Create Areas (linked to floors)
     setup_input_helpers()
     seed_restore_state()  # Seed history so they wake up at 19.0
     setup_entities()  # Updated to handle new items? (Actually skipped helpers for now)
