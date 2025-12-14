@@ -135,7 +135,19 @@ async def test_climate_actuator_heat(hass: HomeAssistant) -> None:
 
     await zone._async_control_actuator()
 
-    mock_services.async_call.assert_called_once_with(
+    # Expect explicit mode switch first, then temp set
+    assert mock_services.async_call.call_count == 2
+
+    # 1. Mode Switch
+    mock_services.async_call.assert_any_call(
+        "climate",
+        "set_hvac_mode",
+        {"entity_id": CLIMATE_HEATER_ID, "hvac_mode": HVACMode.HEAT},
+        blocking=True,
+    )
+
+    # 2. Temp Set
+    mock_services.async_call.assert_any_call(
         "climate",
         "set_temperature",
         {"entity_id": CLIMATE_HEATER_ID, "temperature": 22.0, "hvac_mode": HVACMode.HEAT},
@@ -170,7 +182,19 @@ async def test_cooling_logic(hass: HomeAssistant) -> None:
 
     await zone._async_control_actuator()
 
-    mock_services.async_call.assert_called_once_with(
+    # Expect explicit mode switch first, then temp set
+    assert mock_services.async_call.call_count == 2
+
+    # 1. Mode Switch
+    mock_services.async_call.assert_any_call(
+        "climate",
+        "set_hvac_mode",
+        {"entity_id": CLIMATE_COOLER_ID, "hvac_mode": HVACMode.COOL},
+        blocking=True,
+    )
+
+    # 2. Temp Set
+    mock_services.async_call.assert_any_call(
         "climate",
         "set_temperature",
         {"entity_id": CLIMATE_COOLER_ID, "temperature": 22.0, "hvac_mode": HVACMode.COOL},

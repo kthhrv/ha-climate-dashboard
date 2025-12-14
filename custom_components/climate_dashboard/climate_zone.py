@@ -470,10 +470,10 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                     valid_modes = state.attributes.get("hvac_modes", [])
                     target_mode = None
 
-                    if HVACMode.HEAT in valid_modes:
-                        target_mode = HVACMode.HEAT
-                    elif HVACMode.HEAT_COOL in valid_modes:
+                    if HVACMode.HEAT_COOL in valid_modes:
                         target_mode = HVACMode.HEAT_COOL
+                    elif HVACMode.HEAT in valid_modes:
+                        target_mode = HVACMode.HEAT
                     elif HVACMode.AUTO in valid_modes:
                         target_mode = HVACMode.AUTO
 
