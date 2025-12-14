@@ -237,6 +237,28 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         if active_block:
             if active_block["hvac_mode"] == "heat":
                 self._attr_target_temperature = active_block["target_temp"]
+        else:
+            # Lookback Logic: Check previous days
+            days_map = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+            current_day_idx = now.weekday()
+
+            found_block = None
+
+            # Look back up to 7 days
+            for i in range(1, 8):
+                prev_day_idx = (current_day_idx - i) % 7
+                prev_day_name = days_map[prev_day_idx]
+
+                prev_day_blocks = [b for b in self._schedule if prev_day_name in b["days"]]
+                if prev_day_blocks:
+                    # Sort by start time and take the LAST block of that day
+                    prev_day_blocks.sort(key=lambda b: b["start_time"])
+                    found_block = prev_day_blocks[-1]
+                    break
+
+            if found_block:
+                if found_block["hvac_mode"] == "heat":
+                    self._attr_target_temperature = found_block["target_temp"]
 
         # Calculate next scheduled change
         self._calculate_next_scheduled_change(now)
