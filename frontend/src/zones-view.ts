@@ -187,12 +187,7 @@ export class ZonesView extends LitElement {
           >
             Off
           </button>
-          <button
-            class="mode-btn ${zone.state === "heat" ? "active" : ""}"
-            @click=${(e: Event) => this._setMode(e, zone.entity_id, "heat")}
-          >
-            Heat
-          </button>
+
           <button
             class="mode-btn ${zone.state === "auto" ? "active" : ""}"
             @click=${(e: Event) => this._setMode(e, zone.entity_id, "auto")}

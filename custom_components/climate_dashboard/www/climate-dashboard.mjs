@@ -36,7 +36,7 @@ let ye = class {
   }
 };
 const ke = (s) => new ye(typeof s == "string" ? s : s + "", void 0, ae),
-  I = (s, ...e) => {
+  z = (s, ...e) => {
     const t =
       s.length === 1
         ? s[0]
@@ -91,8 +91,8 @@ const {
     defineProperty: Pe,
     getOwnPropertyDescriptor: Oe,
     getOwnPropertyNames: De,
-    getOwnPropertySymbols: Ie,
-    getPrototypeOf: ze,
+    getOwnPropertySymbols: ze,
+    getPrototypeOf: Ie,
   } = Object,
   k = globalThis,
   he = k.trustedTypes,
@@ -187,7 +187,7 @@ let N = class extends HTMLElement {
   }
   static _$Ei() {
     if (this.hasOwnProperty(R("elementProperties"))) return;
-    const e = ze(this);
+    const e = Ie(this);
     (e.finalize(),
       e.l !== void 0 && (this.l = [...e.l]),
       (this.elementProperties = new Map(e.elementProperties)));
@@ -198,7 +198,7 @@ let N = class extends HTMLElement {
       ((this.finalized = !0), this._$Ei(), this.hasOwnProperty(R("properties")))
     ) {
       const t = this.properties,
-        o = [...De(t), ...Ie(t)];
+        o = [...De(t), ...ze(t)];
       for (const i of o) this.createProperty(i, t[i]);
     }
     const e = this[Symbol.metadata];
@@ -938,7 +938,7 @@ oe == null || oe({ LitElement: y });
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const z = (s) => (e, t) => {
+const I = (s) => (e, t) => {
   t !== void 0
     ? t.addInitializer(() => {
         customElements.define(s, e);
@@ -1174,7 +1174,7 @@ let f = class extends y {
     `;
   }
 };
-f.styles = I`
+f.styles = z`
     :host {
       display: none;
       position: fixed;
@@ -1265,7 +1265,7 @@ x([h()], f.prototype, "_temperatureSensor", 2);
 x([h()], f.prototype, "_heaters", 2);
 x([h()], f.prototype, "_coolers", 2);
 x([h()], f.prototype, "_windowSensors", 2);
-f = x([z("adopt-dialog")], f);
+f = x([I("adopt-dialog")], f);
 var Ke = Object.defineProperty,
   Xe = Object.getOwnPropertyDescriptor,
   L = (s, e, t, o) => {
@@ -1372,7 +1372,7 @@ let E = class extends y {
       this._fetchDevices());
   }
 };
-E.styles = I`
+E.styles = z`
     :host {
       display: block;
       padding: 16px;
@@ -1440,7 +1440,7 @@ L([h()], E.prototype, "_devices", 2);
 L([h()], E.prototype, "_loading", 2);
 L([h()], E.prototype, "_dialogOpen", 2);
 L([h()], E.prototype, "_selectedEntity", 2);
-E = L([z("setup-view")], E);
+E = L([I("setup-view")], E);
 var Ye = Object.defineProperty,
   Ge = Object.getOwnPropertyDescriptor,
   ee = (s, e, t, o) => {
@@ -1584,7 +1584,7 @@ let B = class extends y {
     );
   }
 };
-B.styles = I`
+B.styles = z`
     /* ... existing styles ... */
     :host {
       display: block;
@@ -1761,7 +1761,7 @@ B.styles = I`
 ee([m({ attribute: !1 })], B.prototype, "hass", 2);
 ee([m()], B.prototype, "focusZoneId", 2);
 ee([h()], B.prototype, "_selectedDay", 2);
-B = ee([z("timeline-view")], B);
+B = ee([I("timeline-view")], B);
 var Qe = Object.defineProperty,
   et = Object.getOwnPropertyDescriptor,
   Ae = (s, e, t, o) => {
@@ -1837,12 +1837,7 @@ let G = class extends y {
           >
             Off
           </button>
-          <button
-            class="mode-btn ${s.state === "heat" ? "active" : ""}"
-            @click=${(r) => this._setMode(r, s.entity_id, "heat")}
-          >
-            Heat
-          </button>
+
           <button
             class="mode-btn ${s.state === "auto" ? "active" : ""}"
             @click=${(r) => this._setMode(r, s.entity_id, "auto")}
@@ -1908,7 +1903,7 @@ let G = class extends y {
       ));
   }
 };
-G.styles = I`
+G.styles = z`
     :host {
       display: block;
       padding: 16px;
@@ -2004,7 +1999,7 @@ G.styles = I`
     }
   `;
 Ae([m({ attribute: !1 })], G.prototype, "hass", 2);
-G = Ae([z("zones-view")], G);
+G = Ae([I("zones-view")], G);
 var tt = Object.defineProperty,
   it = Object.getOwnPropertyDescriptor,
   v = (s, e, t, o) => {
@@ -2244,7 +2239,7 @@ let g = class extends y {
     `;
   }
 };
-g.styles = I`
+g.styles = z`
     :host {
       display: block;
       padding: 16px;
@@ -2338,7 +2333,7 @@ v([h()], g.prototype, "_windowSensors", 2);
 v([h()], g.prototype, "_restoreDelayMinutes", 2);
 v([h()], g.prototype, "_loading", 2);
 v([h()], g.prototype, "_error", 2);
-g = v([z("zone-editor")], g);
+g = v([I("zone-editor")], g);
 var st = Object.defineProperty,
   ot = Object.getOwnPropertyDescriptor,
   T = (s, e, t, o) => {
@@ -2534,7 +2529,7 @@ let w = class extends y {
     `;
   }
 };
-w.styles = I`
+w.styles = z`
     :host {
       display: block;
       padding: 16px;
@@ -2658,7 +2653,7 @@ T([h()], w.prototype, "_schedule", 2);
 T([h()], w.prototype, "_loading", 2);
 T([h()], w.prototype, "_uniqueId", 2);
 T([h()], w.prototype, "_config", 2);
-w = T([z("schedule-editor")], w);
+w = T([I("schedule-editor")], w);
 var at = Object.defineProperty,
   nt = Object.getOwnPropertyDescriptor,
   U = (s, e, t, o) => {
@@ -2817,7 +2812,7 @@ let S = class extends y {
     `;
   }
 };
-S.styles = I`
+S.styles = z`
     :host {
       display: flex;
       flex-direction: column;
@@ -2888,7 +2883,7 @@ U([m({ attribute: !1 })], S.prototype, "panel", 2);
 U([h()], S.prototype, "_view", 2);
 U([h()], S.prototype, "_editingZoneId", 2);
 U([h()], S.prototype, "_unmanagedCount", 2);
-S = U([z("climate-dashboard")], S);
+S = U([I("climate-dashboard")], S);
 console.info(
   "%c CLIMATE-DASHBOARD %c 0.0.1 ",
   "color: white; background: #03a9f4; font-weight: 700;",
