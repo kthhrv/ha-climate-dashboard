@@ -157,20 +157,16 @@ async def test_cooling_logic(hass: HomeAssistant) -> None:
         {"supported_features": ClimateEntityFeature.TARGET_TEMPERATURE, "hvac_modes": [HVACMode.COOL, HVACMode.OFF]},
     )
 
-    zone._attr_hvac_mode = HVACMode.AUTO  # Or Heat/Cool, but Cool logic runs here
-    # For now, simplistic logic: active_mode relies on HVACMode or Auto
-    # But wait, code says: if HVACMode.HEAT or AUTO.
-
-    zone._attr_hvac_mode = HVACMode.HEAT  # This enables control loop
-    # Wait, the code handles AUTO/HEAT similarly.
-    # Logic: if error < -tolerance -> Coolers ON.
-
-    zone._attr_target_temperature = 22.0
-    zone._attr_current_temperature = 25.0  # Needs cool
-
+    # Mock Services (Missing in previous version causing ServiceNotFound)
     mock_services = MagicMock()
     zone.hass.services = mock_services
     mock_services.async_call = AsyncMock()
+
+    zone._attr_hvac_mode = HVACMode.AUTO  # Or Heat/Cool, but Cool logic runs here
+    # Set conditions for cooling: Current > Target + Tolerance
+    # Default Target=20, Tolerance=0.5 (need check), set Current=25
+    zone._attr_target_temperature = 22.0
+    zone._attr_current_temperature = 25.0
 
     await zone._async_control_actuator()
 
@@ -274,7 +270,6 @@ async def test_callbacks_and_public_methods(hass: HomeAssistant) -> None:
     zone.hass.services = mock_services
     mock_services.async_call = AsyncMock()
 
-    # 1. Test Public Setters (High coverage for async_set_...)
     await zone.async_set_temperature(temperature=21.5)
     assert zone.target_temperature == 21.5
 
@@ -672,3 +667,126 @@ async def test_auto_mode_temporary_hold(hass: HomeAssistant) -> None:
         assert zone.extra_state_attributes.get("manual_override_end") is None
         # Target should be new block (21.0)
         assert zone.target_temperature == 21.0
+
+
+async def test_ecobee_auto_heat_call(hass: HomeAssistant) -> None:
+    """Test Ecobee behavior when Zone is in Auto and calling for heat."""
+    ECOBEE_ID = "climate.real_ecobee"
+
+    # Mock Ecobee: Supports HEAT_COOL, HEAT, OFF.
+    # Current state: OFF or HEAT_COOL.
+    hass.states.async_set(
+        ECOBEE_ID,
+        HVACMode.HEAT_COOL,
+        {
+            "supported_features": ClimateEntityFeature.TARGET_TEMPERATURE_RANGE
+            | ClimateEntityFeature.TARGET_TEMPERATURE,
+            "hvac_modes": [HVACMode.HEAT_COOL, HVACMode.HEAT, HVACMode.OFF],
+            "min_temp": 7,
+            "max_temp": 35,
+        },
+    )
+
+    zone = ClimateZone(hass, "zone_kitchen", "Kitchen", SENSOR_ID, heaters=[ECOBEE_ID], coolers=[], window_sensors=[])
+
+    # Register mock service
+    control_mock = AsyncMock()
+    # We expect 'set_temperature' calls mostly
+    hass.services.async_register("climate", "set_temperature", control_mock)
+    mode_mock = AsyncMock()
+    hass.services.async_register("climate", "set_hvac_mode", mode_mock)
+
+    await zone.async_added_to_hass()
+
+    # Set Zone to AUTO
+    await zone.async_set_hvac_mode(HVACMode.AUTO)
+
+    # Set Temp to 25.0
+    # First: Set Sensor state. This triggers background update.
+    hass.states.async_set(SENSOR_ID, "20.0")
+    # Wait for background task (which might turn things OFF due to default target)
+    await hass.async_block_till_done()
+
+    # Reset mocks to ignore that background noise
+    control_mock.reset_mock()
+    mode_mock.reset_mock()
+
+    # Now perform the user action we want to test
+    zone._attr_target_temperature = 25.0
+    zone._attr_current_temperature = 20.0  # Ensure internal state is sync (though update_temp does it)
+
+    # Trigger Control
+    await zone._async_control_actuator()
+
+    # Expect: set_heaters(True) -> call set_temperature with hvac_mode=HEAT (or HEAT_COOL)
+    # DEFINITELY NOT OFF
+
+    assert control_mock.call_count > 0
+    # control_mock is the service handler. It is called with a ServiceCall object.
+    # call_args[0] is tuple of args, first arg is the ServiceCall object.
+    service_call = control_mock.call_args[0][0]
+    service_data = service_call.data
+
+    assert service_data["entity_id"] == ECOBEE_ID
+    assert service_data.get("hvac_mode") != HVACMode.OFF
+    # It should be HEAT or HEAT_COOL because we called set_heaters(True)
+    assert service_data.get("hvac_mode") in (HVACMode.HEAT, HVACMode.HEAT_COOL)
+
+    # Verify set_hvac_mode was NOT called (which would be used for OFF)
+    mode_mock.assert_not_called()
+
+
+async def test_ecobee_range_mismatch(hass: HomeAssistant) -> None:
+    """Test scenario where current features trigger Range, but we switch to Heat (which expects Temp)."""
+    ECOBEE_ID = "climate.ecobee_mismatch"
+
+    # Mock Ecobee: Currently in HEAT_COOL (supports RANGE only), but supports HEAT mode.
+    hass.states.async_set(
+        ECOBEE_ID,
+        HVACMode.HEAT_COOL,
+        {
+            "supported_features": ClimateEntityFeature.TARGET_TEMPERATURE_RANGE,  # RANGE ONLY currently
+            "hvac_modes": [HVACMode.HEAT_COOL, HVACMode.HEAT, HVACMode.OFF],
+            "min_temp": 7,
+            "max_temp": 35,
+        },
+    )
+
+    zone = ClimateZone(
+        hass, "zone_mismatch", "Mismatch Zone", SENSOR_ID, heaters=[ECOBEE_ID], coolers=[], window_sensors=[]
+    )
+    control_mock = AsyncMock()
+    hass.services.async_register("climate", "set_temperature", control_mock)
+    mode_mock = AsyncMock()
+    hass.services.async_register("climate", "set_hvac_mode", mode_mock)
+
+    await zone.async_added_to_hass()
+    await zone.async_set_hvac_mode(HVACMode.AUTO)  # Default target is 20 if logic holds? Or None?
+
+    # Avoid async race
+    hass.states.async_set(SENSOR_ID, "20.0")
+    await hass.async_block_till_done()
+    control_mock.reset_mock()
+
+    # Manual Heat Call
+    zone._attr_target_temperature = 25.0
+    zone._attr_current_temperature = 20.0
+    await zone._async_control_actuator()
+
+    # Analyze Call
+    assert control_mock.call_count > 0
+    service_call = control_mock.call_args[0][0]
+    data = service_call.data
+
+    # The FIX (UPDATED): We prefer HEAT_COOL mode now if likely available.
+    # Because Ecobee supports HEAT_COOL, we select it.
+
+    assert data["hvac_mode"] == HVACMode.HEAT_COOL
+
+    has_range = "target_temp_low" in data
+    # HEAT_COOL implies Range support if feature bit is set (which it is)
+
+    # Assert Correct Behavior
+    assert has_range, "Code should send Range args for HEAT_COOL mode"
+    assert data["target_temp_low"] == 25.0
+    assert data["target_temp_high"] == 30.0  # 25 + 5 gap

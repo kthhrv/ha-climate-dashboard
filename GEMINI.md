@@ -31,7 +31,7 @@
     * We use the `async_add_entities` callback pattern (saved to `hass.data`).
     * **Naming Convention:** `climate.zone_[friendly_name]` (e.g., `climate.zone_office`).
 
-### The "SmartZone" Engine (Python)
+### The "ClimateZone" Engine (Python)
 * **Base Class:** Inherits from `ClimateEntity`.
 * **Logic:** Custom implementation (DO NOT use `generic_thermostat` or `switch_template`).
 * **Capabilities:**
@@ -58,6 +58,6 @@
 ## 6. MVP Roadmap
 1.  **Skeleton:** Sidebar Panel registration + WebSocket "Hello World".
 2.  **The Setup:** Scan `hass.states` and list "Unmanaged" climate devices.
-3.  **The Engine:** `SmartZone` class that can take a `climate` entity and "wrap" it (mirroring state).
-4.  **Adoption Flow:** UI button to convert "Unmanaged" -> "SmartZone".
+3.  **The Engine:** `ClimateZone` class that can take a `climate` entity and "wrap" it (mirroring state).
+4.  **Adoption Flow:** UI button to convert "Unmanaged" -> "Climate Zone".
 5.  **Scheduling:** Basic time-block logic attached directly to the Zone.

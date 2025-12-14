@@ -4,12 +4,14 @@ import { customElement, property, state } from "lit/decorators.js";
 @customElement("timeline-view")
 export class TimelineView extends LitElement {
   @property({ attribute: false }) public hass!: any;
+  @property() public focusZoneId?: string;
 
   @state() private _selectedDay: string = new Date()
     .toLocaleDateString("en-US", { weekday: "short" })
     .toLowerCase();
 
   static styles = css`
+    /* ... existing styles ... */
     :host {
       display: block;
       padding: 16px;
@@ -20,12 +22,11 @@ export class TimelineView extends LitElement {
       padding: 16px;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
+    /* Rest of CSS same as before, omitted for brevity if replace works right */
     h2 {
       margin-top: 0;
       margin-bottom: 24px;
     }
-
-    /* Day Selector */
     .day-selector {
       display: flex;
       gap: 8px;
@@ -51,14 +52,10 @@ export class TimelineView extends LitElement {
       color: white;
       border-color: var(--primary-color, #03a9f4);
     }
-
-    /* Timeline Container */
     .timeline-container {
       position: relative;
       margin-top: 20px;
     }
-
-    /* Time Axis */
     .time-axis {
       display: flex;
       justify-content: space-between;
@@ -82,8 +79,6 @@ export class TimelineView extends LitElement {
       width: 1px;
       background: var(--divider-color);
     }
-
-    /* Zone Rows */
     .zone-row {
       display: flex;
       align-items: center;
@@ -109,8 +104,6 @@ export class TimelineView extends LitElement {
       color: var(--secondary-text-color);
       font-weight: normal;
     }
-
-    /* Track Area */
     .timeline-track {
       flex: 1;
       position: relative;
@@ -119,8 +112,6 @@ export class TimelineView extends LitElement {
       border-radius: 4px;
       overflow: hidden;
     }
-
-    /* Blocks */
     .schedule-block {
       position: absolute;
       top: 0;
@@ -140,7 +131,6 @@ export class TimelineView extends LitElement {
       opacity: 0.9;
       z-index: 2;
     }
-    /* Colors */
     .mode-heat {
       background-color: var(--deep-orange-color, #ff5722);
     }
@@ -153,8 +143,6 @@ export class TimelineView extends LitElement {
     .mode-auto {
       background-color: var(--green-color, #4caf50);
     }
-
-    /* Current Time Indicator */
     .current-time-line {
       position: absolute;
       top: 0;
@@ -179,9 +167,14 @@ export class TimelineView extends LitElement {
   protected render(): TemplateResult {
     if (!this.hass) return html``;
 
-    const zones = Object.values(this.hass.states).filter(
+    let zones = Object.values(this.hass.states).filter(
       (s: any) => s.attributes.is_climate_dashboard_zone,
     );
+
+    // Filter if focusZoneId is present
+    if (this.focusZoneId) {
+      zones = zones.filter((s: any) => s.entity_id === this.focusZoneId);
+    }
 
     const days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
     const todayStr = new Date()

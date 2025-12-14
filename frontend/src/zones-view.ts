@@ -32,6 +32,7 @@ export class ZonesView extends LitElement {
       flex-direction: column;
       align-items: center;
       text-align: center;
+      position: relative;
     }
     .card:active {
       transform: scale(0.98);
@@ -90,6 +91,20 @@ export class ZonesView extends LitElement {
       color: white;
       border-color: var(--primary-color, #03a9f4);
     }
+    .settings-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      color: var(--secondary-text-color);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 50%;
+    }
+    .settings-btn:hover {
+      background: rgba(0, 0, 0, 0.05);
+    }
   `;
 
   protected render(): TemplateResult {
@@ -142,7 +157,14 @@ export class ZonesView extends LitElement {
     const currentTemp = zone.attributes.current_temperature;
 
     return html`
-      <div class="card" @click=${() => this._openZone(zone.entity_id)}>
+      <div class="card" @click=${() => this._openDetails(zone.entity_id)}>
+        <button
+          class="settings-btn"
+          @click=${(e: Event) => this._openSettings(e, zone.entity_id)}
+        >
+          <ha-icon icon="mdi:cog"></ha-icon>
+        </button>
+
         <div class="icon" style="color: ${iconColor || "inherit"}">
           <ha-icon icon="${icon}"></ha-icon>
         </div>
@@ -227,9 +249,20 @@ export class ZonesView extends LitElement {
     });
   }
 
-  private _openZone(entityId: string) {
+  private _openDetails(entityId: string) {
     this.dispatchEvent(
-      new CustomEvent("zone-selected", {
+      new CustomEvent("zone-details", {
+        detail: { entityId },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  private _openSettings(e: Event, entityId: string) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("zone-settings", {
         detail: { entityId },
         bubbles: true,
         composed: true,

@@ -482,10 +482,10 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                     if "temperature" in service_data or "target_temp_low" in service_data:
                         # Determine valid HVAC mode
                         valid_modes = state.attributes.get("hvac_modes", [])
-                        if HVACMode.HEAT in valid_modes:
-                            service_data["hvac_mode"] = HVACMode.HEAT
-                        elif HVACMode.HEAT_COOL in valid_modes:
+                        if HVACMode.HEAT_COOL in valid_modes:
                             service_data["hvac_mode"] = HVACMode.HEAT_COOL
+                        elif HVACMode.HEAT in valid_modes:
+                            service_data["hvac_mode"] = HVACMode.HEAT
                         elif HVACMode.AUTO in valid_modes:
                             # Some thermostats only work in Auto
                             service_data["hvac_mode"] = HVACMode.AUTO

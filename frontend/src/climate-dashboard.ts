@@ -122,11 +122,6 @@ export class ClimateDashboard extends LitElement {
       }));
   }
 
-  private _handleZoneClick(e: CustomEvent) {
-    this._editingZoneId = e.detail.entityId;
-    this._view = "editor";
-  }
-
   protected render(): TemplateResult {
     return html`
       <div class="header">
@@ -145,7 +140,10 @@ export class ClimateDashboard extends LitElement {
                 <ha-icon icon="mdi:arrow-left"></ha-icon>
               </button>
             `
-          : html`<div style="width: 40px;"></div>`}
+          : html`<ha-menu-button
+              .hass=${this.hass}
+              .narrow=${this.narrow}
+            ></ha-menu-button>`}
 
         <div class="title">Climate</div>
 
@@ -179,7 +177,15 @@ export class ClimateDashboard extends LitElement {
         ${this._view === "zones"
           ? html`<zones-view
               .hass=${this.hass}
-              @zone-selected=${this._handleZoneClick}
+              @zone-settings=${(e: CustomEvent) => {
+                this._editingZoneId = e.detail.entityId;
+                this._view = "editor";
+              }}
+              @zone-details=${(e: CustomEvent) => {
+                // TODO: Pass focusZoneId to timeline
+                this._editingZoneId = e.detail.entityId;
+                this._view = "timeline";
+              }}
             ></zones-view>`
           : ""}
         ${this._view === "setup"
@@ -188,6 +194,7 @@ export class ClimateDashboard extends LitElement {
         ${this._view === "timeline"
           ? html` <timeline-view
               .hass=${this.hass}
+              .focusZoneId=${this._editingZoneId}
               @schedule-selected=${(e: CustomEvent) => {
                 this._editingZoneId = e.detail.entityId;
                 this._view = "schedule";
