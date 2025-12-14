@@ -467,6 +467,26 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
                 if enable:
                     # Smart Thermostat Logic
+                    valid_modes = state.attributes.get("hvac_modes", [])
+                    target_mode = None
+
+                    if HVACMode.HEAT in valid_modes:
+                        target_mode = HVACMode.HEAT
+                    elif HVACMode.HEAT_COOL in valid_modes:
+                        target_mode = HVACMode.HEAT_COOL
+                    elif HVACMode.AUTO in valid_modes:
+                        target_mode = HVACMode.AUTO
+
+                    # Explicitly force mode if not currently set
+                    # This fixes issues where set_temperature(hvac_mode=...) is ignored
+                    if target_mode and state.state != target_mode:
+                        await self.hass.services.async_call(
+                            "climate",
+                            "set_hvac_mode",
+                            {"entity_id": entity_id, "hvac_mode": target_mode},
+                            blocking=True,
+                        )
+
                     service_data: dict[str, Any] = {"entity_id": entity_id}
 
                     if features & ClimateEntityFeature.TARGET_TEMPERATURE:
@@ -480,15 +500,9 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                         pass
 
                     if "temperature" in service_data or "target_temp_low" in service_data:
-                        # Determine valid HVAC mode
-                        valid_modes = state.attributes.get("hvac_modes", [])
-                        if HVACMode.HEAT_COOL in valid_modes:
-                            service_data["hvac_mode"] = HVACMode.HEAT_COOL
-                        elif HVACMode.HEAT in valid_modes:
-                            service_data["hvac_mode"] = HVACMode.HEAT
-                        elif HVACMode.AUTO in valid_modes:
-                            # Some thermostats only work in Auto
-                            service_data["hvac_mode"] = HVACMode.AUTO
+                        # Ensure we pass the mode to set_temperature as well if meaningful
+                        if target_mode:
+                            service_data["hvac_mode"] = target_mode
 
                         await self.hass.services.async_call(
                             "climate",
@@ -497,26 +511,11 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                             blocking=True,
                         )
                     else:
-                        # Fallback (Simple On/Off)
-                        # Find a valid "On" mode
-                        valid_modes = state.attributes.get("hvac_modes", [])
-                        target_mode = None
-
-                        if HVACMode.HEAT in valid_modes:
-                            target_mode = HVACMode.HEAT
-                        elif HVACMode.HEAT_COOL in valid_modes:
-                            target_mode = HVACMode.HEAT_COOL
-                        elif HVACMode.AUTO in valid_modes:
-                            target_mode = HVACMode.AUTO
-
-                        if target_mode:
-                            await self.hass.services.async_call(
-                                "climate",
-                                "set_hvac_mode",
-                                {"entity_id": entity_id, "hvac_mode": target_mode},
-                                blocking=True,
-                            )
-                        else:
+                        # Fallback (Simple On/Off) - if no temp features, we already set mode above if needed
+                        # But if we didn't set it above (because it was already set), we might need to enforce it now?
+                        # Actually if state.state == target_mode we are good.
+                        # If we didn't find a target mode, we warn.
+                        if not target_mode:
                             _LOGGER.warning(
                                 "Entity %s configured as heater but does not support "
                                 "Heat, Heat_Cool, or Auto. Modes: %s",
@@ -538,20 +537,41 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                     if not state:
                         continue
                     features = state.attributes.get("supported_features", 0)
+                    valid_modes = state.attributes.get("hvac_modes", [])
+
+                    # Determine target HVAC Mode
+                    target_mode = HVACMode.COOL
+                    if HVACMode.COOL not in valid_modes:
+                        if HVACMode.HEAT_COOL in valid_modes:
+                            target_mode = HVACMode.HEAT_COOL
+                        elif HVACMode.AUTO in valid_modes:
+                            target_mode = HVACMode.AUTO
+
+                    # Explicitly force mode if not currently set
+                    # This fixes issues where set_temperature(hvac_mode=...) is ignored
+                    if state.state != target_mode:
+                        await self.hass.services.async_call(
+                            "climate",
+                            "set_hvac_mode",
+                            {"entity_id": entity_id, "hvac_mode": target_mode},
+                            blocking=True,
+                        )
 
                     service_data: dict[str, Any] = {
                         "entity_id": entity_id,
-                        "hvac_mode": HVACMode.COOL,
+                        # We still pass hvac_mode here just in case, or for range entities
+                        "hvac_mode": target_mode,
                     }
 
                     if features & ClimateEntityFeature.TARGET_TEMPERATURE:
                         service_data["temperature"] = self._attr_target_temperature
                     elif features & ClimateEntityFeature.TARGET_TEMPERATURE_RANGE:
-                        service_data["hvac_mode"] = HVACMode.HEAT_COOL  # Range usually implies Heat/Cool
+                        # Range usually implies Heat/Cool
+                        # Determine high/low relative to target
                         service_data["target_temp_high"] = self._attr_target_temperature
                         service_data["target_temp_low"] = self._attr_target_temperature - 5  # Safety gap
 
-                    # Ensure we have a target
+                    # Ensure we have a payload
                     if "temperature" in service_data or "target_temp_high" in service_data:
                         await self.hass.services.async_call(
                             "climate",
