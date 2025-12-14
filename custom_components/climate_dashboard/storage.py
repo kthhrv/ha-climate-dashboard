@@ -23,8 +23,8 @@ class ScheduleBlock(TypedDict):
     name: str
     days: list[str]  # ["mon", "tue", ...]
     start_time: str  # "08:00"
-    target_temp: float
-    hvac_mode: str  # "heat", "off"
+    temp_heat: float
+    temp_cool: float
 
 
 class ClimateZoneConfig(TypedDict):

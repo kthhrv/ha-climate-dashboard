@@ -32,12 +32,15 @@
     * **Naming Convention:** `climate.zone_[friendly_name]` (e.g., `climate.zone_office`).
 
 ### The "ClimateZone" Engine (Python)
-* **Base Class:** Inherits from `ClimateEntity`.
-* **Logic:** Custom implementation (DO NOT use `generic_thermostat` or `switch_template`).
-* **Capabilities:**
-    * **Dual Mode:** Handles `HEAT` and `COOL` in a single entity with auto-changeover logic (deadband).
-    * **Hardware Abstraction:** Can control a `switch` (bang-bang) or a `climate` device (passing through setpoints).
-    * **Wall Thermostat Sync:** Bi-directional sync with physical Zigbee dials (Screen reflects Schedule; Dial override triggers Manual Hold).
+*   **Base Class:** Inherits from `ClimateEntity`.
+*   **Zone-Level Mode:** The Zone Entity determines the HVAC Mode (`AUTO`, `HEAT`, `COOL`, `OFF`).
+    *   **Schedule Agnostic:** The schedule only dictates the "Target Temperature", not the Mode.
+*   **Control Logic:**
+    *   **Heat Mode:** Activates heaters if `current < target`.
+    *   **Cool Mode:** Activates coolers if `current > target`.
+    *   **Auto Mode:** Maintains `target ± tolerance` (Deadband Logic).
+*   **Hardware Abstraction:** Can control a `switch` (bang-bang) or a `climate` device (passing through setpoints).
+*   **Wall Thermostat Sync:** Bi-directional sync with physical Zigbee dials (Screen reflects Schedule; Dial override triggers Manual Hold).
 
 ## 4. Data Model Concepts
 
@@ -56,8 +59,23 @@
 * **State Management:** Avoid polling. Use `async_track_state_change_event` to react instantly to sensor/window changes.
 
 ## 6. MVP Roadmap
-1.  **Skeleton:** Sidebar Panel registration + WebSocket "Hello World".
-2.  **The Setup:** Scan `hass.states` and list "Unmanaged" climate devices.
-3.  **The Engine:** `ClimateZone` class that can take a `climate` entity and "wrap" it (mirroring state).
-4.  **Adoption Flow:** UI button to convert "Unmanaged" -> "Climate Zone".
-5.  **Scheduling:** Basic time-block logic attached directly to the Zone.
+- [x] **Skeleton:** Sidebar Panel registration + WebSocket "Hello World".
+- [x] **The Setup:** Scan `hass.states` and list "Unmanaged" climate devices.
+- [x] **The Engine:** `ClimateZone` class that can take a `climate` entity and "wrap" it (mirroring state).
+- [x] **Adoption Flow:** UI button to convert "Unmanaged" -> "Climate Zone".
+- [x] **Overlay Editor:** UI for managing overlays (temp/mode overrides).
+- [x] **Temperature Graph:** Visual history of zone temperatures.
+- [ ] **Smart Defaults:** "Room Type" templates for instant scheduling.
+- [ ] **Zone-Level Modes:** Decoupling Mode from Schedule for predictable behavior.
+- [ ] **Timeline View:** Unified Gantt-chart style scheduler for all zones.
+- [ ] **Zone Editor:** Visual configuration of the specific zone's schedule and rules.
+
+## 7. Development Tools
+
+* **`tools/setup_demo_registries.py`**: A helper script to verify and populate the development environment.
+    *   **Purpose:** Ensures consistent demo data for testing "Adoption" flows.
+    *   **Actions:**
+        1.  Creates HA Areas (Living Room, Kitchen, etc.).
+        2.  Creates `input_boolean` (Heaters) and `input_number` (Temp Sensors) in `.storage`.
+        3.  Updates the Entity Registry to assign these new entities to the correct Areas.
+    *   **Usage:** Run via `python3 tools/setup_demo_registries.py` (automatically handles ID generation and linking).

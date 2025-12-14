@@ -13,6 +13,7 @@ export class AdoptDialog extends LitElement {
   @state() private _heaters: Set<string> = new Set();
   @state() private _coolers: Set<string> = new Set();
   @state() private _windowSensors: Set<string> = new Set();
+  @state() private _roomType = "generic";
 
   static styles = css`
     :host {
@@ -107,6 +108,24 @@ export class AdoptDialog extends LitElement {
         this._coolers.clear();
         this._windowSensors.clear();
 
+        // Simple Heuristic for Room Type
+        const lowerName = this._name.toLowerCase();
+        if (lowerName.includes("bedroom") || lowerName.includes("sleeping")) {
+          this._roomType = "bedroom";
+        } else if (
+          lowerName.includes("living") ||
+          lowerName.includes("lounge")
+        ) {
+          this._roomType = "living_room";
+        } else if (
+          lowerName.includes("office") ||
+          lowerName.includes("study")
+        ) {
+          this._roomType = "office";
+        } else {
+          this._roomType = "generic";
+        }
+
         // Guess based on domain
         if (ent.domain === "climate") {
           this._heaters.add(ent.entity_id);
@@ -144,6 +163,7 @@ export class AdoptDialog extends LitElement {
       heaters: Array.from(this._heaters),
       coolers: Array.from(this._coolers),
       window_sensors: Array.from(this._windowSensors),
+      room_type: this._roomType,
     });
     this.dispatchEvent(new CustomEvent("close"));
   }
@@ -169,6 +189,19 @@ export class AdoptDialog extends LitElement {
             .value=${this._name}
             @input=${(e: any) => (this._name = e.target.value)}
           />
+        </div>
+
+        <div class="field">
+          <label>Room Type (Smart Schedule)</label>
+          <select
+            .value=${this._roomType}
+            @change=${(e: any) => (this._roomType = e.target.value)}
+          >
+            <option value="generic">Generic (9-5)</option>
+            <option value="bedroom">Bedroom (Cool sleep)</option>
+            <option value="living_room">Living Room (Comfort evenings)</option>
+            <option value="office">Home Office (Comfort workdays)</option>
+          </select>
         </div>
 
         <div class="field">

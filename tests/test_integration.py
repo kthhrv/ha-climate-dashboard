@@ -68,7 +68,7 @@ async def test_zone_heating_cycle(hass: HomeAssistant, hass_ws_client: Any) -> N
     zone_entity_id = "climate.zone_living_room"
     state = hass.states.get(zone_entity_id)
     assert state is not None
-    assert state.state == HVACMode.OFF  # Default is OFF
+    assert state.state == HVACMode.AUTO  # Default is OFF
 
     # 3. Turn On Heat (Goal: 22C, Current: 18C)
     await hass.services.async_call(

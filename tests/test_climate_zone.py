@@ -40,7 +40,7 @@ async def test_initial_state(mock_climate_zone: ClimateZone, hass: HomeAssistant
     # Add to hass to trigger async_added_to_hass (if we were doing full entity setup)
     # For unit test of the class logic, we can just check attributes
     assert mock_climate_zone.name == ZONE_NAME
-    assert mock_climate_zone.hvac_mode == HVACMode.OFF
+    assert mock_climate_zone.hvac_mode == HVACMode.AUTO
     assert mock_climate_zone.target_temperature == 20.0  # Default
 
 
@@ -265,7 +265,7 @@ async def test_restore_state(hass: HomeAssistant) -> None:
     # Mock last state
     last_state = MagicMock()
     last_state.state = HVACMode.HEAT
-    last_state.attributes = {ATTR_ENTITY_ID: "climate.zone_restore", "temperature": 23.5}
+    last_state.attributes = {ATTR_ENTITY_ID: "climate.zone_restore", "temperature": 23.5, "unique_id": "zone_restore"}
     zone.async_get_last_state = AsyncMock(return_value=last_state)
 
     await zone.async_added_to_hass()
@@ -341,7 +341,7 @@ async def test_callbacks_and_public_methods(hass: HomeAssistant) -> None:
         # The mock above might be tricky. Let's rely on manual call.
         # Just call _apply_schedule directly or via _on_time_change
         zone._on_time_change(None)
-        assert zone.target_temperature == 20.0
+        assert zone.target_temperature_low == 20.0
 
 
 async def test_update_config_rename(hass: HomeAssistant) -> None:
@@ -422,7 +422,7 @@ async def test_last_mile_coverage(hass: HomeAssistant) -> None:
     last_state.state = "invalid_mode"  # Not in HVAC_MODES
     zone.async_get_last_state = AsyncMock(return_value=last_state)
     await zone.async_added_to_hass()
-    assert zone.hvac_mode == HVACMode.OFF
+    assert zone.hvac_mode == HVACMode.AUTO
 
     # 2. Async Set Temp missing arg (Line 194)
     await zone.async_set_temperature()  # No args
@@ -663,7 +663,7 @@ async def test_auto_mode_temporary_hold(hass: HomeAssistant) -> None:
         # Initial Setup
         await zone.async_set_hvac_mode(HVACMode.AUTO)
         zone._apply_schedule()
-        assert zone.target_temperature == 20.0
+        assert zone.target_temperature_low == 20.0
         assert zone.extra_state_attributes.get("manual_override_end") is None
 
         # 1. Manual User Override (Set to 25.0)
@@ -690,7 +690,7 @@ async def test_auto_mode_temporary_hold(hass: HomeAssistant) -> None:
         # Override should be cleared
         assert zone.extra_state_attributes.get("manual_override_end") is None
         # Target should be new block (21.0)
-        assert zone.target_temperature == 21.0
+        assert zone.target_temperature_low == 21.0
 
 
 async def test_ecobee_auto_heat_call(hass: HomeAssistant) -> None:

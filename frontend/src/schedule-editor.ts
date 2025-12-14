@@ -4,9 +4,9 @@ import { customElement, property, state } from "lit/decorators.js";
 interface ScheduleBlock {
   name: string;
   start_time: string;
-  target_temp: number;
+  temp_heat: number;
+  temp_cool: number;
   days: string[];
-  hvac_mode: string;
 }
 
 const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
@@ -163,7 +163,15 @@ export class ScheduleEditor extends LitElement {
       const state = this.hass.states[this.zoneId];
       if (state && state.attributes.schedule) {
         // Deep copy to avoid mutating state directly
-        this._schedule = JSON.parse(JSON.stringify(state.attributes.schedule));
+        const rawSchedule = JSON.parse(
+          JSON.stringify(state.attributes.schedule),
+        );
+        // Normalize: Ensure temp_heat/temp_cool exist (Migration from target_temp)
+        this._schedule = rawSchedule.map((block: any) => ({
+          ...block,
+          temp_heat: block.temp_heat ?? block.target_temp ?? 20.0,
+          temp_cool: block.temp_cool ?? block.target_temp ?? 24.0,
+        }));
 
         // Also cache other config parts logic needs, though update API accepts individual fields?
         // Wait, update API accepts partial?
@@ -194,9 +202,9 @@ export class ScheduleEditor extends LitElement {
       {
         name: "New Block",
         start_time: "08:00",
-        target_temp: 20.0,
+        temp_heat: 20.0,
+        temp_cool: 24.0,
         days: ["mon", "tue", "wed", "thu", "fri"],
-        hvac_mode: "heat",
       },
     ];
   }
@@ -277,30 +285,32 @@ export class ScheduleEditor extends LitElement {
                     />
                   </div>
                   <div class="field">
-                    <label>Target Temp (°C)</label>
+                    <label>Heat To (°C)</label>
                     <input
                       type="number"
                       step="0.5"
-                      .value=${block.target_temp}
+                      .value=${block.temp_heat ?? 20}
                       @input=${(e: any) =>
                         this._updateBlock(
                           index,
-                          "target_temp",
+                          "temp_heat",
                           parseFloat(e.target.value),
                         )}
                     />
                   </div>
                   <div class="field">
-                    <label>Mode</label>
-                    <select
-                      .value=${block.hvac_mode}
-                      @change=${(e: any) =>
-                        this._updateBlock(index, "hvac_mode", e.target.value)}
-                    >
-                      <option value="heat">Heat</option>
-                      <option value="cool">Cool</option>
-                      <option value="off">Off</option>
-                    </select>
+                    <label>Cool To (°C)</label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      .value=${block.temp_cool ?? 24}
+                      @input=${(e: any) =>
+                        this._updateBlock(
+                          index,
+                          "temp_cool",
+                          parseFloat(e.target.value),
+                        )}
+                    />
                   </div>
                 </div>
 

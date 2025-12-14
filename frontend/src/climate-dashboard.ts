@@ -136,8 +136,10 @@ export class ClimateDashboard extends LitElement {
               <button
                 class="icon-btn"
                 @click=${() => {
-                  if (this._view === "schedule") this._view = "timeline";
-                  else {
+                  if (this._view === "schedule") {
+                    this._view = "timeline";
+                    this._editingZoneId = null;
+                  } else {
                     this._view = "zones";
                     this._editingZoneId = null;
                   }

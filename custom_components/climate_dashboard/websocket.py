@@ -31,12 +31,18 @@ def websocket_adopt_zone(
     hass.async_create_task(_async_adopt_zone(hass, connection, msg))
 
 
+from .schedules import get_default_schedule
+
+# ...
+
+
 async def _async_adopt_zone(hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]) -> None:
     name = msg["name"]
     temperature_sensor = msg["temperature_sensor"]
     heaters = msg["heaters"]
     coolers = msg["coolers"]
     window_sensors = msg["window_sensors"]
+    room_type = msg.get("room_type", "generic")
 
     # Create Zone Config
     unique_id = f"zone_{uuid.uuid4().hex[:8]}"
@@ -48,7 +54,7 @@ async def _async_adopt_zone(hass: HomeAssistant, connection: ActiveConnection, m
         "heaters": heaters,
         "coolers": coolers,
         "window_sensors": window_sensors,
-        "schedule": [],  # Empty schedule initially
+        "schedule": get_default_schedule(room_type),
         "restore_delay_minutes": msg.get("restore_delay_minutes", 0),
     }
 
@@ -158,6 +164,7 @@ def async_register_api(hass: HomeAssistant) -> None:
                 vol.Optional("coolers", default=[]): [str],
                 vol.Optional("window_sensors", default=[]): [str],
                 vol.Optional("restore_delay_minutes", default=0): int,
+                vol.Optional("room_type", default="generic"): str,
             }
         ),
     )

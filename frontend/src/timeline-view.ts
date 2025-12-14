@@ -159,7 +159,11 @@ export class TimelineView extends LitElement {
       background-color: var(--grey-color, #9e9e9e);
     }
     .mode-auto {
-      background-color: var(--green-color, #4caf50);
+      background: linear-gradient(
+        to bottom,
+        var(--blue-color, #2196f3) 50%,
+        var(--deep-orange-color, #ff5722) 50%
+      );
     }
 
     /* Current Time Indicator */
@@ -266,23 +270,83 @@ export class TimelineView extends LitElement {
           </div>
         </div>
 
-        <div class="timeline-track">
-          ${this._renderBlocks(zone.attributes.schedule || [], day)}
-        </div>
+        <div class="timeline-track">${this._renderBlocks(zone, day)}</div>
       </div>
     `;
   }
 
-  private _renderBlocks(schedule: any[], day: string): TemplateResult[] {
+  private _renderBlocks(zone: any, day: string): TemplateResult[] {
+    const schedule = zone.attributes.schedule || [];
+
+    // Timeline Block Color Logic
+    // The color should reflect the *capabilities* of the zone, not its current state.
+    // - Heat Only -> Orange
+    // - Cool Only -> Blue
+    // - Both -> Auto (Gradient)
+    // - Neither -> Gray
+    const hasHeaters = (zone.attributes.heaters || []).length > 0;
+    const hasCoolers = (zone.attributes.coolers || []).length > 0;
+
+    let zoneMode = "off";
+    if (hasHeaters && hasCoolers) {
+      zoneMode = "auto";
+    } else if (hasHeaters) {
+      zoneMode = "heat";
+    } else if (hasCoolers) {
+      zoneMode = "cool";
+    }
+
     // Filter for today
     const todaysBlocks = schedule.filter((block: any) =>
       block.days.includes(day),
     );
 
     // Sort
-    todaysBlocks.sort((a, b) => a.start_time.localeCompare(b.start_time));
+    todaysBlocks.sort((a: any, b: any) =>
+      a.start_time.localeCompare(b.start_time),
+    );
 
-    return todaysBlocks.map((block, index) => {
+    // Fix: Fill Start-of-Day Gap (Lookback Logic)
+    // If the first block starts after 00:00, we need to show what's happening before it.
+    // Logic: Look back at previous days to find the last active block.
+    const firstBlockStart =
+      todaysBlocks.length > 0 ? todaysBlocks[0].start_time : "24:00";
+    if (firstBlockStart > "00:00") {
+      const daysMap = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+      const currentDayIdx = daysMap.indexOf(day);
+
+      let foundBlock = null;
+      // Search backwards up to 7 days
+      for (let i = 1; i <= 7; i++) {
+        const prevDayIdx = (currentDayIdx - i + 7) % 7;
+        const prevDayName = daysMap[prevDayIdx];
+        const prevDayBlocks = schedule.filter((b: any) =>
+          b.days.includes(prevDayName),
+        );
+
+        if (prevDayBlocks.length > 0) {
+          // Sort to find last one
+          prevDayBlocks.sort((a: any, b: any) =>
+            a.start_time.localeCompare(b.start_time),
+          );
+          foundBlock = prevDayBlocks[prevDayBlocks.length - 1];
+          break;
+        }
+      }
+
+      if (foundBlock) {
+        // Create ghost block representing carry-over
+        const ghostBlock = {
+          ...foundBlock,
+          start_time: "00:00",
+          name: `Carry-over (${foundBlock.name})`,
+          // We render this block effectively from 00:00 to the start of the next block
+        };
+        todaysBlocks.unshift(ghostBlock);
+      }
+    }
+
+    return todaysBlocks.map((block: any, index: number) => {
       // Calculate Position
       const [h, m] = block.start_time.split(":").map(Number);
       const startMinutes = h * 60 + m;
@@ -299,13 +363,44 @@ export class TimelineView extends LitElement {
       const left = (startMinutes / 1440) * 100;
       const width = (duration / 1440) * 100;
 
+      // Label based on Zone Capabilities
+      let label = "";
+      const tHeat = block.temp_heat ?? block.target_temp;
+      const tCool = block.temp_cool ?? block.target_temp;
+
+      // Calculate Intensity (Opacity) based on Temp
+      // Range: 16C (Low) to 24C (High)
+      // Heat: Higher = More Intense
+      // Cool: Lower = More Intense
+      const minT = 16;
+      const maxT = 24;
+      let intensity = 1.0;
+
+      if (zoneMode === "heat") {
+        label = `${tHeat}°`;
+        const pct = (tHeat - minT) / (maxT - minT);
+        intensity = 0.4 + 0.6 * Math.min(Math.max(pct, 0), 1); // 0.4 to 1.0
+      } else if (zoneMode === "cool") {
+        label = `${tCool}°`;
+        const pct = (maxT - tCool) / (maxT - minT); // Inverted
+        intensity = 0.4 + 0.6 * Math.min(Math.max(pct, 0), 1);
+      } else if (zoneMode === "auto") {
+        label = `${tHeat}-${tCool}°`;
+        intensity = 0.9; // Fixed high intensity for Auto
+      } else {
+        label = `${tHeat}°`;
+        intensity = 0.5; // Off/Dim
+      }
+
       return html`
         <div
-          class="schedule-block mode-${block.hvac_mode}"
-          style="left: ${left}%; width: ${width}%;"
-          title="${block.name}: ${block.start_time} (${block.target_temp}°C)"
+          class="schedule-block mode-${zoneMode}"
+          style="left: ${left}%; width: ${width}%; opacity: ${intensity.toFixed(
+            2,
+          )};"
+          title="${block.name}: ${block.start_time} (${label})"
         >
-          ${block.target_temp}°
+          ${label}
         </div>
       `;
     });
@@ -317,7 +412,6 @@ export class TimelineView extends LitElement {
     const pct = (minutes / 1440) * 100;
 
     // Offset is 120px (label) + 16px (padding) = 136px
-    // The calc puts the line relative to the entire container width
     return html`
       <div
         class="current-time-line"

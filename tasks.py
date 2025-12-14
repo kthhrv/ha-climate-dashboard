@@ -12,6 +12,11 @@ def build_frontend(c: Context) -> None:
 @task
 def run(c: Context) -> None:
     """Run Home Assistant."""
+    print("Stopping existing Home Assistant instances...")
+    # Kill any existing hass process running with our config
+    # warn=True prevents failure if no process is found
+    c.run("pkill -f 'hass -c config'", warn=True)
+
     print("Starting Home Assistant...")
     c.run("uv run hass -c config")
 
@@ -34,3 +39,10 @@ def test_cov(c: Context) -> None:
 def dev(c: Context) -> None:
     """Build frontend and run Home Assistant."""
     run(c)
+
+
+@task
+def setup_demo(c: Context) -> None:
+    """Re-initialize the demo registries (Areas, Entities, Helpers)."""
+    print("Setting up Demo Registries...")
+    c.run("python3 tools/setup_demo_registries.py")
