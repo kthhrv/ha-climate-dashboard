@@ -12,10 +12,24 @@ def build_frontend(c: Context) -> None:
 @task
 def run(c: Context) -> None:
     """Run Home Assistant."""
+    import time
+
     print("Stopping existing Home Assistant instances...")
     # Kill any existing hass process running with our config
-    # warn=True prevents failure if no process is found
     c.run("pkill -f 'hass -c config'", warn=True)
+
+    # Wait for process to die
+    print("Waiting for shutdown...", end="", flush=True)
+    for _ in range(20):  # Wait up to 10 seconds
+        # Check if process exists
+        result = c.run("pgrep -f 'hass -c config'", warn=True, hide=True)
+        if result.failed:
+            print(" Done.")
+            break
+        print(".", end="", flush=True)
+        time.sleep(0.5)
+    else:
+        print("\nWarning: Home Assistant did not stop in time. Starting anyway...")
 
     print("Starting Home Assistant...")
     c.run("uv run hass -c config")
