@@ -172,12 +172,7 @@ export class ZonesView extends LitElement {
 
     // If no floors defined, return flat list as "Other"
     // Note: hass.floors is a dictionary { floor_id: FloorObject }
-    console.log("[ZonesView] Debugging Floor Grouping");
-    console.log("[ZonesView] hass.floors:", this.hass.floors);
-    console.log("[ZonesView] hass.areas:", this.hass.areas);
-
     if (!this.hass.floors || Object.keys(this.hass.floors).length === 0) {
-      console.warn("[ZonesView] No floors found in hass object");
       if (zones.length === 0) return [];
       return [{ floorName: null, floorIcon: null, zones }];
     }
