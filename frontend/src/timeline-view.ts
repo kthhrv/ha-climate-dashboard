@@ -201,19 +201,29 @@ export class TimelineView extends LitElement {
       background-color: var(--primary-color, #03a9f4);
       box-shadow: 0 0 0 2px rgba(3, 169, 244, 0.3);
     }
+    .floor-header {
+      margin-top: 24px;
+      margin-bottom: 8px;
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--primary-text-color);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .floor-header ha-icon {
+      color: var(--secondary-text-color);
+      --mdc-icon-size: 20px;
+    }
+    .floor-header:first-of-type {
+      margin-top: 0;
+    }
   `;
 
   protected render(): TemplateResult {
     if (!this.hass) return html``;
 
-    let zones = Object.values(this.hass.states).filter(
-      (s: any) => s.attributes.is_climate_dashboard_zone,
-    );
-
-    // Filter if focusZoneId is present
-    if (this.focusZoneId) {
-      zones = zones.filter((s: any) => s.entity_id === this.focusZoneId);
-    }
+    const groupedZones = this._getGroupedZones();
 
     const days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
     const todayStr = new Date()
@@ -237,7 +247,7 @@ export class TimelineView extends LitElement {
           )}
         </div>
 
-        ${zones.length === 0
+        ${groupedZones.length === 0
           ? html`<p>No zones adopted yet.</p>`
           : html`
               <div class="timeline-container">
@@ -259,9 +269,23 @@ export class TimelineView extends LitElement {
                 </div>
 
                 <!-- Zones -->
-                ${zones.map((zone: any) =>
-                  this._renderZoneRow(zone, this._selectedDay),
-                )}
+                ${groupedZones.map((group) => {
+                  return html`
+                    ${group.floorName
+                      ? html`
+                          <div class="floor-header">
+                            <ha-icon
+                              icon="${group.floorIcon || "mdi:home-floor-1"}"
+                            ></ha-icon>
+                            ${group.floorName}
+                          </div>
+                        `
+                      : html``}
+                    ${group.zones.map((zone: any) =>
+                      this._renderZoneRow(zone, this._selectedDay),
+                    )}
+                  `;
+                })}
 
                 <!-- Current Time Indicator (Only show if viewing today) -->
                 ${this._selectedDay === todayStr
@@ -271,6 +295,95 @@ export class TimelineView extends LitElement {
             `}
       </div>
     `;
+  }
+
+  private _getGroupedZones(): {
+    floorName: string | null;
+    floorIcon: string | null;
+    zones: any[];
+  }[] {
+    if (!this.hass) return [];
+
+    let zones = Object.values(this.hass.states).filter(
+      (s: any) => s.attributes.is_climate_dashboard_zone,
+    );
+
+    // Filter if focusZoneId is present
+    if (this.focusZoneId) {
+      zones = zones.filter((s: any) => s.entity_id === this.focusZoneId);
+      // If focused, just return flat list effectively (one group, null header)
+      return [{ floorName: null, floorIcon: null, zones }];
+    }
+
+    // Identify Floors
+    // Note: hass.floors is a dictionary { floor_id: FloorObject }
+    if (!this.hass.floors || Object.keys(this.hass.floors).length === 0) {
+      if (zones.length === 0) return [];
+      return [{ floorName: null, floorIcon: null, zones }];
+    }
+
+    // Map: Floor ID -> Zones
+    const floorMap: Record<
+      string,
+      {
+        floorName: string;
+        floorIcon: string | null;
+        level: number | null;
+        zones: any[];
+      }
+    > = {};
+
+    const unassignedZones: any[] = [];
+
+    zones.forEach((zone: any) => {
+      // Find area of this zone entity
+      const entityReg = this.hass.entities?.[zone.entity_id];
+      const areaId = entityReg?.area_id;
+      const area = areaId ? this.hass.areas?.[areaId] : null;
+      const floorId = area?.floor_id;
+
+      if (floorId && this.hass.floors?.[floorId]) {
+        const floor = this.hass.floors[floorId];
+        if (!floorMap[floorId]) {
+          floorMap[floorId] = {
+            floorName: floor.name,
+            floorIcon: floor.icon,
+            level: floor.level,
+            zones: [],
+          };
+        }
+        floorMap[floorId].zones.push(zone);
+      } else {
+        unassignedZones.push(zone);
+      }
+    });
+
+    // Sort floors by level DESC (b - a)
+    const sortedFloors = Object.values(floorMap).sort((a, b) => {
+      if (a.level !== null && b.level !== null) return b.level - a.level;
+      return a.floorName.localeCompare(b.floorName);
+    });
+
+    // Build final result
+    const result: {
+      floorName: string | null;
+      floorIcon: string | null;
+      zones: any[];
+    }[] = sortedFloors.map((f) => ({
+      floorName: f.floorName,
+      floorIcon: f.floorIcon,
+      zones: f.zones,
+    }));
+
+    if (unassignedZones.length > 0) {
+      result.push({
+        floorName: "Other Devices",
+        floorIcon: "mdi:devices",
+        zones: unassignedZones,
+      });
+    }
+
+    return result;
   }
 
   private _renderZoneRow(zone: any, day: string): TemplateResult {
