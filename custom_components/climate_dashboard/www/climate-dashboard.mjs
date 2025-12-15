@@ -1950,12 +1950,15 @@ let v = class extends x {
         </div>
 
         <div class="actions">
-          <button class="delete" @click=${() => this._showDeleteDialog = !0}>
-            Delete Helper
+          <button
+            class="delete"
+            @click=${() => this._showDeleteDialog = !0}
+          >
+            Delete
           </button>
           <div style="flex: 1"></div>
           <button class="cancel" @click=${this._goBack}>Cancel</button>
-          <button class="save" @click=${this._save}>Save Changes</button>
+          <button class="save" @click=${this._save}>Save</button>
         </div>
 
         <!-- Confirmation Dialog -->

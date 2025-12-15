@@ -375,11 +375,11 @@ export class ZoneEditor extends LitElement {
             class="delete"
             @click=${() => (this._showDeleteDialog = true)}
           >
-            Delete Helper
+            Delete
           </button>
           <div style="flex: 1"></div>
           <button class="cancel" @click=${this._goBack}>Cancel</button>
-          <button class="save" @click=${this._save}>Save Changes</button>
+          <button class="save" @click=${this._save}>Save</button>
         </div>
 
         <!-- Confirmation Dialog -->
