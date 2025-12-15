@@ -1903,15 +1903,19 @@ let f = class extends w {
     return l`
       <div class="card">
         <h2>
-            Edit Zone: ${this._name}
-            ${this._zoneAreaId ? l`
-                <label style="font-size: 0.9rem; display: flex; align-items: center; gap: 6px; color: var(--primary-color);">
-                    <input type="checkbox" 
-                           ?checked=${this._filterByArea}
-                           @change=${(i) => this._filterByArea = i.target.checked}>
-                    Only ${this._zoneAreaName}
+          Edit Zone: ${this._name}
+          ${this._zoneAreaId ? l`
+                <label
+                  style="font-size: 0.9rem; display: flex; align-items: center; gap: 6px; color: var(--primary-color);"
+                >
+                  <input
+                    type="checkbox"
+                    ?checked=${this._filterByArea}
+                    @change=${(i) => this._filterByArea = i.target.checked}
+                  />
+                  Only ${this._zoneAreaName}
                 </label>
-            ` : ""}
+              ` : ""}
         </h2>
 
         <div class="field">
