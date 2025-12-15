@@ -1,5 +1,7 @@
 import { LitElement, html, css } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+// import { fireEvent } from "./fire-event";
+// import "@material/mwc-button";
 
 @customElement("zone-editor")
 export class ZoneEditor extends LitElement {
@@ -95,6 +97,24 @@ export class ZoneEditor extends LitElement {
     .save {
       background: var(--primary-color, #03a9f4);
       color: white;
+    }
+    .dialog-btn {
+      background: transparent;
+      border: none;
+      color: var(--primary-color, #03a9f4);
+      font-weight: 500;
+      text-transform: uppercase;
+      padding: 10px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      letter-spacing: 0.0892857143em;
+    }
+    .dialog-btn.delete-confirm {
+      color: var(--error-color, #f44336);
+    }
+    .dialog-btn:hover {
+      background: rgba(0, 0, 0, 0.04);
     }
     .delete {
       background: var(--error-color, #f44336);
@@ -213,9 +233,9 @@ export class ZoneEditor extends LitElement {
     }
   }
 
-  private async _delete() {
-    if (!confirm("Are you sure you want to delete this zone?")) return;
+  @state() private _showDeleteDialog = false;
 
+  private async _deleteConfirm() {
     try {
       await this.hass.callWS({
         type: "climate_dashboard/delete",
@@ -223,7 +243,10 @@ export class ZoneEditor extends LitElement {
       });
       this._goBack();
     } catch (e: any) {
+      console.error("[ZoneEditor] Delete failed:", e);
       alert("Delete failed: " + e.message);
+    } finally {
+      this._showDeleteDialog = false;
     }
   }
 
@@ -348,10 +371,44 @@ export class ZoneEditor extends LitElement {
         </div>
 
         <div class="actions">
-          <button class="delete" @click=${this._delete}>Delete Helper</button>
+          <button
+            class="delete"
+            @click=${() => (this._showDeleteDialog = true)}
+          >
+            Delete Helper
+          </button>
+          <div style="flex: 1"></div>
           <button class="cancel" @click=${this._goBack}>Cancel</button>
           <button class="save" @click=${this._save}>Save Changes</button>
         </div>
+
+        <!-- Confirmation Dialog -->
+        <ha-dialog
+          .open=${this._showDeleteDialog}
+          @closed=${() => (this._showDeleteDialog = false)}
+          heading="Delete Zone"
+        >
+          <div>
+            Are you sure you want to delete <strong>${this._name}</strong>? This
+            action cannot be undone.
+          </div>
+          <div slot="secondaryAction">
+            <button
+              class="dialog-btn"
+              @click=${() => (this._showDeleteDialog = false)}
+            >
+              Cancel
+            </button>
+          </div>
+          <div slot="primaryAction">
+            <button
+              class="dialog-btn delete-confirm"
+              @click=${this._deleteConfirm}
+            >
+              Delete
+            </button>
+          </div>
+        </ha-dialog>
       </div>
     `;
   }

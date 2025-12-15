@@ -92,7 +92,9 @@ async def async_setup_platform(
 
         for uid in removed_ids:
             entity = loaded_entities.pop(uid)
-            _LOGGER.info("Removing Climate Zone entity: %s", entity.entity_id)
+            # We should probably remove the entity from HA here if possible,
+            # but for now we just drop our reference. The entity remains in HA registry
+            # until restart unless we explicitly remove it.
 
             # 1. Remove from Registry (to prevent zombie caching)
             from homeassistant.helpers import entity_registry as er
