@@ -284,9 +284,9 @@ Z.elementStyles = [], Z.shadowRootOptions = { mode: "open" }, Z[J("elementProper
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const K = globalThis, re = K.trustedTypes, Se = re ? re.createPolicy("lit-html", { createHTML: (s) => s }) : void 0, Ie = "$lit$", C = `lit$${Math.random().toFixed(9).slice(2)}$`, ze = "?" + C, Ve = `<${ze}>`, T = document, X = () => T.createComment(""), Y = (s) => s === null || typeof s != "object" && typeof s != "function", be = Array.isArray, Ge = (s) => be(s) || typeof (s == null ? void 0 : s[Symbol.iterator]) == "function", ue = `[ 	
+const K = globalThis, re = K.trustedTypes, Se = re ? re.createPolicy("lit-html", { createHTML: (s) => s }) : void 0, Ie = "$lit$", C = `lit$${Math.random().toFixed(9).slice(2)}$`, Te = "?" + C, Ve = `<${Te}>`, z = document, X = () => z.createComment(""), Y = (s) => s === null || typeof s != "object" && typeof s != "function", be = Array.isArray, Ge = (s) => be(s) || typeof (s == null ? void 0 : s[Symbol.iterator]) == "function", ue = `[ 	
 \f\r]`, G = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Ae = /-->/g, ke = />/g, P = RegExp(`>|${ue}(?:([^\\s"'>=/]+)(${ue}*=${ue}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`, "g"), Ce = /'/g, Ee = /"/g, Te = /^(?:script|style|textarea|title)$/i, Je = (s) => (e, ...t) => ({ _$litType$: s, strings: e, values: t }), l = Je(1), H = Symbol.for("lit-noChange"), f = Symbol.for("lit-nothing"), De = /* @__PURE__ */ new WeakMap(), I = T.createTreeWalker(T, 129);
+\f\r"'\`<>=]|("|')|))|$)`, "g"), Ce = /'/g, Ee = /"/g, ze = /^(?:script|style|textarea|title)$/i, Je = (s) => (e, ...t) => ({ _$litType$: s, strings: e, values: t }), l = Je(1), H = Symbol.for("lit-noChange"), f = Symbol.for("lit-nothing"), De = /* @__PURE__ */ new WeakMap(), I = z.createTreeWalker(z, 129);
 function Ne(s, e) {
   if (!be(s) || !s.hasOwnProperty("raw")) throw Error("invalid template strings array");
   return Se !== void 0 ? Se.createHTML(e) : e;
@@ -297,7 +297,7 @@ const Ke = (s, e) => {
   for (let c = 0; c < t; c++) {
     const a = s[c];
     let d, p, h = -1, _ = 0;
-    for (; _ < a.length && (n.lastIndex = _, p = n.exec(a), p !== null); ) _ = n.lastIndex, n === G ? p[1] === "!--" ? n = Ae : p[1] !== void 0 ? n = ke : p[2] !== void 0 ? (Te.test(p[2]) && (i = RegExp("</" + p[2], "g")), n = P) : p[3] !== void 0 && (n = P) : n === P ? p[0] === ">" ? (n = i ?? G, h = -1) : p[1] === void 0 ? h = -2 : (h = n.lastIndex - p[2].length, d = p[1], n = p[3] === void 0 ? P : p[3] === '"' ? Ee : Ce) : n === Ee || n === Ce ? n = P : n === Ae || n === ke ? n = G : (n = P, i = void 0);
+    for (; _ < a.length && (n.lastIndex = _, p = n.exec(a), p !== null); ) _ = n.lastIndex, n === G ? p[1] === "!--" ? n = Ae : p[1] !== void 0 ? n = ke : p[2] !== void 0 ? (ze.test(p[2]) && (i = RegExp("</" + p[2], "g")), n = P) : p[3] !== void 0 && (n = P) : n === P ? p[0] === ">" ? (n = i ?? G, h = -1) : p[1] === void 0 ? h = -2 : (h = n.lastIndex - p[2].length, d = p[1], n = p[3] === void 0 ? P : p[3] === '"' ? Ee : Ce) : n === Ee || n === Ce ? n = P : n === Ae || n === ke ? n = G : (n = P, i = void 0);
     const m = n === P && s[c + 1].startsWith("/>") ? " " : "";
     r += n === G ? a + Ve : h >= 0 ? (o.push(d), a.slice(0, h) + Ie + a.slice(h) + C + m) : a + C + (h === -2 ? c : m);
   }
@@ -319,7 +319,7 @@ class Q {
           const _ = p[n++], m = i.getAttribute(h).split(C), $ = /([.?@])?(.*)/.exec(_);
           a.push({ type: 1, index: r, name: $[2], strings: m, ctor: $[1] === "." ? Ye : $[1] === "?" ? Qe : $[1] === "@" ? et : ae }), i.removeAttribute(h);
         } else h.startsWith(C) && (a.push({ type: 6, index: r }), i.removeAttribute(h));
-        if (Te.test(i.tagName)) {
+        if (ze.test(i.tagName)) {
           const h = i.textContent.split(C), _ = h.length - 1;
           if (_ > 0) {
             i.textContent = re ? re.emptyScript : "";
@@ -327,7 +327,7 @@ class Q {
             i.append(h[_], X());
           }
         }
-      } else if (i.nodeType === 8) if (i.data === ze) a.push({ type: 2, index: r });
+      } else if (i.nodeType === 8) if (i.data === Te) a.push({ type: 2, index: r });
       else {
         let h = -1;
         for (; (h = i.data.indexOf(C, h + 1)) !== -1; ) a.push({ type: 7, index: r }), h += C.length - 1;
@@ -336,7 +336,7 @@ class Q {
     }
   }
   static createElement(e, t) {
-    const o = T.createElement("template");
+    const o = z.createElement("template");
     return o.innerHTML = e, o;
   }
 }
@@ -358,7 +358,7 @@ class Xe {
     return this._$AM._$AU;
   }
   u(e) {
-    const { el: { content: t }, parts: o } = this._$AD, i = ((e == null ? void 0 : e.creationScope) ?? T).importNode(t, !0);
+    const { el: { content: t }, parts: o } = this._$AD, i = ((e == null ? void 0 : e.creationScope) ?? z).importNode(t, !0);
     I.currentNode = i;
     let r = I.nextNode(), n = 0, c = 0, a = o[0];
     for (; a !== void 0; ) {
@@ -368,7 +368,7 @@ class Xe {
       }
       n !== (a == null ? void 0 : a.index) && (r = I.nextNode(), n++);
     }
-    return I.currentNode = T, i;
+    return I.currentNode = z, i;
   }
   p(e) {
     let t = 0;
@@ -404,7 +404,7 @@ class ee {
     this._$AH !== e && (this._$AR(), this._$AH = this.O(e));
   }
   _(e) {
-    this._$AH !== f && Y(this._$AH) ? this._$AA.nextSibling.data = e : this.T(T.createTextNode(e)), this._$AH = e;
+    this._$AH !== f && Y(this._$AH) ? this._$AA.nextSibling.data = e : this.T(z.createTextNode(e)), this._$AH = e;
   }
   $(e) {
     var r;
@@ -520,7 +520,7 @@ const it = (s, e, t) => {
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const z = globalThis;
+const T = globalThis;
 class x extends Z {
   constructor() {
     super(...arguments), this.renderOptions = { host: this }, this._$Do = void 0;
@@ -547,10 +547,10 @@ class x extends Z {
   }
 }
 var Oe;
-x._$litElement$ = !0, x.finalized = !0, (Oe = z.litElementHydrateSupport) == null || Oe.call(z, { LitElement: x });
-const _e = z.litElementPolyfillSupport;
+x._$litElement$ = !0, x.finalized = !0, (Oe = T.litElementHydrateSupport) == null || Oe.call(T, { LitElement: x });
+const _e = T.litElementPolyfillSupport;
 _e == null || _e({ LitElement: x });
-(z.litElementVersions ?? (z.litElementVersions = [])).push("4.2.1");
+(T.litElementVersions ?? (T.litElementVersions = [])).push("4.2.1");
 /**
  * @license
  * Copyright 2017 Google LLC
@@ -1591,6 +1591,8 @@ let ne = class extends x {
         hour: "2-digit",
         minute: "2-digit"
       })}`;
+    else if (s.attributes.open_window_sensor)
+      i = `${s.attributes.open_window_sensor} open`;
     else if (o === "auto" && e) {
       const r = new Date(e).toLocaleTimeString([], {
         hour: "2-digit",

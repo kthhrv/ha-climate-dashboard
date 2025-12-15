@@ -88,6 +88,8 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self._attr_target_temperature_high: float | None = None
         self._attr_target_temperature_low: float | None = None
 
+        self._attr_open_window_sensor: str | None = None
+
     async def async_update_config(
         self,
         name: str,
@@ -154,6 +156,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             "next_scheduled_change": self._attr_next_scheduled_change,
             "next_scheduled_temp": self._attr_next_scheduled_temp,
             "manual_override_end": self._attr_manual_override_end,
+            "open_window_sensor": self._attr_open_window_sensor,
         }
 
     # ... (skipping unchanged methods until async_set_hvac_mode)
@@ -444,18 +447,21 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         await self._async_control_actuator()
         self.async_write_ha_state()
 
-    def _is_window_open(self) -> bool:
-        """Check if any window is open."""
+    def _get_open_window_sensor(self) -> str | None:
+        """Check if any window is open and return its friendly name (or None)."""
         for window in self._window_sensors:
             state = self.hass.states.get(window)
             if state and state.state == "on":
-                return True
-        return False
+                return state.attributes.get("friendly_name") or window
+        return None
 
     async def _async_control_actuator(self) -> None:
         """Control the actuators based on state."""
         # Safety Check: Windows
-        if self._is_window_open():
+        open_sensor = self._get_open_window_sensor()
+        self._attr_open_window_sensor = open_sensor
+
+        if open_sensor:
             # Force everything OFF
             await self._async_turn_off_all()
             self._attr_hvac_action = HVACAction.OFF

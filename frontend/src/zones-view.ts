@@ -329,6 +329,8 @@ export class ZonesView extends LitElement {
         minute: "2-digit",
       });
       message = `Overridden until ${time}`;
+    } else if (zone.attributes.open_window_sensor) {
+      message = `${zone.attributes.open_window_sensor} open`;
     } else if (mode === "auto" && nextChange) {
       const time = new Date(nextChange).toLocaleTimeString([], {
         hour: "2-digit",
