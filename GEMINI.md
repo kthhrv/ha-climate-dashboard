@@ -56,19 +56,25 @@
 * **Naming:**
     * User-facing entities: `climate.zone_*`
     * Internal variables: `target_temp`, `current_temp`, `actuator_entity`.
-* **State Management:** Avoid polling. Use `async_track_state_change_event` to react instantly to sensor/window changes.
+## 6. Project Roadmap
 
-## 6. MVP Roadmap
-- [x] **Skeleton:** Sidebar Panel registration + WebSocket "Hello World".
-- [x] **The Setup:** Scan `hass.states` and list "Unmanaged" climate devices.
-- [x] **The Engine:** `ClimateZone` class that can take a `climate` entity and "wrap" it (mirroring state).
-- [x] **Adoption Flow:** UI button to convert "Unmanaged" -> "Climate Zone".
-- [x] **Overlay Editor:** UI for managing overlays (temp/mode overrides).
-- [x] **Temperature Graph:** Visual history of zone temperatures.
-- [ ] **Smart Defaults:** "Room Type" templates for instant scheduling.
-- [ ] **Zone-Level Modes:** Decoupling Mode from Schedule for predictable behavior.
-- [ ] **Timeline View:** Unified Gantt-chart style scheduler for all zones.
-- [ ] **Zone Editor:** Visual configuration of the specific zone's schedule and rules.
+### Immediate Next Steps
+- [ ] **Failsafes & Safety:**
+    - Handle "Unavailable" sensors gracefully (safety default temp).
+    - Frontend visual warnings for offline sensors.
+- [ ] **Timeline Interactivity:**
+    - Drag-and-drop to move schedule blocks.
+    - Resize blocks to change duration.
+- [ ] **Global Modes:**
+    - Implement "Home" vs "Away" logic affecting all zones.
+- [ ] **Smart Defaults:**
+    - "Room Type" templates (e.g., "Bedroom", "Office") for instant scheduling.
+
+### Future
+- [ ] **Zone Editor:**
+    - Advanced rule configuration (e.g., "Window Open" delays).
+- [ ] **Hardware Abstraction:**
+    - Better support for AC units (fan/swing control).
 
 ## 7. Development Tools
 

@@ -296,11 +296,17 @@ export class ZoneEditor extends LitElement {
     const heaterCandidates = this._getEntityList(["climate", "switch"]);
     const coolerCandidates = this._getEntityList(["climate"]);
     const windowCandidates = this._getEntityList(["binary_sensor"]);
-    const sensorCandidates = this.allEntities.filter(
+    let sensorCandidates = this.allEntities.filter(
       (e) =>
         (e.domain === "sensor" && e.device_class === "temperature") ||
         e.domain === "climate",
     );
+
+    if (this._filterByArea && this._zoneAreaId) {
+      sensorCandidates = sensorCandidates.filter(
+        (e) => e.area_id === this._zoneAreaId,
+      );
+    }
 
     return html`
       <div class="card">

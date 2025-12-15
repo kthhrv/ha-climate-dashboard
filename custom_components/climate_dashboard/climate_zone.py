@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import Any, Callable
@@ -15,10 +16,12 @@ from homeassistant.components.climate import (
 )
 from homeassistant.const import (
     ATTR_TEMPERATURE,
+    EVENT_HOMEASSISTANT_STARTED,
     PRECISION_TENTHS,
     UnitOfTemperature,
 )
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import CoreState, HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import (
     async_call_later,
     async_track_state_change_event,
@@ -34,6 +37,7 @@ _LOGGER = logging.getLogger(__name__)
 # Default settings
 DEFAULT_TOLERANCE = 0.3
 DEFAULT_TARGET_TEMP = 20.0
+SAFETY_TARGET_TEMP = 5.0
 
 
 class ClimateZone(ClimateEntity, RestoreEntity):
@@ -75,6 +79,8 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self._restore_delay_minutes = restore_delay_minutes
         self._restore_timer: Callable[[], None] | None = None
         self._attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT, HVACMode.AUTO]
+        if self._coolers:
+            self._attr_hvac_modes.append(HVACMode.COOL)
 
         self._attr_current_temperature: float | None = None
         self._attr_target_temperature: float | None = DEFAULT_TARGET_TEMP
@@ -89,6 +95,10 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self._attr_target_temperature_low: float | None = None
 
         self._attr_open_window_sensor: str | None = None
+
+        # Safety & Failsafe Attributes
+        self._attr_safety_mode: bool = False
+        self._attr_using_fallback_sensor: str | None = None
 
     async def async_update_config(
         self,
@@ -157,6 +167,8 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             "next_scheduled_temp": self._attr_next_scheduled_temp,
             "manual_override_end": self._attr_manual_override_end,
             "open_window_sensor": self._attr_open_window_sensor,
+            "safety_mode": self._attr_safety_mode,
+            "using_fallback_sensor": self._attr_using_fallback_sensor,
         }
 
     # ... (skipping unchanged methods until async_set_hvac_mode)
@@ -196,9 +208,35 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self._async_update_temp()
 
         # Initial schedule check
+        # Initial schedule check
         if self._attr_hvac_mode == HVACMode.AUTO:
             self._apply_schedule()
 
+        # Initial schedule check
+        if self._attr_hvac_mode == HVACMode.AUTO:
+            self._apply_schedule()
+
+        # Wait for HA to be fully started before running control logic
+        if self.hass.state == CoreState.running:
+            await self._async_initial_control()
+        else:
+            self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, self._async_initial_control)
+
+    @callback
+    async def _async_initial_control(self, _event: Any = None) -> None:
+        """Run initial control loop after HA startup."""
+        _LOGGER.debug("Running initial control for %s", self.entity_id)
+
+        # Retry loop: Wait for sensor to become valid
+        for attempt in range(1, 11):  # Try for 10 seconds
+            self._async_update_temp()
+            if self._attr_current_temperature is not None:
+                break
+
+            _LOGGER.debug("Zone %s waiting for sensor %s (Attempt %d/10)", self.name, self._temperature_sensor, attempt)
+            await asyncio.sleep(1.0)
+
+        # Finally run control (will trigger Safety Mode if still None)
         await self._async_control_actuator()
 
     @callback
@@ -455,8 +493,48 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                 return state.attributes.get("friendly_name") or window
         return None
 
+    def _get_backup_sensor_value(self) -> tuple[float, str] | None:
+        """Attempt to find a fallback sensor in the same Area."""
+        ent_reg = er.async_get(self.hass)
+        my_entry = ent_reg.async_get(self.entity_id)
+
+        if not my_entry or not my_entry.area_id:
+            return None
+
+        # Find other sensors in area
+        candidates = [
+            e
+            for e in ent_reg.entities.values()
+            if e.area_id == my_entry.area_id
+            and e.domain == "sensor"
+            and e.entity_id != self._temperature_sensor
+            and e.disabled_by is None
+        ]
+
+        for cand in candidates:
+            state = self.hass.states.get(cand.entity_id)
+            if not state or state.state in ("unknown", "unavailable"):
+                continue
+
+            # Check for temperature class or unit
+            uom = state.attributes.get("unit_of_measurement")
+            d_class = state.attributes.get("device_class")
+
+            if d_class == "temperature" or uom in (UnitOfTemperature.CELSIUS, UnitOfTemperature.FAHRENHEIT):
+                try:
+                    val = float(state.state)
+                    # Found one!
+                    return (val, cand.entity_id)
+                except ValueError:
+                    continue
+
+        return None
+
     async def _async_control_actuator(self) -> None:
         """Control the actuators based on state."""
+        # Force update of sensor state to avoid stale fallback values!
+        self._async_update_temp()
+
         # Safety Check: Windows
         open_sensor = self._get_open_window_sensor()
         self._attr_open_window_sensor = open_sensor
@@ -465,24 +543,77 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             # Force everything OFF
             await self._async_turn_off_all()
             self._attr_hvac_action = HVACAction.OFF
+            self._attr_safety_mode = False
+            self._attr_using_fallback_sensor = None
             self.async_write_ha_state()
             return
 
         if self._attr_hvac_mode == HVACMode.OFF:
             await self._async_turn_off_all()
             self._attr_hvac_action = HVACAction.OFF
+            self._attr_safety_mode = False
+            self._attr_using_fallback_sensor = None
             self.async_write_ha_state()
             return
 
         if self._attr_hvac_mode in (HVACMode.HEAT, HVACMode.AUTO):
-            if self._attr_current_temperature is None:
-                await self._async_turn_off_all()
-                self._attr_hvac_action = HVACAction.IDLE
-                self.async_write_ha_state()
-                return
+            current = self._attr_current_temperature
+
+            # --- FAILSAFE LOGIC ---
+            if current is None:
+                # 1. Try Area Fallback
+                fallback = self._get_backup_sensor_value()
+                if fallback:
+                    current, sensor_id = fallback
+                    self._attr_using_fallback_sensor = sensor_id
+                    self._attr_safety_mode = False
+                    self._attr_current_temperature = current  # Update state for UI
+                    _LOGGER.warning("Zone %s using fallback sensor: %s", self.name, sensor_id)
+                else:
+                    # 2. Safety Mode (Delegated Protection)
+                    self._attr_safety_mode = True
+                    self._attr_using_fallback_sensor = None
+                    self._attr_hvac_action = HVACAction.IDLE  # Or special action?
+
+                    _LOGGER.warning("Zone %s entering SAFETY MODE (No sensors). Delegating to TRVs.", self.name)
+
+                    # - Smart Actuators: Set to SAFETY_TARGET_TEMP (5C) + HEAT
+                    # - Dumb Actuators: OFF
+                    for entity_id in self._heaters:
+                        domain = entity_id.split(".")[0]
+                        if domain == "climate":
+                            # TRV / AC Logic
+                            # Check supported range
+                            state = self.hass.states.get(entity_id)
+                            safe_temp = SAFETY_TARGET_TEMP
+
+                            if state:
+                                min_temp = state.attributes.get("min_temp")
+                                if min_temp is not None and safe_temp < min_temp:
+                                    safe_temp = min_temp
+
+                                await self.hass.services.async_call(
+                                    "climate",
+                                    "set_temperature",
+                                    {"entity_id": entity_id, "temperature": safe_temp, "hvac_mode": HVACMode.HEAT},
+                                    blocking=True,
+                                )
+                        elif domain == "switch":
+                            if self.hass.states.get(entity_id):
+                                # Unsafe to run switch blindly
+                                await self.hass.services.async_call("switch", "turn_off", {"entity_id": entity_id})
+
+                    # Also turn off coolers if any
+                    await self._async_set_coolers(False)
+
+                    self.async_write_ha_state()
+                    return
+            else:
+                # Normal Operation
+                self._attr_safety_mode = False
+                self._attr_using_fallback_sensor = None
 
             target = self._attr_target_temperature
-            current = self._attr_current_temperature
 
             # Zone-Level Mode Logic
             if self._attr_hvac_mode == HVACMode.HEAT:
@@ -548,8 +679,9 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         for entity_id in self._heaters:
             domain = entity_id.split(".")[0]
             if domain == "switch":
-                service = "turn_on" if enable else "turn_off"
-                await self.hass.services.async_call("switch", service, {"entity_id": entity_id})
+                if self.hass.states.get(entity_id):
+                    service = "turn_on" if enable else "turn_off"
+                    await self.hass.services.async_call("switch", service, {"entity_id": entity_id})
             elif domain == "climate":
                 state = self.hass.states.get(entity_id)
                 if not state:
@@ -673,6 +805,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                             blocking=True,
                         )
                 else:
-                    await self.hass.services.async_call(
-                        "climate", "set_hvac_mode", {"entity_id": entity_id, "hvac_mode": HVACMode.OFF}
-                    )
+                    if self.hass.states.get(entity_id):
+                        await self.hass.services.async_call(
+                            "climate", "set_hvac_mode", {"entity_id": entity_id, "hvac_mode": HVACMode.OFF}
+                        )

@@ -238,7 +238,7 @@ GENERIC_THERMOSTATS = [
     {
         "name": "Office AC",
         "unique_id": "climate_office_ac",
-        "heater": "input_boolean.ac_office",
+        "heater": "input_boolean.office_ac",
         "target_sensor": "input_number.office_temp",
         "min_temp": 10,
         "max_temp": 30,

@@ -257,7 +257,13 @@ export class ZonesView extends LitElement {
     let iconColor = "";
 
     // Status coloring based on Action (what it's doing) or State (what it's set to)
-    if (hvacAction === "heating") {
+    if (zone.attributes.safety_mode) {
+      icon = "mdi:alert-circle";
+      iconColor = "var(--error-color, #db4437)";
+    } else if (zone.attributes.using_fallback_sensor) {
+      icon = "mdi:thermometer-alert";
+      iconColor = "var(--warning-color, #ffa726)";
+    } else if (hvacAction === "heating") {
       icon = "mdi:fire";
       iconColor = "var(--deep-orange-color, #ff5722)";
     } else if (hvacAction === "cooling") {
@@ -323,7 +329,11 @@ export class ZonesView extends LitElement {
 
     let message = "";
 
-    if (overrideEnd) {
+    if (zone.attributes.safety_mode) {
+      message = "Sensor Unavailable: Safety Mode active";
+    } else if (zone.attributes.using_fallback_sensor) {
+      message = "Warning: Using Area Fallback Sensor";
+    } else if (overrideEnd) {
       const time = new Date(overrideEnd).toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
