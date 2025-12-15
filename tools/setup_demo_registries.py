@@ -44,6 +44,9 @@ ENTITY_AREA_MAP = {
     # Binary Sensors (Templates)
     "binary_sensor_kitchen_door": "kitchen",
     "binary_sensor_master_bedroom_window": "master_bedroom",
+    # Standalone Sensors (Templates)
+    "sensor_living_room_standalone_temp": "living_room",
+    "sensor_bedroom_2_standalone_temp": "bedroom_2",
 }
 
 INPUT_BOOLEAN_PATH = os.path.join(STORAGE_DIR, "input_boolean")
@@ -145,6 +148,27 @@ INPUT_NUMBERS: dict[str, dict[str, Any]] = {
         "icon": "mdi:thermometer",
         "initial": 19.0,
         "area_id": "bathroom",
+    },
+    # Standalone Sensors (Input Numbers acting as the hardware)
+    "temp_living_room_standalone": {
+        "name": "Living Room Standalone Temp Source",
+        "min": 10,
+        "max": 40,
+        "step": 0.1,
+        "unit": "°C",
+        "icon": "mdi:thermometer",
+        "initial": 21.0,
+        "area_id": "__SKIP__",  # Wrapped by template sensor
+    },
+    "temp_bedroom_2_standalone": {
+        "name": "Bedroom 2 Standalone Temp Source",
+        "min": 10,
+        "max": 40,
+        "step": 0.1,
+        "unit": "°C",
+        "icon": "mdi:thermometer",
+        "initial": 20.0,
+        "area_id": "__SKIP__",  # Wrapped by template sensor
     },
 }
 
@@ -324,6 +348,10 @@ def setup_entities() -> None:
                 platform = "template"
             elif unique_id.startswith("climate_"):
                 entity_id = "climate." + unique_id[8:]
+            elif unique_id.startswith("sensor_"):
+                # sensor_living_room_standalone_temp -> sensor.living_room_standalone_temp
+                entity_id = "sensor." + unique_id[7:]
+                platform = "template"
 
             if len(unique_id) == 36:  # UUID length check for Helpers
                 # Guess Entity ID from INPUT_BOOLEANS / NUMBERS reverse lookup?
