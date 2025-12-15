@@ -11,6 +11,8 @@ AREA_REGISTRY_PATH = os.path.join(STORAGE_DIR, "core.area_registry")
 ENTITY_REGISTRY_PATH = os.path.join(STORAGE_DIR, "core.entity_registry")
 FLOOR_REGISTRY_PATH = os.path.join(STORAGE_DIR, "core.floor_registry")
 CLIMATE_DASHBOARD_PATH = os.path.join(STORAGE_DIR, "climate_dashboard")
+CONFIG_ENTRIES_PATH = os.path.join(STORAGE_DIR, "core.config_entries")
+CONFIGURATION_YAML_PATH = os.path.join(CONFIG_DIR, "configuration.yaml")
 
 # Define Floors
 FLOORS = [
@@ -172,6 +174,127 @@ INPUT_NUMBERS: dict[str, dict[str, Any]] = {
     },
 }
 
+GENERIC_THERMOSTATS = [
+    {
+        "name": "Living Room",
+        "unique_id": "climate_living_room",
+        "heater": "input_boolean.living_room_heater",
+        "target_sensor": "input_number.living_room_temp",
+        "min_temp": 10,
+        "max_temp": 30,
+        "ac_mode": False,
+        "target_temp": 21,
+    },
+    {
+        "name": "Kitchen",
+        "unique_id": "climate_kitchen",
+        "heater": "input_boolean.kitchen_heater",
+        "target_sensor": "input_number.kitchen_temp",
+        "min_temp": 10,
+        "max_temp": 30,
+        "ac_mode": False,
+        "target_temp": 21,
+    },
+    {
+        "name": "Master Bedroom",
+        "unique_id": "climate_master_bedroom",
+        "heater": "input_boolean.master_bedroom_heater",
+        "target_sensor": "input_number.master_bedroom_temp",
+        "min_temp": 10,
+        "max_temp": 30,
+        "ac_mode": False,
+        "target_temp": 19,
+    },
+    {
+        "name": "Bedroom 2",
+        "unique_id": "climate_bedroom_2",
+        "heater": "input_boolean.bedroom_2_heater",
+        "target_sensor": "input_number.bedroom_2_temp",
+        "min_temp": 10,
+        "max_temp": 30,
+        "ac_mode": False,
+        "target_temp": 20,
+    },
+    {
+        "name": "Bedroom 3",
+        "unique_id": "climate_bedroom_3",
+        "heater": "input_boolean.bedroom_3_heater",
+        "target_sensor": "input_number.bedroom_3_temp",
+        "min_temp": 10,
+        "max_temp": 30,
+        "ac_mode": False,
+        "target_temp": 20,
+    },
+    {
+        "name": "Office",
+        "unique_id": "climate_office",
+        "heater": "input_boolean.office_heater",
+        "target_sensor": "input_number.office_temp",
+        "min_temp": 10,
+        "max_temp": 30,
+        "ac_mode": False,
+        "target_temp": 21,
+    },
+    {
+        "name": "Office AC",
+        "unique_id": "climate_office_ac",
+        "heater": "input_boolean.ac_office",
+        "target_sensor": "input_number.office_temp",
+        "min_temp": 10,
+        "max_temp": 30,
+        "ac_mode": True,
+        "target_temp": 24,
+    },
+    {
+        "name": "Bathroom",
+        "unique_id": "climate_bathroom",
+        "heater": "input_boolean.bathroom_heater",
+        "target_sensor": "input_number.bathroom_temp",
+        "min_temp": 10,
+        "max_temp": 30,
+        "ac_mode": False,
+        "target_temp": 22,
+    },
+]
+
+# Defines Template Entries to be created via Config Entries (Helpers)
+# Note: The data structure for template helpers in config entries is complex.
+# We will use valid config entry data for "template" domain.
+TEMPLATE_ENTRIES = [
+    # Binary Sensors
+    {
+        "name": "Kitchen Door",
+        "unique_id": "binary_sensor_kitchen_door",  # used for lookup, not always in data
+        "type": "binary_sensor",
+        "state": "{{ is_state('input_boolean.kitchen_door_boolean', 'on') }}",
+        "device_class": "door",
+    },
+    {
+        "name": "Master Bedroom Window",
+        "unique_id": "binary_sensor_master_bedroom_window",
+        "type": "binary_sensor",
+        "state": "{{ is_state('input_boolean.master_bedroom_window_boolean', 'on') }}",
+        "device_class": "window",
+    },
+    # Sensors
+    {
+        "name": "Living Room Standalone Temp",
+        "unique_id": "sensor_living_room_standalone_temp",
+        "type": "sensor",
+        "state": "{{ states('input_number.living_room_standalone_temp_source') }}",
+        "unit_of_measurement": "°C",
+        "device_class": "temperature",
+    },
+    {
+        "name": "Bedroom 2 Standalone Temp",
+        "unique_id": "sensor_bedroom_2_standalone_temp",
+        "type": "sensor",
+        "state": "{{ states('input_number.bedroom_2_standalone_temp_source') }}",
+        "unit_of_measurement": "°C",
+        "device_class": "temperature",
+    },
+]
+
 
 def load_json(path: str) -> dict[str, Any]:
     if not os.path.exists(path):
@@ -312,7 +435,9 @@ def setup_input_helpers() -> None:
     print("Created Input Helpers in Storage")
 
 
-def setup_entities() -> None:
+def setup_entities(config_entry_map: dict[str, str] | None = None) -> None:
+    if config_entry_map is None:
+        config_entry_map = {}
     default_time = "1970-01-01T00:00:00+00:00"
     if not os.path.exists(ENTITY_REGISTRY_PATH):
         data: dict[str, Any] = {
@@ -326,7 +451,17 @@ def setup_entities() -> None:
 
     current_entities = data["data"]["entities"]
 
-    for unique_id, area_id in ENTITY_AREA_MAP.items():
+    for logical_unique_id, area_id in ENTITY_AREA_MAP.items():
+        # Resolve Config Entry ID if available
+        entry_id = config_entry_map.get(logical_unique_id)
+
+        # Determine unique_id for registry
+        # If it's a Config Entry entity (Helper), its unique_id IS the entry_id.
+        if entry_id:
+            unique_id = entry_id
+        else:
+            unique_id = logical_unique_id
+
         found = False
         for ent in current_entities:
             if ent["unique_id"] == unique_id:
@@ -338,22 +473,22 @@ def setup_entities() -> None:
 
         if not found:
             platform = "generic_thermostat"
-            # Default naive split
-            entity_id = unique_id.replace("_", ".", 1)
+            # Default naive split using logic ID
+            entity_id = logical_unique_id.replace("_", ".", 1)
 
             # Fix for binary_sensor (which has an underscore in the domain)
-            if unique_id.startswith("binary_sensor_"):
+            if logical_unique_id.startswith("binary_sensor_"):
                 # binary_sensor_kitchen_door -> binary_sensor.kitchen_door
-                entity_id = "binary_sensor." + unique_id[14:]
+                entity_id = "binary_sensor." + logical_unique_id[14:]
                 platform = "template"
-            elif unique_id.startswith("climate_"):
-                entity_id = "climate." + unique_id[8:]
-            elif unique_id.startswith("sensor_"):
+            elif logical_unique_id.startswith("climate_"):
+                entity_id = "climate." + logical_unique_id[8:]
+            elif logical_unique_id.startswith("sensor_"):
                 # sensor_living_room_standalone_temp -> sensor.living_room_standalone_temp
-                entity_id = "sensor." + unique_id[7:]
+                entity_id = "sensor." + logical_unique_id[7:]
                 platform = "template"
 
-            if len(unique_id) == 36:  # UUID length check for Helpers
+            if len(logical_unique_id) == 36:  # UUID length check for Helpers
                 # Guess Entity ID from INPUT_BOOLEANS / NUMBERS reverse lookup?
                 # Or just iterate our dicts to find the matching UUID
 
@@ -366,14 +501,14 @@ def setup_entities() -> None:
                     # We need to re-generate UUID to check?
                     # Or better, store UUID in the dict above?
                     # The script runs sequentially, so we can re-gen.
-                    if str(uuid.uuid5(uuid.NAMESPACE_DNS, key_bool)) == unique_id:
+                    if str(uuid.uuid5(uuid.NAMESPACE_DNS, key_bool)) == logical_unique_id:
                         info = val_bool
                         domain = "input_boolean"
                         break
 
                 if not info:
                     for key_num, val_num in INPUT_NUMBERS.items():
-                        if str(uuid.uuid5(uuid.NAMESPACE_DNS, key_num)) == unique_id:
+                        if str(uuid.uuid5(uuid.NAMESPACE_DNS, key_num)) == logical_unique_id:
                             info = val_num
                             domain = "input_number"
                             break
@@ -409,7 +544,7 @@ def setup_entities() -> None:
                 "area_id": area_id,
                 "capabilities": {},
                 "categories": {},
-                "config_entry_id": None,
+                "config_entry_id": entry_id,
                 "config_subentry_id": None,
                 "created_at": default_time,
                 "modified_at": default_time,
@@ -418,7 +553,7 @@ def setup_entities() -> None:
                 "disabled_by": None,
                 "entity_category": None,
                 "entity_id": entity_id,
-                "has_entity_name": False,
+                "has_entity_name": False,  # Important: for Generic Thermostat, if True it might double-name?
                 "hidden_by": None,
                 "icon": None,
                 "id": uuid.uuid4().hex,
@@ -441,7 +576,7 @@ def setup_entities() -> None:
                 new_ent["platform"] = domain
 
             current_entities.append(new_ent)
-            print(f"Created Entity Registry Entry: {entity_id} -> {area_id}")
+            print(f"Created Entity Registry Entry: {entity_id} -> {area_id} (ConfigEntry: {entry_id})")
 
     save_json(ENTITY_REGISTRY_PATH, data)
 
@@ -459,6 +594,8 @@ def wipe_dashboard_storage() -> None:
         AREA_REGISTRY_PATH,
         INPUT_BOOLEAN_PATH,
         INPUT_NUMBER_PATH,
+        CONFIG_ENTRIES_PATH,  # Full wipe of config entries
+        os.path.join(CONFIG_DIR, "home-assistant_v2.db"),  # Wipe Database
     ]
     for path in paths:
         if os.path.exists(path):
@@ -506,8 +643,184 @@ def seed_restore_state() -> None:
         }
         data["data"].append(entry)
 
+    for _key_b, info_b in INPUT_BOOLEANS.items():
+        sanitized_name_b = str(info_b["name"]).lower().replace(" ", "_").replace("-", "_")
+        entity_id_b = f"input_boolean.{sanitized_name_b}"
+
+        entry_b = {
+            "state": {
+                "entity_id": entity_id_b,
+                "state": "off",
+                "attributes": {
+                    "editable": True,
+                    "icon": info_b["icon"],
+                    "friendly_name": info_b["name"],
+                },
+                "last_changed": timestamp,
+                "last_updated": timestamp,
+            },
+            "last_seen": timestamp,
+        }
+        data["data"].append(entry_b)
+
     save_json(RESTORE_STATE_PATH, data)
     print(f"Seeded {RESTORE_STATE_PATH} with default values (19.0)")
+
+
+def setup_config_entries() -> dict[str, str]:
+    """Inject generic_thermostat and template config entries."""
+    if not os.path.exists(CONFIG_ENTRIES_PATH):
+        data: dict[str, Any] = {"version": 1, "minor_version": 5, "key": "core.config_entries", "data": {"entries": []}}
+    else:
+        data = load_json(CONFIG_ENTRIES_PATH)
+
+    current_entries = data["data"]["entries"]
+
+    id_map: dict[str, str] = {}
+
+    # --- Generic Thermostats ---
+    # Purge ALL generic_thermostat entries to ensure clean slate
+    current_entries[:] = [e for e in current_entries if e["domain"] != "generic_thermostat"]
+
+    for thermo in GENERIC_THERMOSTATS:
+        entry_id = uuid.uuid4().hex
+        new_entry = {
+            "entry_id": entry_id,
+            "version": 1,
+            "minor_version": 1,
+            "domain": "generic_thermostat",
+            "title": thermo["name"],
+            "data": {},
+            "options": {
+                "name": thermo["name"],  # Redundant but safe
+                "heater": thermo["heater"],
+                "target_sensor": thermo["target_sensor"],
+                "min_temp": thermo["min_temp"],
+                "max_temp": thermo["max_temp"],
+                "ac_mode": thermo["ac_mode"],
+                "target_temp": thermo["target_temp"],
+                "cold_tolerance": 0.3,
+                "hot_tolerance": 0.3,
+                "initial_hvac_mode": "off",
+                "away_temp": 16,
+                "precision": 0.1,
+            },
+            "source": "user",
+            "pref_disable_new_entities": False,
+            "pref_disable_polling": False,
+            "unique_id": entry_id,  # Use entry_id as unique_id for helper entities
+            "disabled_by": None,
+            "created_at": "2023-01-01T00:00:00+00:00",
+            "modified_at": "2023-01-01T00:00:00+00:00",
+            "discovery_keys": {},
+            "subentries": [],
+        }
+        current_entries.append(new_entry)
+        # Map logical unique_id (e.g. climate_living_room) to entry_id
+        id_map[cast(str, thermo["unique_id"])] = entry_id
+        print(f"Created Config Entry: {thermo['name']} (Generic Thermostat)")
+
+    # --- Template Helpers ---
+    # Purge ALL template entries to ensure clean slate
+    current_entries[:] = [e for e in current_entries if e["domain"] != "template"]
+
+    # WARNING: The JSON structure for template helpers is inferred.
+    for tmpl in TEMPLATE_ENTRIES:
+        entry_id = uuid.uuid4().hex
+
+        # Logic for distinguishing binary_sensor/sensor in data
+        # Based on observation, "template" config entries contain `template_type`
+        # and fields matching the UI options.
+
+        config_data: dict[str, Any] = {}
+        if tmpl["type"] == "binary_sensor":
+            config_data = {
+                "name": tmpl["name"],
+                "state": tmpl["state"],
+                "device_class": tmpl["device_class"],
+                "template_type": "binary_sensor",
+            }
+        elif tmpl["type"] == "sensor":
+            config_data = {
+                "name": tmpl["name"],
+                "state": tmpl["state"],
+                "unit_of_measurement": tmpl["unit_of_measurement"],
+                "device_class": tmpl["device_class"],
+                "state_class": "measurement",
+                "template_type": "sensor",
+            }
+
+        new_entry = {
+            "entry_id": entry_id,
+            "version": 1,
+            "minor_version": 1,
+            "domain": "template",
+            "title": tmpl["name"],
+            "data": {},
+            "options": config_data,
+            "source": "user",
+            "pref_disable_new_entities": False,
+            "pref_disable_polling": False,
+            "unique_id": entry_id,  # Use entry_id as unique_id for helper entities
+            "disabled_by": None,
+            "created_at": "2023-01-01T00:00:00+00:00",
+            "modified_at": "2023-01-01T00:00:00+00:00",
+            "discovery_keys": {},
+            "subentries": [],
+        }
+        current_entries.append(new_entry)
+        # Map logical unique_id to entry_id
+        id_map[cast(str, tmpl["unique_id"])] = entry_id
+        print(f"Created Config Entry: {tmpl['name']} (Template: {tmpl['type']})")
+
+    save_json(CONFIG_ENTRIES_PATH, data)
+
+    return id_map
+
+
+def clean_configuration_yaml() -> None:
+    """Remove climate and template sections from configuration.yaml."""
+    if not os.path.exists(CONFIGURATION_YAML_PATH):
+        return
+
+    with open(CONFIGURATION_YAML_PATH, "r") as f:
+        lines = f.readlines()
+
+    new_lines = []
+    skip = False
+
+    # Simple block parser
+    for line in lines:
+        stripped = line.strip()
+        # Detect start of blocks
+        if stripped.startswith("climate:"):
+            skip = True
+            print("Stripping 'climate:' block from configuration.yaml")
+        elif stripped.startswith("template:"):
+            skip = True
+            print("Stripping 'template:' block from configuration.yaml")
+        elif (
+            stripped.startswith("logger:")
+            or stripped.startswith("frontend:")
+            or stripped.startswith("http:")
+            or stripped.startswith("climate_dashboard:")
+        ):
+            # Detect start of OTHER blocks to stop skipping
+            if skip:
+                skip = False
+
+        # Heuristic: if we hit a root-level key (no indentation) and it's not a comment/empty, stop skipping
+        if skip and line and not line.startswith(" ") and not line.startswith("#") and line.strip() != "":
+            # Check if it was one of the triggers above, otherwise stop skipping
+            if not (stripped.startswith("climate:") or stripped.startswith("template:")):
+                skip = False
+
+        if not skip:
+            new_lines.append(line)
+
+    with open(CONFIGURATION_YAML_PATH, "w") as f:
+        f.writelines(new_lines)
+    print("Cleaned configuration.yaml")
 
 
 if __name__ == "__main__":
@@ -516,7 +829,9 @@ if __name__ == "__main__":
     setup_areas()  # Create Areas (linked to floors)
     setup_input_helpers()
     seed_restore_state()  # Seed history so they wake up at 19.0
-    setup_entities()  # Updated to handle new items? (Actually skipped helpers for now)
+    id_map = setup_config_entries()  # Inject Config Entries and get Map
+    setup_entities(id_map)  # Create Registry Entries with config_entry_id
+    clean_configuration_yaml()  # Cleanup YAML
 
     # We need a 2-pass approach or smart guessing for helpers.
     # Let's try 2-pass:
