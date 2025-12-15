@@ -14,19 +14,20 @@ CLIMATE_DASHBOARD_PATH = os.path.join(STORAGE_DIR, "climate_dashboard")
 
 # Define Floors
 FLOORS = [
-    {"name": "Ground Floor", "id": "ground_floor", "icon": "mdi:home-floor-1"},
-    {"name": "Upstairs", "id": "upstairs", "icon": "mdi:home-floor-2"},
+    {"name": "Ground Floor", "id": "ground_floor", "icon": "mdi:home-floor-0", "level": 0},
+    {"name": "First Floor", "id": "first_floor", "icon": "mdi:home-floor-1", "level": 1},
+    {"name": "Second Floor", "id": "second_floor", "icon": "mdi:home-floor-2", "level": 2},
 ]
 
 # Define Areas
 AREAS = [
     {"name": "Living Room", "id": "living_room", "floor_id": "ground_floor"},
     {"name": "Kitchen", "id": "kitchen", "floor_id": "ground_floor"},
-    {"name": "Master Bedroom", "id": "master_bedroom", "floor_id": "upstairs"},
-    {"name": "Bedroom 2", "id": "bedroom_2", "floor_id": "upstairs"},
-    {"name": "Bedroom 3", "id": "bedroom_3", "floor_id": "upstairs"},
+    {"name": "Master Bedroom", "id": "master_bedroom", "floor_id": "second_floor"},
+    {"name": "Bedroom 2", "id": "bedroom_2", "floor_id": "first_floor"},
+    {"name": "Bedroom 3", "id": "bedroom_3", "floor_id": "first_floor"},
     {"name": "Office", "id": "office", "floor_id": "ground_floor"},
-    {"name": "Bathroom", "id": "bathroom", "floor_id": "ground_floor"},
+    {"name": "Bathroom", "id": "bathroom", "floor_id": "first_floor"},
 ]
 
 # Define Entity links (unique_id -> area_id)
@@ -163,7 +164,7 @@ def setup_floors() -> None:
                 "aliases": [],
                 "floor_id": floor["id"],
                 "icon": floor["icon"],
-                "level": None,
+                "level": floor["level"],
                 "name": floor["name"],
                 "created_at": "2023-01-01T00:00:00+00:00",
                 "modified_at": "2023-01-01T00:00:00+00:00",

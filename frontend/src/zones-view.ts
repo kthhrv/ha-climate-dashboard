@@ -105,12 +105,29 @@ export class ZonesView extends LitElement {
     .settings-btn:hover {
       background: rgba(0, 0, 0, 0.05);
     }
+    .floor-header {
+      grid-column: 1 / -1;
+      margin-top: 24px;
+      margin-bottom: 8px;
+      font-size: 1.2rem;
+      font-weight: 500;
+      color: var(--primary-text-color);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .floor-header ha-icon {
+      color: var(--secondary-text-color);
+    }
+    .floor-header:first-child {
+      margin-top: 0;
+    }
   `;
 
   protected render(): TemplateResult {
-    const zones = this._getZones();
+    const groupedZones = this._getGroupedZones();
 
-    if (zones.length === 0) {
+    if (groupedZones.length === 0) {
       return html`
         <div class="empty">
           <p>No zones configured yet.</p>
@@ -120,15 +137,120 @@ export class ZonesView extends LitElement {
     }
 
     return html`
-      <div class="grid">${zones.map((zone) => this._renderZoneCard(zone))}</div>
+      <div class="grid">
+        ${groupedZones.map((group) => {
+          return html`
+            ${group.floorName
+              ? html`
+                  <div class="floor-header">
+                    <ha-icon
+                      icon="${group.floorIcon || "mdi:home-floor-1"}"
+                    ></ha-icon>
+                    ${group.floorName}
+                  </div>
+                `
+              : html`<div class="floor-header">
+                  <ha-icon icon="mdi:devices"></ha-icon>Other Devices
+                </div>`}
+            ${group.zones.map((zone) => this._renderZoneCard(zone))}
+          `;
+        })}
+      </div>
     `;
   }
 
-  private _getZones(): HassEntity[] {
+  private _getGroupedZones(): {
+    floorName: string | null;
+    floorIcon: string | null;
+    zones: HassEntity[];
+  }[] {
     if (!this.hass) return [];
-    return Object.values(this.hass.states).filter((e: any) =>
+
+    const zones = Object.values(this.hass.states).filter((e: any) =>
       e.entity_id.startsWith("climate.zone_"),
     ) as HassEntity[];
+
+    // If no floors defined, return flat list as "Other"
+    // Note: hass.floors is a dictionary { floor_id: FloorObject }
+    console.log("[ZonesView] Debugging Floor Grouping");
+    console.log("[ZonesView] hass.floors:", this.hass.floors);
+    console.log("[ZonesView] hass.areas:", this.hass.areas);
+
+    if (!this.hass.floors || Object.keys(this.hass.floors).length === 0) {
+      console.warn("[ZonesView] No floors found in hass object");
+      if (zones.length === 0) return [];
+      return [{ floorName: null, floorIcon: null, zones }];
+    }
+
+    // Map: Floor ID -> Zones
+    const floorMap: Record<
+      string,
+      {
+        floorName: string;
+        floorIcon: string | null;
+        level: number | null;
+        zones: HassEntity[];
+      }
+    > = {};
+
+    const unassignedZones: HassEntity[] = [];
+
+    zones.forEach((zone) => {
+      // Find area of this zone entity
+      // Registry lookups are typically separate, but we can try to find the area via entity registry
+      // or assume we have hass.entities.
+      // Since 'hass' is the huge main object, it usually has .entities, .areas, .floors if user is admin.
+      // But standard 'hass' object in standard cards might not expose full registry.
+      // We rely on what is passed. LitElement property `hass` usually has everything.
+
+      // We need to find the entity registry entry for this zone
+      const entityReg = this.hass.entities?.[zone.entity_id];
+      const areaId = entityReg?.area_id;
+      const area = areaId ? this.hass.areas?.[areaId] : null;
+      const floorId = area?.floor_id;
+
+      if (floorId && this.hass.floors?.[floorId]) {
+        const floor = this.hass.floors[floorId];
+        if (!floorMap[floorId]) {
+          floorMap[floorId] = {
+            floorName: floor.name,
+            floorIcon: floor.icon,
+            level: floor.level,
+            zones: [],
+          };
+        }
+        floorMap[floorId].zones.push(zone);
+      } else {
+        unassignedZones.push(zone);
+      }
+    });
+
+    // Sort floors by level (if available) or name
+    const sortedFloors = Object.values(floorMap).sort((a, b) => {
+      if (a.level !== null && b.level !== null) return b.level - a.level;
+      return a.floorName.localeCompare(b.floorName);
+    });
+
+    // Build final result
+    const result: {
+      floorName: string | null;
+      floorIcon: string | null;
+      zones: HassEntity[];
+    }[] = sortedFloors.map((f) => ({
+      floorName: f.floorName,
+      floorIcon: f.floorIcon,
+      zones: f.zones,
+    }));
+
+    if (unassignedZones.length > 0) {
+      result.push({
+        floorName: null,
+        floorIcon: null,
+        zones: unassignedZones,
+      });
+    }
+
+    return result;
   }
 
   private _renderZoneCard(zone: HassEntity): TemplateResult {

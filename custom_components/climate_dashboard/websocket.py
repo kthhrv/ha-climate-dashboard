@@ -57,6 +57,49 @@ async def _async_adopt_zone(hass: HomeAssistant, connection: ActiveConnection, m
         "restore_delay_minutes": msg.get("restore_delay_minutes", 0),
     }
 
+    # Detect Area from adopted entities
+    from homeassistant.helpers import (
+        device_registry as dr,
+    )
+    from homeassistant.helpers import (
+        entity_registry as er,
+    )
+    from homeassistant.util import slugify
+
+    er_instance = er.async_get(hass)
+    dr_instance = dr.async_get(hass)
+
+    found_area_id = None
+
+    # Check all related entities for an area
+    # Check all related entities for an area
+    for entity_id in [temperature_sensor, *heaters, *coolers, *window_sensors]:
+        if not entity_id:
+            continue
+        entry = er_instance.async_get(entity_id)
+        if entry:
+            if entry.area_id:
+                found_area_id = entry.area_id
+                break
+            if entry.device_id:
+                device = dr_instance.async_get(entry.device_id)
+                if device and device.area_id:
+                    found_area_id = device.area_id
+                    break
+
+    if found_area_id:
+        # Pre-create registry entry to bind the Area
+        # We also suggest a nice entity_id: climate.zone_name
+        suggested_id = f"zone_{slugify(name)}"
+        entry = er_instance.async_get_or_create(
+            "climate",
+            DOMAIN,
+            unique_id,
+            suggested_object_id=suggested_id,
+        )
+        # Update with Area ID (async_get_or_create doesn't support area_id arg directly in all versions)
+        er_instance.async_update_entity(entry.entity_id, area_id=found_area_id)
+
     # Save to storage
     if DOMAIN not in hass.data:
         connection.send_error(msg["id"], "internal_error", "Integration not initialized")
