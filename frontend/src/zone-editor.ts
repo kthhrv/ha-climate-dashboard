@@ -18,6 +18,11 @@ export class ZoneEditor extends LitElement {
   @state() private _windowSensors: Set<string> = new Set();
   @state() private _restoreDelayMinutes = 0;
 
+  // Filter State
+  @state() private _filterByArea = true;
+  @state() private _zoneAreaId: string | null = null;
+  @state() private _zoneAreaName: string | null = null;
+
   // UI State
   @state() private _loading = false;
   @state() private _error = "";
@@ -133,6 +138,11 @@ export class ZoneEditor extends LitElement {
 
     console.log("Loading config for zoneId:", this.zoneId);
 
+    // Reset Filter State
+    this._zoneAreaId = null;
+    this._zoneAreaName = null;
+    this._filterByArea = false;
+
     // 1. Get State
     const state = this.hass.states[this.zoneId];
     if (!state) {
@@ -154,9 +164,28 @@ export class ZoneEditor extends LitElement {
           entity_id: this.zoneId,
         });
         this._uniqueId = reg.unique_id;
+        if (reg.area_id) {
+          this._zoneAreaId = reg.area_id;
+          this._filterByArea = true;
+        }
       } catch (e) {
         console.warn("Could not fetch registry entry:", e);
       }
+    }
+
+    // If we have unique_id but still no area (maybe fetched from attr), try to lookup area
+    if (
+      this._uniqueId &&
+      !this._zoneAreaId &&
+      this.hass.entities?.[this.zoneId]?.area_id
+    ) {
+      this._zoneAreaId = this.hass.entities[this.zoneId].area_id;
+      this._filterByArea = true;
+    }
+
+    // Resolve Area Name
+    if (this._zoneAreaId && this.hass.areas?.[this._zoneAreaId]) {
+      this._zoneAreaName = this.hass.areas[this._zoneAreaId].name;
     }
 
     if (!this._uniqueId) {
@@ -207,7 +236,13 @@ export class ZoneEditor extends LitElement {
 
   private _getEntityList(domains: string[]) {
     // Filter options from all available entities
-    return this.allEntities.filter((e) => domains.includes(e.domain));
+    let list = this.allEntities.filter((e) => domains.includes(e.domain));
+
+    if (this._filterByArea && this._zoneAreaId) {
+      list = list.filter((e) => e.area_id === this._zoneAreaId);
+    }
+
+    return list;
   }
 
   private async _save() {
@@ -269,7 +304,24 @@ export class ZoneEditor extends LitElement {
 
     return html`
       <div class="card">
-        <h2>Edit Zone: ${this._name}</h2>
+        <h2>
+          Edit Zone: ${this._name}
+          ${this._zoneAreaId
+            ? html`
+                <label
+                  style="font-size: 0.9rem; display: flex; align-items: center; gap: 6px; color: var(--primary-color);"
+                >
+                  <input
+                    type="checkbox"
+                    ?checked=${this._filterByArea}
+                    @change=${(e: any) =>
+                      (this._filterByArea = e.target.checked)}
+                  />
+                  Only ${this._zoneAreaName}
+                </label>
+              `
+            : ""}
+        </h2>
 
         <div class="field">
           <label>Zone Name</label>

@@ -124,7 +124,7 @@ export class ClimateDashboard extends LitElement {
         domain: s.entity_id.split(".")[0],
         name: s.attributes.friendly_name || s.entity_id,
         device_class: s.attributes.device_class,
-        // area_name missing, but acceptable for MVP
+        area_id: this.hass.entities?.[s.entity_id]?.area_id,
       }));
   }
 
