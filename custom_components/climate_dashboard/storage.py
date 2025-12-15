@@ -16,15 +16,16 @@ STORAGE_VERSION: Final = 1
 STORAGE_KEY: Final = DOMAIN
 
 
-class ScheduleBlock(TypedDict):
+class ScheduleBlock(TypedDict, total=False):
     """Typed dictionary for schedule block."""
 
-    id: str
+    id: str  # Optional (generated on save)
     name: str
     days: list[str]  # ["mon", "tue", ...]
     start_time: str  # "08:00"
-    temp_heat: float
-    temp_cool: float
+    target_temp: float  # Optional (Legacy/Singular)
+    temp_heat: float  # Optional (Dual)
+    temp_cool: float  # Optional (Dual)
 
 
 class ClimateZoneConfig(TypedDict):
@@ -45,7 +46,7 @@ class ClimateDashboardStorage:
     def __init__(self, hass: HomeAssistant) -> None:
         """Initialize the storage."""
         self.hass = hass
-        self._store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
+        self._store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, STORAGE_KEY)
         self._data: dict[str, Any] | None = None
         self._listeners: list[Any] = []
 

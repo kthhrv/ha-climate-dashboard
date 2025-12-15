@@ -4,7 +4,7 @@ import os
 CONFIG_ENTRIES_PATH = "/home/keith/ws/ha-climate-dashboard/config/.storage/core.config_entries"
 
 
-def clean_entries():
+def clean_entries() -> None:
     if not os.path.exists(CONFIG_ENTRIES_PATH):
         return
 

@@ -81,6 +81,7 @@ async def test_zone_heating_cycle(hass: HomeAssistant, hass_ws_client: Any) -> N
 
     # 4. Verify Heater Turns ON
     heater_state = hass.states.get(HEATER_ID)
+    assert heater_state is not None
     assert heater_state.state == STATE_ON
 
     # 5. Satisfy Request (Current: 23C)
@@ -89,6 +90,7 @@ async def test_zone_heating_cycle(hass: HomeAssistant, hass_ws_client: Any) -> N
 
     # 6. Verify Heater Turns OFF
     heater_state = hass.states.get(HEATER_ID)
+    assert heater_state is not None
     assert heater_state.state == STATE_OFF
 
 

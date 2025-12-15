@@ -21,7 +21,6 @@ def mock_schedule() -> list[ScheduleBlock]:
             "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
             "start_time": "08:00",
             "target_temp": 21.0,
-            "hvac_mode": "heat",
         },
         {
             "id": "2",
@@ -29,7 +28,6 @@ def mock_schedule() -> list[ScheduleBlock]:
             "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
             "start_time": "22:00",
             "target_temp": 18.0,
-            "hvac_mode": "heat",
         },
     ]
 

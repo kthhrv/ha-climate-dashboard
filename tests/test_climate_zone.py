@@ -327,7 +327,6 @@ async def test_callbacks_and_public_methods(hass: HomeAssistant) -> None:
             "name": "Test Block",
             "start_time": "00:00",
             "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
-            "hvac_mode": "heat",
             "target_temp": 20.0,
         }
     ]
@@ -340,7 +339,7 @@ async def test_callbacks_and_public_methods(hass: HomeAssistant) -> None:
         # We need to ensure _on_time_change logic parses the time correctly.
         # The mock above might be tricky. Let's rely on manual call.
         # Just call _apply_schedule directly or via _on_time_change
-        zone._on_time_change(None)
+        zone._on_time_change(mock_now)
         assert zone.target_temperature_low == 20.0
 
 
@@ -459,7 +458,6 @@ async def test_next_schedule_and_override(hass: HomeAssistant) -> None:
             "name": "Morning",
             "start_time": "08:00",
             "days": ["mon"],
-            "hvac_mode": "heat",
             "target_temp": 20.0,
         },
         {
@@ -467,7 +465,6 @@ async def test_next_schedule_and_override(hass: HomeAssistant) -> None:
             "name": "Evening",
             "start_time": "18:00",
             "days": ["mon"],
-            "hvac_mode": "heat",
             "target_temp": 21.0,
         },
         # Tomorrow (Mock Tuesday)
@@ -476,7 +473,6 @@ async def test_next_schedule_and_override(hass: HomeAssistant) -> None:
             "name": "Morning",
             "start_time": "07:00",
             "days": ["tue"],
-            "hvac_mode": "heat",
             "target_temp": 22.0,
         },
         # Skip Wed
@@ -486,7 +482,6 @@ async def test_next_schedule_and_override(hass: HomeAssistant) -> None:
             "name": "Morning",
             "start_time": "09:00",
             "days": ["thu"],
-            "hvac_mode": "heat",
             "target_temp": 23.0,
         },
     ]
@@ -644,7 +639,6 @@ async def test_auto_mode_temporary_hold(hass: HomeAssistant) -> None:
             "name": "Block 1",
             "start_time": "08:00",
             "days": ["mon"],
-            "hvac_mode": "heat",
             "target_temp": 20.0,
         },
         {
@@ -652,7 +646,6 @@ async def test_auto_mode_temporary_hold(hass: HomeAssistant) -> None:
             "name": "Block 2",
             "start_time": "12:00",
             "days": ["mon"],
-            "hvac_mode": "heat",
             "target_temp": 21.0,
         },
     ]

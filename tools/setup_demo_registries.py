@@ -1,6 +1,8 @@
 import json
 import os
+import time
 import uuid
+from typing import Any, cast
 
 CONFIG_DIR = "/home/keith/ws/ha-climate-dashboard/config"
 STORAGE_DIR = os.path.join(CONFIG_DIR, ".storage")
@@ -46,7 +48,7 @@ INPUT_NUMBER_PATH = os.path.join(STORAGE_DIR, "input_number")
 # Define Entities (simulated hardware)
 # structure: key -> { name, icon, area_id }
 # key will be part of entity_id: input_boolean.[key]
-INPUT_BOOLEANS = {
+INPUT_BOOLEANS: dict[str, dict[str, str]] = {
     "heater_living_room": {"name": "Living Room Heater", "icon": "mdi:radiator", "area_id": "living_room"},
     "heater_kitchen": {"name": "Kitchen Heater", "icon": "mdi:radiator", "area_id": "kitchen"},
     "heater_master_bedroom": {"name": "Master Bedroom Heater", "icon": "mdi:radiator", "area_id": "master_bedroom"},
@@ -62,7 +64,7 @@ INPUT_BOOLEANS = {
     },
 }
 
-INPUT_NUMBERS = {
+INPUT_NUMBERS: dict[str, dict[str, Any]] = {
     "temp_living_room": {
         "name": "Living Room Temp",
         "min": 10,
@@ -73,6 +75,7 @@ INPUT_NUMBERS = {
         "initial": 19.0,
         "area_id": "living_room",
     },
+    # ... (other entries implicitly typed)
     "temp_kitchen": {
         "name": "Kitchen Temp",
         "min": 10,
@@ -136,37 +139,34 @@ INPUT_NUMBERS = {
 }
 
 
-def load_json(path: str) -> dict:
+def load_json(path: str) -> dict[str, Any]:
     if not os.path.exists(path):
         return {"version": 1, "minor_version": 1, "key": path.split("/")[-1], "data": {"areas": [], "entities": []}}
     with open(path, "r") as f:
-        return json.load(f)
+        return cast(dict[str, Any], json.load(f))
 
 
-def save_json(path: str, data: dict):
+def save_json(path: str, data: dict[str, Any]) -> None:
     with open(path, "w") as f:
         json.dump(data, f, indent=4)
 
 
-def setup_floors():
+def setup_floors() -> None:
     """Create floors in the registry."""
-    data = {"version": 1, "minor_version": 1, "key": "core.floor_registry", "data": {"floors": []}}
-    
+    data: dict[str, Any] = {"version": 1, "minor_version": 1, "key": "core.floor_registry", "data": {"floors": []}}
+
     current_floors = data["data"]["floors"]
-    
+
     for floor in FLOORS:
-        current_floors.append({
-            "aliases": [],
-            "floor_id": floor["id"],
-            "icon": floor["icon"],
-            "level": None,
-            "name": floor["name"]
-        })
+        current_floors.append(
+            {"aliases": [], "floor_id": floor["id"], "icon": floor["icon"], "level": None, "name": floor["name"]}
+        )
         print(f"Created Floor: {floor['name']}")
-        
+
     save_json(FLOOR_REGISTRY_PATH, data)
 
-def setup_areas():
+
+def setup_areas() -> None:
     data = load_json(AREA_REGISTRY_PATH)
     if not isinstance(data.get("data"), dict):
         pass
@@ -175,11 +175,11 @@ def setup_areas():
         data = {"version": 1, "minor_version": 1, "key": "core.area_registry", "data": {"areas": []}}
 
     current_areas = data["data"]["areas"]
-    existing_ids = {a["id"] for a in current_areas}
+    # existing_ids = {a["id"] for a in current_areas}
 
     for area in AREAS:
         floor_id = area.get("floor_id")
-        
+
         # Check if area already exists
         found = False
         for ex_area in current_areas:
@@ -189,7 +189,7 @@ def setup_areas():
                 found = True
                 print(f"Updated Area: {area['name']} (Floor: {floor_id})")
                 break
-        
+
         if not found:
             current_areas.append(
                 {
@@ -209,12 +209,12 @@ def setup_areas():
     save_json(AREA_REGISTRY_PATH, data)
 
 
-def setup_input_helpers():
+def setup_input_helpers() -> None:
     # Input Booleans
-    data_bool = {"version": 1, "minor_version": 1, "key": "input_boolean", "data": {"items": []}}
+    data_bool: dict[str, Any] = {"version": 1, "minor_version": 1, "key": "input_boolean", "data": {"items": []}}
 
     # Input Numbers
-    data_num = {"version": 1, "minor_version": 1, "key": "input_number", "data": {"items": []}}
+    data_num: dict[str, Any] = {"version": 1, "minor_version": 1, "key": "input_number", "data": {"items": []}}
 
     # We need a stable map of key -> unique_id to use in entity registry
     # In storage, the ID *is* the uuid.
@@ -226,7 +226,7 @@ def setup_input_helpers():
     # Let's generate stable UUIDs based on names so we can map them in registry
 
     # Helper for UUID generation
-    def get_uuid(key):
+    def get_uuid(key: str) -> str:
         return str(uuid.uuid5(uuid.NAMESPACE_DNS, key))
 
     for key, info in INPUT_BOOLEANS.items():
@@ -247,31 +247,36 @@ def setup_input_helpers():
         # We'll map the UUID to the Area in the registry
         ENTITY_AREA_MAP[uid] = info["area_id"]
 
-    for key, info in INPUT_NUMBERS.items():
+    for key, info_num in INPUT_NUMBERS.items():
         uid = get_uuid(key)
-        item = {
-            "name": info["name"],
-            "min": info["min"],
-            "max": info["max"],
-            "step": info["step"],
+        item_num = {
+            "name": info_num["name"],
+            "min": info_num["min"],
+            "max": info_num["max"],
+            "step": info_num["step"],
             "mode": "box",
-            "unit_of_measurement": info["unit"],
-            "icon": info["icon"],
-            "initial": info["initial"],
+            "unit_of_measurement": info_num["unit"],
+            "icon": info_num["icon"],
+            "initial": info_num["initial"],
             "id": uid,
         }
-        data_num["data"]["items"].append(item)
-        ENTITY_AREA_MAP[uid] = info["area_id"]
+        data_num["data"]["items"].append(item_num)
+        ENTITY_AREA_MAP[uid] = info_num["area_id"]
 
     save_json(INPUT_BOOLEAN_PATH, data_bool)
     save_json(INPUT_NUMBER_PATH, data_num)
     print("Created Input Helpers in Storage")
 
 
-def setup_entities():
+def setup_entities() -> None:
     default_time = "1970-01-01T00:00:00+00:00"
     if not os.path.exists(ENTITY_REGISTRY_PATH):
-        data = {"version": 1, "minor_version": 1, "key": "core.entity_registry", "data": {"entities": []}}
+        data: dict[str, Any] = {
+            "version": 1,
+            "minor_version": 1,
+            "key": "core.entity_registry",
+            "data": {"entities": []},
+        }
     else:
         data = load_json(ENTITY_REGISTRY_PATH)
 
@@ -300,19 +305,19 @@ def setup_entities():
                 domain = None
 
                 # Check Booleans
-                for key, val in INPUT_BOOLEANS.items():
+                for key_bool, val_bool in INPUT_BOOLEANS.items():
                     # We need to re-generate UUID to check?
                     # Or better, store UUID in the dict above?
                     # The script runs sequentially, so we can re-gen.
-                    if str(uuid.uuid5(uuid.NAMESPACE_DNS, key)) == unique_id:
-                        info = val
+                    if str(uuid.uuid5(uuid.NAMESPACE_DNS, key_bool)) == unique_id:
+                        info = val_bool
                         domain = "input_boolean"
                         break
 
                 if not info:
-                    for key, val in INPUT_NUMBERS.items():
-                        if str(uuid.uuid5(uuid.NAMESPACE_DNS, key)) == unique_id:
-                            info = val
+                    for key_num, val_num in INPUT_NUMBERS.items():
+                        if str(uuid.uuid5(uuid.NAMESPACE_DNS, key_num)) == unique_id:
+                            info = val_num
                             domain = "input_number"
                             break
 
@@ -327,8 +332,8 @@ def setup_entities():
                     # Wait, we want to match `configuration.yaml` usage?
                     # In YAML we used "heater_living_room".
                     # If we name it "Heater Living Room", HA makes "living_room_heater".
-                    # If we name it "Heater Living Room", HA makes "heater_living_room" ONLY IF we change the name string
-                    # or if slugify happens to match.
+                    # If we name it "Heater Living Room", HA makes "heater_living_room" ONLY IF we change the name
+                    # string or if slugify happens to match.
 
                     # Let's change the defined NAME in `setup_input_helpers` to ensure we get the desired slug.
                     # Actually, let's just use the desired slug as the NAME for simplicity in ID generation?
@@ -337,12 +342,12 @@ def setup_entities():
                     # Better plan: Update `configuration.yaml` to use the new "Clean" entity IDs.
                     # input_boolean.living_room_heater
 
-                    sanitized_name = info["name"].lower().replace(" ", "_").replace("-", "_")
+                    sanitized_name = str(info["name"]).lower().replace(" ", "_").replace("-", "_")
                     entity_id = f"{domain}.{sanitized_name}"
                     platform = domain  # sort of
 
             # Common Registry creation
-            new_ent = {
+            new_ent: dict[str, Any] = {
                 "aliases": [],
                 "area_id": area_id,
                 "capabilities": {},
@@ -385,10 +390,9 @@ def setup_entities():
 
 
 RESTORE_STATE_PATH = os.path.join(STORAGE_DIR, "core.restore_state")
-import time
 
 
-def wipe_dashboard_storage():
+def wipe_dashboard_storage() -> None:
     """Delete storage files to force a factory reset."""
     paths = [
         CLIMATE_DASHBOARD_PATH,
@@ -397,7 +401,7 @@ def wipe_dashboard_storage():
         ENTITY_REGISTRY_PATH,
         AREA_REGISTRY_PATH,
         INPUT_BOOLEAN_PATH,
-        INPUT_NUMBER_PATH
+        INPUT_NUMBER_PATH,
     ]
     for path in paths:
         if os.path.exists(path):
@@ -408,19 +412,19 @@ def wipe_dashboard_storage():
                 print(f"Error wiping storage {path}: {e}")
 
 
-def seed_restore_state():
+def seed_restore_state() -> None:
     """Seed the restore_state file with desired default values (19.0)."""
-    data = {"version": 1, "minor_version": 1, "key": "core.restore_state", "data": []}
+    data: dict[str, Any] = {"version": 1, "minor_version": 1, "key": "core.restore_state", "data": []}
 
     timestamp = time.strftime("%Y-%m-%dT%H:%M:%S.000000+00:00", time.gmtime())
 
-    for key, info in INPUT_NUMBERS.items():
+    for _key, info in INPUT_NUMBERS.items():
         # Re-derive entity_id and unique_id
         # Note: We must match the logic in setup_entities/setup_input_helpers exactly
         # In setup_input_helpers we generate UUID from name key
-        uid = str(uuid.uuid5(uuid.NAMESPACE_DNS, key))
+        # uid = str(uuid.uuid5(uuid.NAMESPACE_DNS, key))
         # Logic from setup_entities to guess entity_id
-        sanitized_name = info["name"].lower().replace(" ", "_").replace("-", "_")
+        sanitized_name = str(info["name"]).lower().replace(" ", "_").replace("-", "_")
         entity_id = f"input_number.{sanitized_name}"
 
         entry = {
@@ -451,7 +455,7 @@ def seed_restore_state():
 
 if __name__ == "__main__":
     wipe_dashboard_storage()  # Factory Reset first
-    setup_floors() # Create Floors
+    setup_floors()  # Create Floors
     setup_areas()  # Create Areas (linked to floors)
     setup_input_helpers()
     seed_restore_state()  # Seed history so they wake up at 19.0

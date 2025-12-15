@@ -18,3 +18,4 @@ repos:
     hooks:
       - id: prettier
         types_or: [javascript, jsx, ts, tsx, json, yaml, html, css, scss]
+        exclude: ^custom_components/climate_dashboard/www/

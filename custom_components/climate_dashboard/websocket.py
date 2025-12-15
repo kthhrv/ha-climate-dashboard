@@ -12,6 +12,7 @@ from homeassistant.components.websocket_api import ActiveConnection, async_regis
 from homeassistant.core import HomeAssistant, callback
 
 from .const import DOMAIN
+from .schedules import get_default_schedule
 
 SCAN_COMMAND = "climate_dashboard/scan"
 _LOGGER = logging.getLogger(__name__)
@@ -30,8 +31,6 @@ def websocket_adopt_zone(
     # But wait, async_register_command expects a handler.
     hass.async_create_task(_async_adopt_zone(hass, connection, msg))
 
-
-from .schedules import get_default_schedule
 
 # ...
 

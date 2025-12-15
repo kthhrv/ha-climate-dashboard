@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import Any, ClassVar
+from typing import Any, Callable
 
 import homeassistant.util.dt as dt_util
 from homeassistant.components.climate import (
@@ -47,7 +47,6 @@ class ClimateZone(ClimateEntity, RestoreEntity):
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_precision = PRECISION_TENTHS
     _attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
-    _attr_hvac_modes: ClassVar[list[HVACMode]] = [HVACMode.OFF, HVACMode.HEAT, HVACMode.AUTO]
 
     def __init__(
         self,
@@ -74,10 +73,11 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self._window_sensors = window_sensors
         self._schedule = schedule or []
         self._restore_delay_minutes = restore_delay_minutes
-        self._restore_timer = None
+        self._restore_timer: Callable[[], None] | None = None
+        self._attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT, HVACMode.AUTO]
 
         self._attr_current_temperature: float | None = None
-        self._attr_target_temperature = DEFAULT_TARGET_TEMP
+        self._attr_target_temperature: float | None = DEFAULT_TARGET_TEMP
         self._attr_hvac_mode = HVACMode.AUTO
         self._attr_hvac_action = HVACAction.IDLE
 
@@ -511,8 +511,10 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                 high = self._attr_target_temperature_high
 
                 if low is None or (high is None and self._attr_target_temperature is not None):
-                    low = self._attr_target_temperature - DEFAULT_TOLERANCE
-                    high = self._attr_target_temperature + DEFAULT_TOLERANCE
+                    # Ensure strict float logic
+                    base_temp = self._attr_target_temperature or DEFAULT_TARGET_TEMP
+                    low = base_temp - DEFAULT_TOLERANCE
+                    high = base_temp + DEFAULT_TOLERANCE
 
                 if low is not None and high is not None:
                     if current < (low - DEFAULT_TOLERANCE):
