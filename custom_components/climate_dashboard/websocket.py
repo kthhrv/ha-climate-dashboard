@@ -339,6 +339,7 @@ async def ws_scan_unmanaged(
                     "name": state.name,
                     "device_class": device_class,
                     "area_name": area_name,
+                    "area_id": area_id,
                 }
             )
 

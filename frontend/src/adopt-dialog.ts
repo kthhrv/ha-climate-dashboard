@@ -15,6 +15,10 @@ export class AdoptDialog extends LitElement {
   @state() private _windowSensors: Set<string> = new Set();
   @state() private _roomType = "generic";
 
+  @state() private _filterByArea = true;
+  @state() private _targetAreaId: string | null = null;
+  @state() private _targetAreaName: string | null = null;
+
   static styles = css`
     :host {
       display: none;
@@ -42,8 +46,22 @@ export class AdoptDialog extends LitElement {
       max-height: 90vh;
       overflow-y: auto;
     }
+    .dialog-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
     h2 {
-      margin-top: 0;
+      margin: 0;
+    }
+    .filter-toggle {
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--primary-color, #03a9f4);
+      font-weight: 500;
     }
     .field {
       margin-bottom: 16px;
@@ -108,6 +126,17 @@ export class AdoptDialog extends LitElement {
         this._coolers.clear();
         this._windowSensors.clear();
 
+        // Area Logic
+        if (ent.area_id) {
+          this._targetAreaId = ent.area_id;
+          this._targetAreaName = ent.area_name || "Zone Area";
+          this._filterByArea = true;
+        } else {
+          this._targetAreaId = null;
+          this._targetAreaName = null;
+          this._filterByArea = false;
+        }
+
         // Simple Heuristic for Room Type
         const lowerName = this._name.toLowerCase();
         if (lowerName.includes("bedroom") || lowerName.includes("sleeping")) {
@@ -141,7 +170,28 @@ export class AdoptDialog extends LitElement {
   }
 
   private _getEntityList(domains: string[]) {
-    return this.entities.filter((e) => domains.includes(e.domain));
+    let list = this.entities.filter((e) => domains.includes(e.domain));
+
+    if (this._filterByArea && this._targetAreaId) {
+      // Filter: Keep if entity area matches target area
+      // OR if entity has no area (maybe? No, request was strict).
+      // Let's interpret "Only <area>" as strict area match.
+      list = list.filter((e) => e.area_id === this._targetAreaId);
+    }
+
+    return list;
+  }
+
+  private _getSensors() {
+    let list = this.entities.filter(
+      (e) =>
+        (e.domain === "sensor" && e.device_class === "temperature") ||
+        e.domain === "climate",
+    );
+    if (this._filterByArea && this._targetAreaId) {
+      list = list.filter((e) => e.area_id === this._targetAreaId);
+    }
+    return list;
   }
 
   private _toggleSet(set: Set<string>, value: string) {
@@ -172,15 +222,26 @@ export class AdoptDialog extends LitElement {
     const heaterCandidates = this._getEntityList(["climate", "switch"]);
     const coolerCandidates = this._getEntityList(["climate"]);
     const windowCandidates = this._getEntityList(["binary_sensor"]);
-    const sensorCandidates = this.entities.filter(
-      (e) =>
-        (e.domain === "sensor" && e.device_class === "temperature") ||
-        e.domain === "climate",
-    );
+    const sensorCandidates = this._getSensors();
 
     return html`
       <div class="dialog">
-        <h2>Adopt Zone</h2>
+        <div class="dialog-header">
+          <h2>Adopt Zone</h2>
+          ${this._targetAreaId
+            ? html`
+                <label class="filter-toggle">
+                  <input
+                    type="checkbox"
+                    ?checked=${this._filterByArea}
+                    @change=${(e: any) =>
+                      (this._filterByArea = e.target.checked)}
+                  />
+                  Only ${this._targetAreaName}
+                </label>
+              `
+            : ""}
+        </div>
 
         <div class="field">
           <label>Zone Name</label>
@@ -238,6 +299,11 @@ export class AdoptDialog extends LitElement {
                 </div>
               `,
             )}
+            ${heaterCandidates.length === 0
+              ? html`<div style="color:var(--secondary-text-color)">
+                  No heaters found in this area
+                </div>`
+              : ""}
           </div>
         </div>
 
@@ -256,6 +322,11 @@ export class AdoptDialog extends LitElement {
                 </div>
               `,
             )}
+            ${coolerCandidates.length === 0
+              ? html`<div style="color:var(--secondary-text-color)">
+                  No coolers found in this area
+                </div>`
+              : ""}
           </div>
         </div>
 
@@ -275,6 +346,11 @@ export class AdoptDialog extends LitElement {
                 </div>
               `,
             )}
+            ${windowCandidates.length === 0
+              ? html`<div style="color:var(--secondary-text-color)">
+                  No window sensors found in this area
+                </div>`
+              : ""}
           </div>
         </div>
 

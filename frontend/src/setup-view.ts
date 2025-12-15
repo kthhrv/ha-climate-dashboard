@@ -9,6 +9,7 @@ interface ClimateEntity {
   domain: string;
   attributes: Record<string, any>;
   area_name?: string;
+  area_id?: string;
 }
 
 @customElement("setup-view")
