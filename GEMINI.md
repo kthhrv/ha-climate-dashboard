@@ -79,3 +79,24 @@
         2.  Creates `input_boolean` (Heaters) and `input_number` (Temp Sensors) in `.storage`.
         3.  Updates the Entity Registry to assign these new entities to the correct Areas.
     *   **Usage:** Run via `python3 tools/setup_demo_registries.py` (automatically handles ID generation and linking).
+
+* **Console Helpers**
+    *   **`window.deepQuery`**: A helper to traverse Shadow DOMs from the console.
+        ```javascript
+        window.deepQuery = function(selector, root = document) {
+            let el = root.querySelector(selector);
+            if (el) return el;
+            // Walk all shadow roots
+            const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, null, false);
+            while(walker.nextNode()) {
+                if (walker.currentNode.shadowRoot) {
+                    el = deepQuery(selector, walker.currentNode.shadowRoot);
+                    if (el) return el;
+                }
+            }
+            return null;
+        }
+        ```
+        *   **Usage:**
+            1.  Open `http://localhost:8123/climate-dashboard`
+            2.  Run `deepQuery('ha-icon[icon="mdi:chart-timeline"]').click()`
