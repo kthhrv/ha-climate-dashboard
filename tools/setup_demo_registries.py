@@ -153,13 +153,21 @@ def save_json(path: str, data: dict[str, Any]) -> None:
 
 def setup_floors() -> None:
     """Create floors in the registry."""
-    data: dict[str, Any] = {"version": 1, "minor_version": 1, "key": "core.floor_registry", "data": {"floors": []}}
+    data: dict[str, Any] = {"version": 1, "minor_version": 7, "key": "core.floor_registry", "data": {"floors": []}}
 
     current_floors = data["data"]["floors"]
 
     for floor in FLOORS:
         current_floors.append(
-            {"aliases": [], "floor_id": floor["id"], "icon": floor["icon"], "level": None, "name": floor["name"]}
+            {
+                "aliases": [],
+                "floor_id": floor["id"],
+                "icon": floor["icon"],
+                "level": None,
+                "name": floor["name"],
+                "created_at": "2023-01-01T00:00:00+00:00",
+                "modified_at": "2023-01-01T00:00:00+00:00",
+            }
         )
         print(f"Created Floor: {floor['name']}")
 
@@ -172,7 +180,7 @@ def setup_areas() -> None:
         pass
 
     if not os.path.exists(AREA_REGISTRY_PATH):
-        data = {"version": 1, "minor_version": 1, "key": "core.area_registry", "data": {"areas": []}}
+        data = {"version": 1, "minor_version": 7, "key": "core.area_registry", "data": {"areas": []}}
 
     current_areas = data["data"]["areas"]
     # existing_ids = {a["id"] for a in current_areas}
@@ -200,6 +208,8 @@ def setup_areas() -> None:
                     "picture": None,
                     "floor_id": floor_id,
                     "labels": [],
+                    "created_at": "2023-01-01T00:00:00+00:00",
+                    "modified_at": "2023-01-01T00:00:00+00:00",
                     "humidity_entity_id": None,
                     "temperature_entity_id": None,
                 }
@@ -211,10 +221,10 @@ def setup_areas() -> None:
 
 def setup_input_helpers() -> None:
     # Input Booleans
-    data_bool: dict[str, Any] = {"version": 1, "minor_version": 1, "key": "input_boolean", "data": {"items": []}}
+    data_bool: dict[str, Any] = {"version": 1, "minor_version": 7, "key": "input_boolean", "data": {"items": []}}
 
     # Input Numbers
-    data_num: dict[str, Any] = {"version": 1, "minor_version": 1, "key": "input_number", "data": {"items": []}}
+    data_num: dict[str, Any] = {"version": 1, "minor_version": 7, "key": "input_number", "data": {"items": []}}
 
     # We need a stable map of key -> unique_id to use in entity registry
     # In storage, the ID *is* the uuid.
@@ -273,7 +283,7 @@ def setup_entities() -> None:
     if not os.path.exists(ENTITY_REGISTRY_PATH):
         data: dict[str, Any] = {
             "version": 1,
-            "minor_version": 1,
+            "minor_version": 7,
             "key": "core.entity_registry",
             "data": {"entities": []},
         }
