@@ -41,6 +41,9 @@ ENTITY_AREA_MAP = {
     "climate_office": "office",
     "climate_office_ac": "office",
     "climate_bathroom": "bathroom",
+    # Binary Sensors (Templates)
+    "binary_sensor_kitchen_door": "kitchen",
+    "binary_sensor_master_bedroom_window": "master_bedroom",
 }
 
 INPUT_BOOLEAN_PATH = os.path.join(STORAGE_DIR, "input_boolean")
@@ -58,10 +61,16 @@ INPUT_BOOLEANS: dict[str, dict[str, str]] = {
     "heater_office": {"name": "Office Heater", "icon": "mdi:radiator", "area_id": "office"},
     "heater_bathroom": {"name": "Bathroom Heater", "icon": "mdi:radiator", "area_id": "bathroom"},
     "ac_office": {"name": "Office AC", "icon": "mdi:air-conditioner", "area_id": "office"},
+    # We create input_booleans for these, but we map the BINARY_SENSOR wrapper to the area below
+    "door_kitchen": {
+        "name": "Kitchen Door Boolean",
+        "icon": "mdi:door",
+        "area_id": "__SKIP__",  # Don't map boolean to area, map the template instead
+    },
     "window_master_bedroom": {
-        "name": "Master Bedroom Window",
+        "name": "Master Bedroom Window Boolean",
         "icon": "mdi:window-closed",
-        "area_id": "master_bedroom",
+        "area_id": "__SKIP__",
     },
 }
 
@@ -305,7 +314,16 @@ def setup_entities() -> None:
 
         if not found:
             platform = "generic_thermostat"
-            entity_id = unique_id.replace("_", ".", 1)  # climate_living_room -> climate.living_room
+            # Default naive split
+            entity_id = unique_id.replace("_", ".", 1)
+
+            # Fix for binary_sensor (which has an underscore in the domain)
+            if unique_id.startswith("binary_sensor_"):
+                # binary_sensor_kitchen_door -> binary_sensor.kitchen_door
+                entity_id = "binary_sensor." + unique_id[14:]
+                platform = "template"
+            elif unique_id.startswith("climate_"):
+                entity_id = "climate." + unique_id[8:]
 
             if len(unique_id) == 36:  # UUID length check for Helpers
                 # Guess Entity ID from INPUT_BOOLEANS / NUMBERS reverse lookup?
