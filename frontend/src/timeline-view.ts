@@ -143,22 +143,36 @@ export class TimelineView extends LitElement {
       overflow: hidden;
       white-space: nowrap;
       transition: opacity 0.2s;
+      z-index: 1; /* Create stacking context for ::before */
     }
     .schedule-block:hover {
       opacity: 0.9;
       z-index: 2;
     }
-    /* Colors */
-    .mode-heat {
+    /* Colors - Applied to ::before to allow independent opacity */
+    .schedule-block::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border-radius: 4px;
+      z-index: -1;
+      opacity: var(--block-opacity, 1);
+      transition: opacity 0.2s;
+    }
+
+    .mode-heat::before {
       background-color: var(--deep-orange-color, #ff5722);
     }
-    .mode-cool {
+    .mode-cool::before {
       background-color: var(--blue-color, #2196f3);
     }
-    .mode-off {
+    .mode-off::before {
       background-color: var(--grey-color, #9e9e9e);
     }
-    .mode-auto {
+    .mode-auto::before {
       background: linear-gradient(
         to bottom,
         var(--blue-color, #2196f3) 50%,
@@ -371,9 +385,10 @@ export class TimelineView extends LitElement {
       // Calculate Intensity (Opacity) based on Temp
       // Range: 16C (Low) to 24C (High)
       // Heat: Higher = More Intense
-      // Cool: Lower = More Intense
+      // Cool: Higher = More Intense (Visual preference: Low Temp = Faint)
       const minT = 16;
       const maxT = 24;
+
       let intensity = 1.0;
 
       if (zoneMode === "heat") {
@@ -382,11 +397,23 @@ export class TimelineView extends LitElement {
         intensity = 0.4 + 0.6 * Math.min(Math.max(pct, 0), 1); // 0.4 to 1.0
       } else if (zoneMode === "cool") {
         label = `${tCool}°`;
-        const pct = (maxT - tCool) / (maxT - minT); // Inverted
+        // Direct scaling (not inverted) per user request: "16-16 should be fainter than 21-21"
+        const pct = (tCool - minT) / (maxT - minT);
         intensity = 0.4 + 0.6 * Math.min(Math.max(pct, 0), 1);
       } else if (zoneMode === "auto") {
         label = `${tHeat}-${tCool}°`;
-        intensity = 0.9; // Fixed high intensity for Auto
+
+        // Use max of both (which will just be based on tCool since tCool >= tHeat usually)
+        // Actually, visually we probably want the 'range' to be represented by the 'active' component?
+        // But simply taking the max opacity of the two setpoints works for "High Temp = Opaque".
+
+        const heatPct = (tHeat - minT) / (maxT - minT);
+        const heatIntensity = 0.4 + 0.6 * Math.min(Math.max(heatPct, 0), 1);
+
+        const coolPct = (tCool - minT) / (maxT - minT);
+        const coolIntensity = 0.4 + 0.6 * Math.min(Math.max(coolPct, 0), 1);
+
+        intensity = Math.max(heatIntensity, coolIntensity);
       } else {
         label = `${tHeat}°`;
         intensity = 0.5; // Off/Dim
@@ -395,7 +422,7 @@ export class TimelineView extends LitElement {
       return html`
         <div
           class="schedule-block mode-${zoneMode}"
-          style="left: ${left}%; width: ${width}%; opacity: ${intensity.toFixed(
+          style="left: ${left}%; width: ${width}%; --block-opacity: ${intensity.toFixed(
             2,
           )};"
           title="${block.name}: ${block.start_time} (${label})"
