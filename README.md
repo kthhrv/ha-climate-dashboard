@@ -17,7 +17,6 @@ Climate Dashboard is a custom integration and sidebar panel that acts as an "Ope
 
 ### 📅 Timeline Scheduler
 Visualize your heating schedule like a calendar. See exactly when your home will warm up or cool down.
-- **Drag-and-Drop:** (Coming Soon) Easily adjust blocks.
 - **Smart Transitions:** The dashboard calculates the perfect time to start heating to hit your target by the scheduled time.
 
 ### 🏠 Zone Management (Adoption)

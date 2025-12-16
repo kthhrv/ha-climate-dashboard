@@ -176,8 +176,8 @@ INPUT_NUMBERS: dict[str, dict[str, Any]] = {
 
 GENERIC_THERMOSTATS = [
     {
-        "name": "Living Room",
-        "unique_id": "climate_living_room",
+        "name": "TRV Living Room",
+        "unique_id": "trv_living_room",
         "heater": "input_boolean.living_room_heater",
         "target_sensor": "input_number.living_room_temp",
         "min_temp": 10,

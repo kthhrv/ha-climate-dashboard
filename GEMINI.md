@@ -47,7 +47,14 @@
 * **Area (Physical):** The HA Area (e.g., "Kitchen"). Used for grouping suggestions in the Setup list.
 * **Zone (Logical):** The `climate.zone_*` entity we create. Contains the Schedule, the Actuator(s), and the Sensor(s).
 * **Actuator:** The hardware doing the work (TRV, AC, Boiler Relay).
-* **Sensor:** The truth source (Room Temp, Window Contact, Presence).
+*   **Sensor:** The truth source (Room Temp, Window Contact, Presence).
+
+## 4a. Control Patterns
+See [design/control_patterns.md](design/control_patterns.md) for detailed hardware strategies.
+*   **Smart TRV:** Needs external sensor offset.
+*   **Smart Switch:** Bang-bang logic.
+*   **AC:** Complex modes + fan control.
+*   **Wall Thermostat:** Bi-directional sync required.
 
 ## 5. Development Guidelines for AI
 
@@ -63,8 +70,8 @@
     - Handle "Unavailable" sensors gracefully (safety default temp).
     - Frontend visual warnings for offline sensors.
 - [ ] **Timeline Interactivity:**
-    - Drag-and-drop to move schedule blocks.
-    - Resize blocks to change duration.
+    - Click-to-Edit schedule blocks.
+    - Touch-optimized resize/move (Long-press actions).
 - [ ] **Global Modes:**
     - Implement "Home" vs "Away" logic affecting all zones.
 - [ ] **Smart Defaults:**
