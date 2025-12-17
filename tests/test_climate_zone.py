@@ -343,7 +343,8 @@ async def test_callbacks_and_public_methods(hass: HomeAssistant) -> None:
             "name": "Test Block",
             "start_time": "00:00",
             "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
-            "target_temp": 20.0,
+            "temp_heat": 20.0,
+            "temp_cool": 24.0,
         }
     ]
 
@@ -477,14 +478,16 @@ async def test_next_schedule_and_override(hass: HomeAssistant) -> None:
             "name": "Morning",
             "start_time": "08:00",
             "days": ["mon"],
-            "target_temp": 20.0,
+            "temp_heat": 20.0,
+            "temp_cool": 24.0,
         },
         {
             "id": "2",
             "name": "Evening",
             "start_time": "18:00",
             "days": ["mon"],
-            "target_temp": 21.0,
+            "temp_heat": 21.0,
+            "temp_cool": 25.0,
         },
         # Tomorrow (Mock Tuesday)
         {
@@ -492,7 +495,8 @@ async def test_next_schedule_and_override(hass: HomeAssistant) -> None:
             "name": "Morning",
             "start_time": "07:00",
             "days": ["tue"],
-            "target_temp": 22.0,
+            "temp_heat": 22.0,
+            "temp_cool": 26.0,
         },
         # Skip Wed
         # Thursday
@@ -501,7 +505,8 @@ async def test_next_schedule_and_override(hass: HomeAssistant) -> None:
             "name": "Morning",
             "start_time": "09:00",
             "days": ["thu"],
-            "target_temp": 23.0,
+            "temp_heat": 23.0,
+            "temp_cool": 27.0,
         },
     ]
 
@@ -530,7 +535,9 @@ async def test_next_schedule_and_override(hass: HomeAssistant) -> None:
         zone._calculate_next_scheduled_change(mock_now)
         expected_next = mock_now.replace(hour=18, minute=0, second=0, microsecond=0)
         assert zone.extra_state_attributes["next_scheduled_change"] == expected_next.isoformat()
-        assert zone.extra_state_attributes["next_scheduled_temp"] == 21.0
+        assert zone.extra_state_attributes["next_scheduled_change"] == expected_next.isoformat()
+        assert zone.extra_state_attributes["next_scheduled_temp_heat"] == 21.0
+        assert zone.extra_state_attributes["next_scheduled_temp_cool"] == 25.0
 
     # 3. Test Next Change (Next Day Loop)
     # Time: Monday 19:00. Next block is Tuesday 07:00
@@ -540,7 +547,8 @@ async def test_next_schedule_and_override(hass: HomeAssistant) -> None:
         expected_next = mock_now_evening + timedelta(days=1)  # Tuesday
         expected_next = expected_next.replace(hour=7, minute=0, second=0, microsecond=0)
         assert zone.extra_state_attributes["next_scheduled_change"] == expected_next.isoformat()
-        assert zone.extra_state_attributes["next_scheduled_temp"] == 22.0
+        assert zone.extra_state_attributes["next_scheduled_change"] == expected_next.isoformat()
+        assert zone.extra_state_attributes["next_scheduled_temp_heat"] == 22.0
 
     # 4. Test Next Change (Skip Day Loop - Mon -> Thu)
     # Schedule only Mon, Tue, Thu.
@@ -553,7 +561,8 @@ async def test_next_schedule_and_override(hass: HomeAssistant) -> None:
         expected_next = mock_now_tue + timedelta(days=2)  # Thursday
         expected_next = expected_next.replace(hour=9, minute=0, second=0, microsecond=0)
         assert zone.extra_state_attributes["next_scheduled_change"] == expected_next.isoformat()
-        assert zone.extra_state_attributes["next_scheduled_temp"] == 23.0
+        assert zone.extra_state_attributes["next_scheduled_change"] == expected_next.isoformat()
+        assert zone.extra_state_attributes["next_scheduled_temp_heat"] == 23.0
 
 
 async def test_actuator_range_only(hass: HomeAssistant) -> None:
@@ -659,14 +668,16 @@ async def test_auto_mode_temporary_hold(hass: HomeAssistant) -> None:
             "name": "Block 1",
             "start_time": "08:00",
             "days": ["mon"],
-            "target_temp": 20.0,
+            "temp_heat": 20.0,
+            "temp_cool": 24.0,
         },
         {
             "id": "2",
             "name": "Block 2",
             "start_time": "12:00",
             "days": ["mon"],
-            "target_temp": 21.0,
+            "temp_heat": 21.0,
+            "temp_cool": 25.0,
         },
     ]
 

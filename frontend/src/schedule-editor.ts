@@ -165,11 +165,11 @@ export class ScheduleEditor extends LitElement {
         const rawSchedule = JSON.parse(
           JSON.stringify(state.attributes.schedule),
         );
-        // Normalize: Ensure temp_heat/temp_cool exist (Migration from target_temp)
+        // Normalize: Ensure temp_heat/temp_cool exist
         this._schedule = rawSchedule.map((block: any) => ({
           ...block,
-          temp_heat: block.temp_heat ?? block.target_temp ?? 20.0,
-          temp_cool: block.temp_cool ?? block.target_temp ?? 24.0,
+          temp_heat: block.temp_heat ?? 20.0,
+          temp_cool: block.temp_cool ?? 24.0,
         }));
 
         // Also cache other config parts logic needs, though update API accepts individual fields?

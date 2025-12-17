@@ -36,7 +36,8 @@ _LOGGER = logging.getLogger(__name__)
 
 # Default settings
 DEFAULT_TOLERANCE = 0.3
-DEFAULT_TARGET_TEMP = 20.0
+DEFAULT_TEMP_HEAT = 20.0
+DEFAULT_TEMP_COOL = 24.0
 SAFETY_TARGET_TEMP = 5.0
 
 
@@ -83,12 +84,13 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             self._attr_hvac_modes.append(HVACMode.COOL)
 
         self._attr_current_temperature: float | None = None
-        self._attr_target_temperature: float | None = DEFAULT_TARGET_TEMP
+        self._attr_target_temperature: float | None = DEFAULT_TEMP_HEAT
         self._attr_hvac_mode = HVACMode.AUTO
         self._attr_hvac_action = HVACAction.IDLE
 
         self._attr_next_scheduled_change: str | None = None
-        self._attr_next_scheduled_temp: float | None = None
+        self._attr_next_scheduled_temp_heat: float | None = None
+        self._attr_next_scheduled_temp_cool: float | None = None
         self._attr_manual_override_end: str | None = None
 
         self._attr_target_temperature_high: float | None = None
@@ -164,7 +166,8 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             "window_sensors": self._window_sensors,
             "restore_delay_minutes": self._restore_delay_minutes,
             "next_scheduled_change": self._attr_next_scheduled_change,
-            "next_scheduled_temp": self._attr_next_scheduled_temp,
+            "next_scheduled_temp_heat": self._attr_next_scheduled_temp_heat,
+            "next_scheduled_temp_cool": self._attr_next_scheduled_temp_cool,
             "manual_override_end": self._attr_manual_override_end,
             "open_window_sensor": self._attr_open_window_sensor,
             "safety_mode": self._attr_safety_mode,
@@ -287,10 +290,8 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self._attr_target_temperature = None
 
         if active_block:
-            # Legacy Fallback
-            legacy_target = active_block.get("target_temp", DEFAULT_TARGET_TEMP)
-            t_heat = active_block.get("temp_heat", legacy_target)
-            t_cool = active_block.get("temp_cool", legacy_target)
+            t_heat = active_block.get("temp_heat", DEFAULT_TEMP_HEAT)
+            t_cool = active_block.get("temp_cool", DEFAULT_TEMP_COOL)
 
             if self._attr_hvac_mode == HVACMode.HEAT:
                 self._attr_target_temperature = t_heat
@@ -322,9 +323,8 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                     break
 
             if found_block:
-                legacy_target = found_block.get("target_temp", DEFAULT_TARGET_TEMP)
-                t_heat = found_block.get("temp_heat", legacy_target)
-                t_cool = found_block.get("temp_cool", legacy_target)
+                t_heat = found_block.get("temp_heat", DEFAULT_TEMP_HEAT)
+                t_cool = found_block.get("temp_cool", DEFAULT_TEMP_COOL)
 
                 if self._attr_hvac_mode == HVACMode.HEAT:
                     self._attr_target_temperature = t_heat
@@ -344,7 +344,8 @@ class ClimateZone(ClimateEntity, RestoreEntity):
     def _calculate_next_scheduled_change(self, now: datetime) -> None:
         """Calculate the next scheduled change."""
         self._attr_next_scheduled_change = None
-        self._attr_next_scheduled_temp = None
+        self._attr_next_scheduled_temp_heat = None
+        self._attr_next_scheduled_temp_cool = None
 
         if not self._schedule:
             return
@@ -368,8 +369,10 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                     second=0,
                     microsecond=0,
                 )
+
                 self._attr_next_scheduled_change = next_dt.isoformat()
-                self._attr_next_scheduled_temp = block["target_temp"]
+                self._attr_next_scheduled_temp_heat = block.get("temp_heat")
+                self._attr_next_scheduled_temp_cool = block.get("temp_cool")
                 return
 
         # 2. Search next days (up to 7 days ahead)
@@ -390,8 +393,10 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                     second=0,
                     microsecond=0,
                 )
+
                 self._attr_next_scheduled_change = next_dt.isoformat()
-                self._attr_next_scheduled_temp = first_block["target_temp"]
+                self._attr_next_scheduled_temp_heat = first_block.get("temp_heat")
+                self._attr_next_scheduled_temp_cool = first_block.get("temp_cool")
                 return
 
     @callback
@@ -649,7 +654,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
                 if low is None or (high is None and self._attr_target_temperature is not None):
                     # Ensure strict float logic
-                    base_temp = self._attr_target_temperature or DEFAULT_TARGET_TEMP
+                    base_temp = self._attr_target_temperature or DEFAULT_TEMP_HEAT
                     low = base_temp - DEFAULT_TOLERANCE
                     high = base_temp + DEFAULT_TOLERANCE
 

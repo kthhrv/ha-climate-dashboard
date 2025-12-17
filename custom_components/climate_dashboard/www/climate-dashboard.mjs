@@ -1240,7 +1240,7 @@ const xe = class xe extends w {
       }
       const M = v - f, q = f / 1440 * 100, le = M / 1440 * 100;
       let B = "";
-      const W = c.temp_heat ?? c.target_temp, te = c.temp_cool ?? c.target_temp, S = 16, ie = 24;
+      const W = c.temp_heat ?? 20, te = c.temp_cool ?? 24, S = 16, ie = 24;
       let F = 1;
       if (r === "heat") {
         B = `${W}°`;
@@ -2230,8 +2230,8 @@ const vt = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], ke = class ke exte
           );
           this._schedule = s.map((i) => ({
             ...i,
-            temp_heat: i.temp_heat ?? i.target_temp ?? 20,
-            temp_cool: i.temp_cool ?? i.target_temp ?? 24
+            temp_heat: i.temp_heat ?? 20,
+            temp_cool: i.temp_cool ?? 24
           })), this._config = {
             name: t.attributes.friendly_name,
             temperature_sensor: t.attributes.temperature_sensor,

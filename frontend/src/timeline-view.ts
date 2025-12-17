@@ -491,8 +491,8 @@ export class TimelineView extends LitElement {
 
       // Label based on Zone Capabilities
       let label = "";
-      const tHeat = block.temp_heat ?? block.target_temp;
-      const tCool = block.temp_cool ?? block.target_temp;
+      const tHeat = block.temp_heat ?? 20.0;
+      const tCool = block.temp_cool ?? 24.0;
 
       // Calculate Intensity (Opacity) based on Temp
       // Range: 16C (Low) to 24C (High)
