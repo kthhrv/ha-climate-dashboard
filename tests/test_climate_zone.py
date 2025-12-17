@@ -355,9 +355,9 @@ async def test_callbacks_and_public_methods(hass: HomeAssistant) -> None:
     with patch("custom_components.climate_dashboard.climate_zone.dt_util.now", return_value=mock_now):
         # We need to ensure _on_time_change logic parses the time correctly.
         # The mock above might be tricky. Let's rely on manual call.
-        # Just call _apply_schedule directly or via _on_time_change
+        # In new logic: Heaters only -> Single Point -> target_temperature
         zone._on_time_change(mock_now)
-        assert zone.target_temperature_low == 20.0
+        assert zone.target_temperature == 20.0
 
 
 async def test_update_config_rename(hass: HomeAssistant) -> None:
@@ -687,7 +687,8 @@ async def test_auto_mode_temporary_hold(hass: HomeAssistant) -> None:
         # Initial Setup
         await zone.async_set_hvac_mode(HVACMode.AUTO)
         zone._apply_schedule()
-        assert zone.target_temperature_low == 20.0
+        # Heaters/Coolers empty -> Fallback to Single Point (Heat)
+        assert zone.target_temperature == 20.0
         assert zone.extra_state_attributes.get("manual_override_end") is None
 
         # 1. Manual User Override (Set to 25.0)
@@ -713,8 +714,8 @@ async def test_auto_mode_temporary_hold(hass: HomeAssistant) -> None:
 
         # Override should be cleared
         assert zone.extra_state_attributes.get("manual_override_end") is None
-        # Target should be new block (21.0)
-        assert zone.target_temperature_low == 21.0
+        # Target should be new block (21.0) - Single Point
+        assert zone.target_temperature == 21.0
 
 
 async def test_ecobee_auto_heat_call(hass: HomeAssistant) -> None:
@@ -840,3 +841,54 @@ async def test_ecobee_range_mismatch(hass: HomeAssistant) -> None:
     assert has_range, "Code should send Range args for HEAT_COOL mode"
     assert data["target_temp_low"] == 25.0
     assert data["target_temp_high"] == 30.0  # 25 + 5 gap
+
+
+async def test_supported_features_dynamic(hass: HomeAssistant) -> None:
+    """Test that supported_features changes based on mode and capabilities."""
+
+    # 1. Dual Zone (Heaters + Coolers)
+    zone_dual = ClimateZone(
+        hass, "dual", "Dual", SENSOR_ID, heaters=[SWITCH_ID], coolers=["climate.ac"], window_sensors=[]
+    )
+
+    # Auto Mode -> Range
+    zone_dual._attr_hvac_mode = HVACMode.AUTO
+    assert zone_dual.supported_features == ClimateEntityFeature.TARGET_TEMPERATURE_RANGE
+
+    # Heat Mode -> Target
+    zone_dual._attr_hvac_mode = HVACMode.HEAT
+    assert zone_dual.supported_features == ClimateEntityFeature.TARGET_TEMPERATURE
+
+    # 2. Single Zone (Heaters only)
+    zone_single = ClimateZone(hass, "single", "Single", SENSOR_ID, heaters=[SWITCH_ID], coolers=[], window_sensors=[])
+
+    # Auto Mode -> Target (NOT Range)
+    zone_single._attr_hvac_mode = HVACMode.AUTO
+    assert zone_single.supported_features == ClimateEntityFeature.TARGET_TEMPERATURE
+
+
+async def test_dual_mode_override_bug(hass: HomeAssistant) -> None:
+    """Test that setting low/high temp in Auto triggers override."""
+
+    zone = ClimateZone(
+        hass, "dual_bug", "Dual Bug", SENSOR_ID, heaters=[SWITCH_ID], coolers=["climate.ac"], window_sensors=[]
+    )
+    # Set Auto + Dual
+    zone._attr_hvac_mode = HVACMode.AUTO
+
+    # Mock Schedule/Next Change to allow override logic to trigger
+    from datetime import datetime
+
+    import homeassistant.util.dt as dt_util
+
+    mock_now = datetime(2023, 1, 1, 12, 0, 0, tzinfo=dt_util.UTC)
+    with patch("custom_components.climate_dashboard.climate_zone.dt_util.now", return_value=mock_now):
+        zone._attr_next_scheduled_change = "2023-01-01T18:00:00+00:00"
+
+        # Call async_set_temperature with low/high (Range Slider)
+        await zone.async_set_temperature(target_temp_low=22.0, target_temp_high=26.0)
+
+        # Assertions
+        assert zone.target_temperature_low == 22.0, f"Expected 22.0, got {zone.target_temperature_low}"
+        assert zone.target_temperature_high == 26.0, f"Expected 26.0, got {zone.target_temperature_high}"
+        assert zone.extra_state_attributes["manual_override_end"] is not None, "Override not set"

@@ -51,7 +51,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
     _attr_name = None
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_precision = PRECISION_TENTHS
-    _attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
+    _attr_precision = PRECISION_TENTHS
 
     def __init__(
         self,
@@ -152,6 +152,13 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             self._apply_schedule()
 
         self.async_write_ha_state()
+
+    @property
+    def supported_features(self) -> ClimateEntityFeature:
+        """Return the list of supported features."""
+        if self._attr_hvac_mode == HVACMode.AUTO and self._heaters and self._coolers:
+            return ClimateEntityFeature.TARGET_TEMPERATURE_RANGE
+        return ClimateEntityFeature.TARGET_TEMPERATURE
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -298,11 +305,20 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             elif self._attr_hvac_mode == HVACMode.COOL:
                 self._attr_target_temperature = t_cool
             elif self._attr_hvac_mode == HVACMode.AUTO:
-                self._attr_target_temperature_low = t_heat
-                self._attr_target_temperature_high = t_cool
-                # HA requires target_temperature to be None for proper range display usually,
-                # or mid-point. But for dual point control logic, low/high is key.
-                self._attr_target_temperature = None
+                # DUAL MODE (Heaters + Coolers): Use Range
+                if self._heaters and self._coolers:
+                    self._attr_target_temperature_low = t_heat
+                    self._attr_target_temperature_high = t_cool
+                    self._attr_target_temperature = None
+                # SINGLE MODE (Heaters Only): Use Target (Heat)
+                elif self._heaters:
+                    self._attr_target_temperature = t_heat
+                # SINGLE MODE (Coolers Only): Use Target (Cool)
+                elif self._coolers:
+                    self._attr_target_temperature = t_cool
+                # Fallback / No Actuators
+                else:
+                    self._attr_target_temperature = t_heat
         else:
             # Lookback Logic: Check previous days
             days_map = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
@@ -331,9 +347,20 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                 elif self._attr_hvac_mode == HVACMode.COOL:
                     self._attr_target_temperature = t_cool
                 elif self._attr_hvac_mode == HVACMode.AUTO:
-                    self._attr_target_temperature_low = t_heat
-                    self._attr_target_temperature_high = t_cool
-                    self._attr_target_temperature = None
+                    # DUAL MODE (Heaters + Coolers): Use Range
+                    if self._heaters and self._coolers:
+                        self._attr_target_temperature_low = t_heat
+                        self._attr_target_temperature_high = t_cool
+                        self._attr_target_temperature = None
+                    # SINGLE MODE (Heaters Only): Use Target (Heat)
+                    elif self._heaters:
+                        self._attr_target_temperature = t_heat
+                    # SINGLE MODE (Coolers Only): Use Target (Cool)
+                    elif self._coolers:
+                        self._attr_target_temperature = t_cool
+                    # Fallback
+                    else:
+                        self._attr_target_temperature = t_heat
 
         # Calculate next scheduled change
         self._calculate_next_scheduled_change(now)
@@ -477,14 +504,29 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         if (mode := kwargs.get("hvac_mode")) is not None:
             self._attr_hvac_mode = mode
 
-        if (temp := kwargs.get(ATTR_TEMPERATURE)) is None:
+        # Track if we need to apply override logic
+        set_temp = False
+
+        # Handle Single Point
+        if (temp := kwargs.get(ATTR_TEMPERATURE)) is not None:
+            self._attr_target_temperature = temp
+            set_temp = True
+
+        # Handle Dual Point
+        low = kwargs.get("target_temp_low")
+        high = kwargs.get("target_temp_high")
+        if low is not None and high is not None:
+            self._attr_target_temperature_low = low
+            self._attr_target_temperature_high = high
+            self._attr_target_temperature = None
+            set_temp = True
+
+        if not set_temp:
             return
-        self._attr_target_temperature = temp
 
         # Implement Temporary Hold if in Auto
         if self._attr_hvac_mode == HVACMode.AUTO and self._attr_next_scheduled_change:
             # Lookahead already calculated. Hold until then.
-            # Only set if not already set or different?
             self._attr_manual_override_end = self._attr_next_scheduled_change
 
         await self._async_control_actuator()

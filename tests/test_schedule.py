@@ -77,7 +77,7 @@ async def test_auto_mode_applies_schedule(hass: HomeAssistant, mock_schedule: li
             zone._attr_hvac_mode = HVACMode.AUTO
             zone._apply_schedule()
 
-            assert zone.target_temperature_low == 21.0
+            assert zone.target_temperature == 21.0
 
 
 async def test_auto_mode_night_schedule(hass: HomeAssistant, mock_schedule: list[ScheduleBlock]) -> None:
@@ -106,4 +106,4 @@ async def test_auto_mode_night_schedule(hass: HomeAssistant, mock_schedule: list
             zone._attr_hvac_mode = HVACMode.AUTO
             zone._apply_schedule()
 
-            assert zone.target_temperature_low == 18.0
+            assert zone.target_temperature == 18.0

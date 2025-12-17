@@ -66,7 +66,7 @@ See [design/control_patterns.md](design/control_patterns.md) for detailed hardwa
 ## 6. Project Roadmap
 
 ### Immediate Next Steps
-- [ ] **Failsafes & Safety:**
+- [x] **Failsafes & Safety:**
     - Handle "Unavailable" sensors gracefully (safety default temp).
     - Frontend visual warnings for offline sensors.
 - [ ] **Timeline Interactivity:**
