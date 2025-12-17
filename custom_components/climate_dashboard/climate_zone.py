@@ -65,7 +65,19 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         schedule: list[ScheduleBlock] | None = None,
         restore_delay_minutes: int = 0,
     ) -> None:
-        """Initialize the climate zone."""
+        """Initialize the climate zone.
+
+        Args:
+            hass: HomeAssistant instance.
+            unique_id: Unique ID for the zone.
+            name: Friendly name of the zone.
+            temperature_sensor: Entity ID of the temperature sensor.
+            heaters: List of heater entity IDs (switch or climate).
+            coolers: List of cooler entity IDs (climate).
+            window_sensors: List of window binary_sensor entity IDs.
+            schedule: List of schedule blocks.
+            restore_delay_minutes: Minutes to wait before restoring AUTO mode.
+        """
         self.hass = hass
         self._attr_unique_id = unique_id
         self._attr_name = name
@@ -112,7 +124,17 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         schedule: list[ScheduleBlock] | None = None,
         restore_delay_minutes: int | None = None,
     ) -> None:
-        """Update configuration dynamically."""
+        """Update configuration dynamically.
+
+        Args:
+            name: New friendly name.
+            temperature_sensor: New temperature sensor entity ID.
+            heaters: New list of heaters.
+            coolers: New list of coolers.
+            window_sensors: New list of window sensors.
+            schedule: New schedule list (optional).
+            restore_delay_minutes: New restore delay (optional).
+        """
         self._attr_name = name
         self.entity_id = f"climate.zone_{slugify(name)}"
 
@@ -256,7 +278,12 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             self._apply_schedule()
 
     def _apply_schedule(self) -> None:
-        """Apply the current schedule block."""
+        """Apply the current schedule block.
+
+        Locates the active schedule block for the current time.
+        If no block matches (gap in schedule), it looks back at previous days
+        to find the last applied setting (continuity logic).
+        """
         if not self._schedule:
             return
 
@@ -369,7 +396,14 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self.hass.async_create_task(self._async_control_actuator())
 
     def _calculate_next_scheduled_change(self, now: datetime) -> None:
-        """Calculate the next scheduled change."""
+        """Calculate the next scheduled change.
+
+        Scans the schedule for the next upcoming block start time.
+        Sets _attr_next_scheduled_change and related attributes for UI display.
+
+        Args:
+            now: Current datetime.
+        """
         self._attr_next_scheduled_change = None
         self._attr_next_scheduled_temp_heat = None
         self._attr_next_scheduled_temp_cool = None
@@ -578,7 +612,15 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         return None
 
     async def _async_control_actuator(self) -> None:
-        """Control the actuators based on state."""
+        """Control the actuators based on state.
+
+        Core control loop that:
+        1. Checks for open windows (Safety Stop).
+        2. Checks for HVAC Mode OFF.
+        3. Handles Failsafe/Safety Mode if sensors are invalid.
+        4. Calculates demand based on Mode (HEAT/COOL/AUTO) and Target.
+        5. Calls _async_set_heaters / _async_set_coolers accordingly.
+        """
         # Force update of sensor state to avoid stale fallback values!
         self._async_update_temp()
 
@@ -722,7 +764,16 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         await self._async_set_coolers(False)
 
     async def _async_set_heaters(self, enable: bool) -> None:
-        """Control heaters."""
+        """Control heaters.
+
+        Args:
+            enable: True to turn on/heat, False to turn off/idle.
+
+        Handles:
+        - Switches: turn_on/turn_off
+        - Climate (Smart TRVs): set_hvac_mode and set_temperature.
+          Maps zone target (single or range) to device capabilities.
+        """
         for entity_id in self._heaters:
             domain = entity_id.split(".")[0]
             if domain == "switch":

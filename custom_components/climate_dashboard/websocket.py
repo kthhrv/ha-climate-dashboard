@@ -24,7 +24,13 @@ def websocket_adopt_zone(
     connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Handle adopt zone command."""
+    """Handle adopt zone command.
+
+    Args:
+        hass: HomeAssistant instance.
+        connection: WebSocket connection.
+        msg: Message dictionary.
+    """
     # We need to run this async, but since this is a callback, we spawn a task.
     # However, to properly handle errors/result, we should use async handler.
     # Refactoring to async handler requires removing @callback and changing to async def.
@@ -36,6 +42,11 @@ def websocket_adopt_zone(
 
 
 async def _async_adopt_zone(hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]) -> None:
+    """Implement adoption logic.
+
+    Create a new Zone configuration from the message payload, find the
+    correct Area based on the entities, and save it to storage.
+    """
     name = msg["name"]
     temperature_sensor = msg["temperature_sensor"]
     heaters = msg["heaters"]
@@ -122,7 +133,11 @@ def websocket_update_zone(
 
 
 async def _async_update_zone(hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]) -> None:
-    """Handle update zone command."""
+    """Handle update zone command.
+
+    Updates the configuration of an existing zone.
+    Merges provided fields with existing configuration.
+    """
     if DOMAIN not in hass.data:
         connection.send_error(msg["id"], "internal_error", "Integration not initialized")
         return
@@ -174,7 +189,10 @@ def websocket_delete_zone(
 
 
 async def _async_delete_zone(hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]) -> None:
-    """Handle delete zone command."""
+    """Handle delete zone command.
+
+    Removes a zone from storage by its unique_id.
+    """
     if DOMAIN not in hass.data:
         connection.send_error(msg["id"], "internal_error", "Integration not initialized")
         return
