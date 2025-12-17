@@ -2321,32 +2321,36 @@ const vt = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], ke = class ke exte
                       @input=${(s) => this._updateBlock(t, "start_time", s.target.value)}
                     />
                   </div>
-                  <div class="field">
-                    <label>Heat To (°C)</label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      .value=${e.temp_heat ?? 20}
-                      @input=${(s) => this._updateBlock(
+                  ${this._config.heaters.length > 0 ? l`
+                        <div class="field">
+                          <label>Heat To (°C)</label>
+                          <input
+                            type="number"
+                            step="0.5"
+                            .value=${e.temp_heat ?? 20}
+                            @input=${(s) => this._updateBlock(
         t,
         "temp_heat",
         parseFloat(s.target.value)
       )}
-                    />
-                  </div>
-                  <div class="field">
-                    <label>Cool To (°C)</label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      .value=${e.temp_cool ?? 24}
-                      @input=${(s) => this._updateBlock(
+                          />
+                        </div>
+                      ` : ""}
+                  ${this._config.coolers.length > 0 ? l`
+                        <div class="field">
+                          <label>Cool To (°C)</label>
+                          <input
+                            type="number"
+                            step="0.5"
+                            .value=${e.temp_cool ?? 24}
+                            @input=${(s) => this._updateBlock(
         t,
         "temp_cool",
         parseFloat(s.target.value)
       )}
-                    />
-                  </div>
+                          />
+                        </div>
+                      ` : ""}
                 </div>
 
                 <div class="row">

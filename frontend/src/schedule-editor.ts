@@ -283,34 +283,42 @@ export class ScheduleEditor extends LitElement {
                         this._updateBlock(index, "start_time", e.target.value)}
                     />
                   </div>
-                  <div class="field">
-                    <label>Heat To (°C)</label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      .value=${block.temp_heat ?? 20}
-                      @input=${(e: any) =>
-                        this._updateBlock(
-                          index,
-                          "temp_heat",
-                          parseFloat(e.target.value),
-                        )}
-                    />
-                  </div>
-                  <div class="field">
-                    <label>Cool To (°C)</label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      .value=${block.temp_cool ?? 24}
-                      @input=${(e: any) =>
-                        this._updateBlock(
-                          index,
-                          "temp_cool",
-                          parseFloat(e.target.value),
-                        )}
-                    />
-                  </div>
+                  ${this._config.heaters.length > 0
+                    ? html`
+                        <div class="field">
+                          <label>Heat To (°C)</label>
+                          <input
+                            type="number"
+                            step="0.5"
+                            .value=${block.temp_heat ?? 20}
+                            @input=${(e: any) =>
+                              this._updateBlock(
+                                index,
+                                "temp_heat",
+                                parseFloat(e.target.value),
+                              )}
+                          />
+                        </div>
+                      `
+                    : ""}
+                  ${this._config.coolers.length > 0
+                    ? html`
+                        <div class="field">
+                          <label>Cool To (°C)</label>
+                          <input
+                            type="number"
+                            step="0.5"
+                            .value=${block.temp_cool ?? 24}
+                            @input=${(e: any) =>
+                              this._updateBlock(
+                                index,
+                                "temp_cool",
+                                parseFloat(e.target.value),
+                              )}
+                          />
+                        </div>
+                      `
+                    : ""}
                 </div>
 
                 <div class="row">
