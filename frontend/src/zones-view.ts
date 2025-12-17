@@ -1,5 +1,5 @@
 import { LitElement, html, css, TemplateResult } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { property } from "lit/decorators.js";
 
 interface HassEntity {
   entity_id: string;
@@ -7,7 +7,6 @@ interface HassEntity {
   attributes: Record<string, any>;
 }
 
-@customElement("zones-view")
 export class ZonesView extends LitElement {
   @property({ attribute: false }) public hass!: any;
 
@@ -393,4 +392,8 @@ export class ZonesView extends LitElement {
       }),
     );
   }
+}
+
+if (!customElements.get("zones-view")) {
+  customElements.define("zones-view", ZonesView);
 }

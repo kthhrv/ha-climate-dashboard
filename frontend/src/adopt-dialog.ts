@@ -1,7 +1,6 @@
 import { LitElement, html, css, PropertyValues } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
+import { property, state } from "lit/decorators.js";
 
-@customElement("adopt-dialog")
 export class AdoptDialog extends LitElement {
   @property({ attribute: false }) public hass!: any;
   @property({ type: Boolean, reflect: true }) public open = false;
@@ -366,4 +365,8 @@ export class AdoptDialog extends LitElement {
       </div>
     `;
   }
+}
+
+if (!customElements.get("adopt-dialog")) {
+  customElements.define("adopt-dialog", AdoptDialog);
 }

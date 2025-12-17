@@ -1,5 +1,5 @@
 import { LitElement, html, css, TemplateResult } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
+import { property, state } from "lit/decorators.js";
 import "./adopt-dialog";
 
 interface ClimateEntity {
@@ -12,7 +12,6 @@ interface ClimateEntity {
   area_id?: string;
 }
 
-@customElement("setup-view")
 export class SetupView extends LitElement {
   @property({ attribute: false }) public hass!: any;
 
@@ -184,4 +183,8 @@ export class SetupView extends LitElement {
     this._selectedEntity = null;
     this._fetchDevices(); // Refresh list
   }
+}
+
+if (!customElements.get("setup-view")) {
+  customElements.define("setup-view", SetupView);
 }

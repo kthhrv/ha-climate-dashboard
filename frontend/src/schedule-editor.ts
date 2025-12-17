@@ -1,5 +1,5 @@
 import { LitElement, html, css } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
+import { property, state } from "lit/decorators.js";
 
 interface ScheduleBlock {
   name: string;
@@ -11,7 +11,6 @@ interface ScheduleBlock {
 
 const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
-@customElement("schedule-editor")
 export class ScheduleEditor extends LitElement {
   @property({ attribute: false }) public hass!: any;
   @property({ attribute: false }) public zoneId!: string;
@@ -354,4 +353,8 @@ export class ScheduleEditor extends LitElement {
       </div>
     `;
   }
+}
+
+if (!customElements.get("schedule-editor")) {
+  customElements.define("schedule-editor", ScheduleEditor);
 }

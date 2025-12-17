@@ -1,12 +1,11 @@
 import { LitElement, html, css, TemplateResult } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
+import { property, state } from "lit/decorators.js";
 import "./setup-view";
 import "./timeline-view";
 import "./zones-view";
 import "./zone-editor";
 import "./schedule-editor";
 
-@customElement("climate-dashboard")
 export class ClimateDashboard extends LitElement {
   @property({ attribute: false }) public hass!: any;
   @property({ attribute: false }) public narrow!: boolean;
@@ -233,4 +232,8 @@ export class ClimateDashboard extends LitElement {
       </div>
     `;
   }
+}
+
+if (!customElements.get("climate-dashboard")) {
+  customElements.define("climate-dashboard", ClimateDashboard);
 }

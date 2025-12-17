@@ -1,7 +1,6 @@
 import { LitElement, html, css, TemplateResult } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
+import { property, state } from "lit/decorators.js";
 
-@customElement("timeline-view")
 export class TimelineView extends LitElement {
   @property({ attribute: false }) public hass!: any;
   @property() public focusZoneId?: string;
@@ -569,4 +568,8 @@ export class TimelineView extends LitElement {
       }),
     );
   }
+}
+
+if (!customElements.get("timeline-view")) {
+  customElements.define("timeline-view", TimelineView);
 }

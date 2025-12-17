@@ -1,9 +1,8 @@
 import { LitElement, html, css } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
+import { property, state } from "lit/decorators.js";
 // import { fireEvent } from "./fire-event";
 // import "@material/mwc-button";
 
-@customElement("zone-editor")
 export class ZoneEditor extends LitElement {
   @property({ attribute: false }) public hass!: any;
   @property({ attribute: false }) public zoneId!: string;
@@ -470,4 +469,8 @@ export class ZoneEditor extends LitElement {
       </div>
     `;
   }
+}
+
+if (!customElements.get("zone-editor")) {
+  customElements.define("zone-editor", ZoneEditor);
 }
