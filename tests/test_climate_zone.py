@@ -52,6 +52,8 @@ async def test_heating_logic_switch_turn_on(mock_climate_zone: ClimateZone, hass
     mock_climate_zone._attr_current_temperature = 19.0  # Cold
 
     # Mock services
+    hass.states.async_set(SENSOR_ID, "19.0")
+    hass.states.async_set(SWITCH_ID, "off")
     mock_services = MagicMock()
     mock_climate_zone.hass.services = mock_services
     mock_services.async_call = AsyncMock()
@@ -73,6 +75,8 @@ async def test_heating_logic_switch_turn_off(mock_climate_zone: ClimateZone, has
     mock_climate_zone._attr_current_temperature = 22.0  # Hot
 
     # Mock services
+    hass.states.async_set(SENSOR_ID, "22.0")
+    hass.states.async_set(SWITCH_ID, "on")
     mock_services = MagicMock()
     mock_climate_zone.hass.services = mock_services
     mock_services.async_call = AsyncMock()
@@ -92,6 +96,8 @@ async def test_off_mode_ensures_actuator_off(mock_climate_zone: ClimateZone, has
     # Even if temp is freezing
     mock_climate_zone._attr_target_temperature = 21.0
     mock_climate_zone._attr_current_temperature = 10.0
+    # Ensure switch exists
+    hass.states.async_set(SWITCH_ID, "on")
 
     # Mock services
     mock_services = MagicMock()
@@ -120,6 +126,8 @@ async def test_climate_actuator_heat(hass: HomeAssistant) -> None:
         HVACMode.OFF,
         {"supported_features": ClimateEntityFeature.TARGET_TEMPERATURE, "hvac_modes": [HVACMode.OFF, HVACMode.HEAT]},
     )
+    # Ensure Sensor exists to prevent Safety Mode
+    hass.states.async_set(SENSOR_ID, "20.0")
 
     zone = ClimateZone(
         hass, "zone_climate", "Climate Zone", SENSOR_ID, heaters=[CLIMATE_HEATER_ID], coolers=[], window_sensors=[]
@@ -170,6 +178,7 @@ async def test_cooling_logic(hass: HomeAssistant) -> None:
     )
 
     # Mock Services (Missing in previous version causing ServiceNotFound)
+    hass.states.async_set(SENSOR_ID, "25.0")
     mock_services = MagicMock()
     zone.hass.services = mock_services
     mock_services.async_call = AsyncMock()
@@ -216,6 +225,8 @@ async def test_window_open_safety(hass: HomeAssistant) -> None:
 
     # Mock window open
     hass.states.async_set(WINDOW_ID, "on")
+    # Ensure switch exists
+    hass.states.async_set(SWITCH_ID, "on")
 
     mock_services = MagicMock()
     zone.hass.services = mock_services
@@ -239,6 +250,8 @@ async def test_sensor_unavailable(hass: HomeAssistant) -> None:
 
     # Mock sensor unavailable
     hass.states.async_set(SENSOR_ID, "unavailable")
+    # Ensure switch exists
+    hass.states.async_set(SWITCH_ID, "on")
 
     # Trigger update
     zone._async_update_temp()
@@ -268,6 +281,7 @@ async def test_restore_state(hass: HomeAssistant) -> None:
     last_state.attributes = {ATTR_ENTITY_ID: "climate.zone_restore", "temperature": 23.5, "unique_id": "zone_restore"}
     zone.async_get_last_state = AsyncMock(return_value=last_state)
 
+    hass.states.async_set(SENSOR_ID, "23.5")
     await zone.async_added_to_hass()
 
     assert zone.hvac_mode == HVACMode.HEAT
@@ -290,6 +304,8 @@ async def test_callbacks_and_public_methods(hass: HomeAssistant) -> None:
         window_sensors=[SWITCH_ID],  # Use switch as window just for triggering
     )
 
+    hass.states.async_set(SENSOR_ID, "21.5")
+    hass.states.async_set(SWITCH_ID, "off")
     mock_services = MagicMock()
     zone.hass.services = mock_services
     mock_services.async_call = AsyncMock()
@@ -395,6 +411,7 @@ async def test_startup_branches(hass: HomeAssistant) -> None:
     # Mock schedule to avoid errors
     zone._schedule = []
 
+    hass.states.async_set(SENSOR_ID, "20.0")
     await zone.async_added_to_hass()
     # Logic should track window changes and try to apply schedule
     # Just ensuring no crash and lines covered
@@ -417,9 +434,11 @@ async def test_last_mile_coverage(hass: HomeAssistant) -> None:
     mock_services.async_call = AsyncMock()
 
     # 1. Missing Else in Restore (Line 96)
+    # 1. Missing Else in Restore (Line 96)
     last_state = MagicMock()
     last_state.state = "invalid_mode"  # Not in HVAC_MODES
     zone.async_get_last_state = AsyncMock(return_value=last_state)
+    hass.states.async_set(SENSOR_ID, "20.0")
     await zone.async_added_to_hass()
     assert zone.hvac_mode == HVACMode.AUTO
 
@@ -561,6 +580,7 @@ async def test_actuator_range_only(hass: HomeAssistant) -> None:
     zone._attr_current_temperature = 18.0  # Cold
 
     mock_services = MagicMock()
+    hass.states.async_set(SENSOR_ID, "18.0")
     zone.hass.services = mock_services
     mock_services.async_call = AsyncMock()
 
@@ -713,14 +733,15 @@ async def test_ecobee_auto_heat_call(hass: HomeAssistant) -> None:
     mode_mock = AsyncMock()
     hass.services.async_register("climate", "set_hvac_mode", mode_mock)
 
+    # First: Set Sensor state. This triggers background update.
+    hass.states.async_set(SENSOR_ID, "20.0")
+
     await zone.async_added_to_hass()
 
     # Set Zone to AUTO
     await zone.async_set_hvac_mode(HVACMode.AUTO)
 
     # Set Temp to 25.0
-    # First: Set Sensor state. This triggers background update.
-    hass.states.async_set(SENSOR_ID, "20.0")
     # Wait for background task (which might turn things OFF due to default target)
     await hass.async_block_till_done()
 
@@ -777,11 +798,12 @@ async def test_ecobee_range_mismatch(hass: HomeAssistant) -> None:
     mode_mock = AsyncMock()
     hass.services.async_register("climate", "set_hvac_mode", mode_mock)
 
+    # Avoid async race
+    hass.states.async_set(SENSOR_ID, "20.0")
+
     await zone.async_added_to_hass()
     await zone.async_set_hvac_mode(HVACMode.AUTO)  # Default target is 20 if logic holds? Or None?
 
-    # Avoid async race
-    hass.states.async_set(SENSOR_ID, "20.0")
     await hass.async_block_till_done()
     control_mock.reset_mock()
 

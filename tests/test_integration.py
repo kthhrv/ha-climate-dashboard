@@ -113,6 +113,12 @@ async def test_delete_zone_via_api(hass: HomeAssistant, hass_ws_client: Any) -> 
     msg = await client.receive_json()
     uid = msg["result"]["unique_id"]
 
+    # Ensure mock sensor exists to avoid 10s retry loop
+    hass.states.async_set("sensor.temp", "20.0")
+
+    # Ensure entity is created
+    await hass.async_block_till_done()
+
     entity_id = "climate.zone_to_delete"
     assert hass.states.get(entity_id) is not None
 
