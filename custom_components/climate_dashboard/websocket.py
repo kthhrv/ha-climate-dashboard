@@ -318,6 +318,7 @@ async def ws_scan_unmanaged(
 
             # Resolve Area
             area_name = None
+            area_id = None
             entity_entry = er_instance.async_get(state.entity_id)
             if entity_entry:
                 area_id = entity_entry.area_id

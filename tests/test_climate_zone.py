@@ -11,8 +11,11 @@ from homeassistant.const import (
     SERVICE_TURN_ON,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import entity_registry as er
 
 from custom_components.climate_dashboard.climate_zone import ClimateZone
+from custom_components.climate_dashboard.const import DOMAIN
 
 # Constants
 SWITCH_ID = "switch.heater"
@@ -892,3 +895,101 @@ async def test_dual_mode_override_bug(hass: HomeAssistant) -> None:
         assert zone.target_temperature_low == 22.0, f"Expected 22.0, got {zone.target_temperature_low}"
         assert zone.target_temperature_high == 26.0, f"Expected 26.0, got {zone.target_temperature_high}"
         assert zone.extra_state_attributes["manual_override_end"] is not None, "Override not set"
+
+
+async def test_safety_mode_no_sensor(hass: HomeAssistant) -> None:
+    """Test safety mode triggers when sensor is unavailable."""
+    zone = ClimateZone(
+        hass, "safety", "Safety Zone", "sensor.unavailable", heaters=[SWITCH_ID], coolers=[], window_sensors=[]
+    )
+    # Ensure sensor is unavailable
+    hass.states.async_set("sensor.unavailable", "unavailable")
+
+    with patch("asyncio.sleep", return_value=None):
+        await zone.async_added_to_hass()
+    await zone.async_set_hvac_mode(HVACMode.HEAT)
+
+    # Trigger update
+    await zone._async_control_actuator()
+
+    assert zone.extra_state_attributes["safety_mode"] is True
+    assert zone.extra_state_attributes["using_fallback_sensor"] is None
+
+
+async def test_safety_mode_actuator_behavior(hass: HomeAssistant) -> None:
+    """Test actuators enter safety state (TRV=5C, Switch=OFF)."""
+    # Register services
+    switch_mock = AsyncMock()
+    climate_mock = AsyncMock()
+    hass.services.async_register("switch", "turn_off", switch_mock)
+    hass.services.async_register("climate", "set_temperature", climate_mock)
+
+    # TRV Entity
+    hass.states.async_set("climate.trv", "20", {"min_temp": 7, "hvac_modes": ["heat"]})
+    # Switch Entity
+    hass.states.async_set(SWITCH_ID, "on")
+
+    zone = ClimateZone(
+        hass,
+        "safety2",
+        "Safety Zone 2",
+        "sensor.gone",
+        heaters=[SWITCH_ID, "climate.trv"],
+        coolers=[],
+        window_sensors=[],
+    )
+    hass.states.async_set("sensor.gone", "unknown")
+
+    with patch("asyncio.sleep", return_value=None):
+        await zone.async_added_to_hass()
+    await zone.async_set_hvac_mode(HVACMode.HEAT)
+
+    # Trigger
+    await zone._async_control_actuator()
+    assert zone.extra_state_attributes["safety_mode"] is True
+
+    # 1. Switch should be OFF
+    assert switch_mock.called
+    switch_call = switch_mock.call_args[0][0]
+    assert switch_call.data["entity_id"] == SWITCH_ID
+
+    # 2. TRV should be set to 7 (Safety=5, Min=7 -> 7)
+    assert climate_mock.called
+    climate_call = climate_mock.call_args[0][0]
+    assert climate_call.data["entity_id"] == "climate.trv"
+    assert climate_call.data["temperature"] == 7
+    assert climate_call.data["hvac_mode"] == HVACMode.HEAT
+
+
+async def test_fallback_sensor(hass: HomeAssistant) -> None:
+    """Test automatic fallback to another sensor in the same area."""
+    # Setup Registry with Area
+    ent_reg = er.async_get(hass)
+    area_reg = ar.async_get(hass)
+
+    area = area_reg.async_create("Office")
+
+    # Main Sensor (Broken)
+    ent_reg.async_get_or_create("sensor", "demo", "main", suggested_object_id="main")
+    ent_reg.async_update_entity("sensor.main", area_id=area.id)
+    hass.states.async_set("sensor.main", "unavailable")
+
+    # Backup Sensor (Working)
+    ent_reg.async_get_or_create("sensor", "demo", "backup", suggested_object_id="backup")
+    ent_reg.async_update_entity("sensor.backup", area_id=area.id)
+    hass.states.async_set("sensor.backup", "21.5", {"device_class": "temperature"})
+
+    zone = ClimateZone(hass, "office", "Office", "sensor.main", heaters=[], coolers=[], window_sensors=[])
+
+    # Register Zone in ER and link to Area
+    zone_entry = ent_reg.async_get_or_create("climate", DOMAIN, "office", suggested_object_id="zone_office")
+    ent_reg.async_update_entity(zone_entry.entity_id, area_id=area.id)
+
+    # Add to hass
+    with patch("asyncio.sleep", return_value=None):
+        await zone.async_added_to_hass()
+    await zone.async_set_hvac_mode(HVACMode.HEAT)  # Trigger control
+
+    assert zone.extra_state_attributes["safety_mode"] is False
+    assert zone.extra_state_attributes["using_fallback_sensor"] == "sensor.backup"
+    assert zone.current_temperature == 21.5
