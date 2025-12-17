@@ -1637,8 +1637,19 @@ const we = class we extends w {
       const r = new Date(t).toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit"
-      }), n = e.attributes.next_scheduled_temp;
-      n != null ? o = `${r} -> ${n}°` : o = `${r}`;
+      }), n = e.attributes.next_scheduled_temp_heat, d = e.attributes.next_scheduled_temp_cool, c = e.attributes.hvac_modes || [], h = c.includes("heat"), p = c.includes("cool");
+      let m = l``;
+      if (h && p && n != null && d != null ? m = l`<span class="heat">${n}°</span>/<span class="cool"
+            >${d}°</span
+          >` : h && n != null ? m = l`<span class="heat">${n}°</span>` : p && d != null && (m = l`<span class="cool">${d}°</span>`), h && n != null || p && d != null)
+        return l`
+          <div
+            style="font-size: 0.75rem; color: var(--secondary-text-color); margin-top: 4px;"
+          >
+            ${r} -> ${m}
+          </div>
+        `;
+      o = `${r}`;
     }
     return o ? l`
       <div
@@ -1783,6 +1794,14 @@ we.styles = T`
     }
     .floor-header:first-child {
       margin-top: 0;
+    }
+    .heat {
+      color: var(--state-climate-heat-color, #ff9800);
+      font-weight: 500;
+    }
+    .cool {
+      color: var(--state-climate-cool-color, #2196f3);
+      font-weight: 500;
     }
   `;
 let ae = we;

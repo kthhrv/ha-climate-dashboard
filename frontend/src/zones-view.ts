@@ -121,6 +121,14 @@ export class ZonesView extends LitElement {
     .floor-header:first-child {
       margin-top: 0;
     }
+    .heat {
+      color: var(--state-climate-heat-color, #ff9800);
+      font-weight: 500;
+    }
+    .cool {
+      color: var(--state-climate-cool-color, #2196f3);
+      font-weight: 500;
+    }
   `;
 
   protected render(): TemplateResult {
@@ -345,9 +353,44 @@ export class ZonesView extends LitElement {
         hour: "2-digit",
         minute: "2-digit",
       });
-      const nextTemp = zone.attributes.next_scheduled_temp;
-      if (nextTemp != null) {
-        message = `${time} -> ${nextTemp}°`;
+      const nextHeat = zone.attributes.next_scheduled_temp_heat;
+      const nextCool = zone.attributes.next_scheduled_temp_cool;
+      const hvacModes = zone.attributes.hvac_modes || [];
+      const supportsHeat = hvacModes.includes("heat");
+      const supportsCool = hvacModes.includes("cool");
+
+      let tempStr = html``;
+      // Show both if supported and present
+      if (
+        supportsHeat &&
+        supportsCool &&
+        nextHeat != null &&
+        nextCool != null
+      ) {
+        tempStr = html`<span class="heat">${nextHeat}°</span>/<span class="cool"
+            >${nextCool}°</span
+          >`;
+      }
+      // Show Heat only if supported and present (and not already shown in dual)
+      else if (supportsHeat && nextHeat != null) {
+        tempStr = html`<span class="heat">${nextHeat}°</span>`;
+      }
+      // Show Cool only if supported and present
+      else if (supportsCool && nextCool != null) {
+        tempStr = html`<span class="cool">${nextCool}°</span>`;
+      }
+
+      if (
+        (supportsHeat && nextHeat != null) ||
+        (supportsCool && nextCool != null)
+      ) {
+        return html`
+          <div
+            style="font-size: 0.75rem; color: var(--secondary-text-color); margin-top: 4px;"
+          >
+            ${time} -> ${tempStr}
+          </div>
+        `;
       } else {
         message = `${time}`;
       }
