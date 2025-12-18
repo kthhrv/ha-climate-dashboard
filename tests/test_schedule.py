@@ -8,7 +8,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
 from custom_components.climate_dashboard.climate_zone import ClimateZone
-from custom_components.climate_dashboard.storage import ScheduleBlock
+from custom_components.climate_dashboard.storage import OverrideType, ScheduleBlock
 
 
 @pytest.fixture
@@ -36,8 +36,11 @@ def mock_schedule() -> list[ScheduleBlock]:
 
 async def test_schedule_init(hass: HomeAssistant, mock_schedule: list[ScheduleBlock]) -> None:
     """Test initializing with schedule."""
+    mock_storage = MagicMock()
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
     zone = ClimateZone(
         hass,
+        mock_storage,
         "z1",
         "Zone 1",
         temperature_sensor="sensor.temp",
@@ -55,8 +58,11 @@ async def test_auto_mode_applies_schedule(hass: HomeAssistant, mock_schedule: li
     now = dt_util.parse_datetime("2023-01-02 10:00:00")  # Jan 2 2023 is Monday
 
     with patch("homeassistant.util.dt.now", return_value=now):
+        mock_storage = MagicMock()
+        mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
         zone = ClimateZone(
             hass,
+            mock_storage,
             "z1",
             "Zone 1",
             temperature_sensor="sensor.temp",
@@ -86,8 +92,11 @@ async def test_auto_mode_night_schedule(hass: HomeAssistant, mock_schedule: list
     now = dt_util.parse_datetime("2023-01-02 23:00:00")
 
     with patch("homeassistant.util.dt.now", return_value=now):
+        mock_storage = MagicMock()
+        mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
         zone = ClimateZone(
             hass,
+            mock_storage,
             "z1",
             "Zone 1",
             temperature_sensor="sensor.temp",

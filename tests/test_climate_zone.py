@@ -16,6 +16,7 @@ from homeassistant.helpers import entity_registry as er
 
 from custom_components.climate_dashboard.climate_zone import ClimateZone
 from custom_components.climate_dashboard.const import DOMAIN
+from custom_components.climate_dashboard.storage import OverrideType
 
 # Constants
 SWITCH_ID = "switch.heater"
@@ -25,10 +26,22 @@ ZONE_NAME = "Test Zone"
 
 
 @pytest.fixture
-def mock_climate_zone(hass: HomeAssistant) -> ClimateZone:
+def mock_storage() -> MagicMock:
+    """Create a mock storage."""
+    storage = MagicMock()
+    storage.settings = {
+        "default_override_type": OverrideType.NEXT_BLOCK,
+        "default_timer_minutes": 60,
+    }
+    return storage
+
+
+@pytest.fixture
+def mock_climate_zone(hass: HomeAssistant, mock_storage: MagicMock) -> ClimateZone:
     """Create a mock ClimateZone."""
     return ClimateZone(
         hass,
+        mock_storage,
         unique_id=ZONE_ID,
         name=ZONE_NAME,
         temperature_sensor=SENSOR_ID,
@@ -132,8 +145,17 @@ async def test_climate_actuator_heat(hass: HomeAssistant) -> None:
     # Ensure Sensor exists to prevent Safety Mode
     hass.states.async_set(SENSOR_ID, "20.0")
 
+    mock_storage = MagicMock()
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
     zone = ClimateZone(
-        hass, "zone_climate", "Climate Zone", SENSOR_ID, heaters=[CLIMATE_HEATER_ID], coolers=[], window_sensors=[]
+        hass,
+        mock_storage,
+        "zone_climate",
+        "Climate Zone",
+        SENSOR_ID,
+        heaters=[CLIMATE_HEATER_ID],
+        coolers=[],
+        window_sensors=[],
     )
 
     zone._attr_hvac_mode = HVACMode.HEAT
@@ -169,8 +191,17 @@ async def test_climate_actuator_heat(hass: HomeAssistant) -> None:
 async def test_cooling_logic(hass: HomeAssistant) -> None:
     """Test cooling logic with climate cooler."""
     CLIMATE_COOLER_ID = "climate.ac"
+    mock_storage = MagicMock()
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
     zone = ClimateZone(
-        hass, "zone_cool", "Cool Zone", SENSOR_ID, heaters=[], coolers=[CLIMATE_COOLER_ID], window_sensors=[]
+        hass,
+        mock_storage,
+        "zone_cool",
+        "Cool Zone",
+        SENSOR_ID,
+        heaters=[],
+        coolers=[CLIMATE_COOLER_ID],
+        window_sensors=[],
     )
 
     # Mock cooler
@@ -217,8 +248,17 @@ async def test_cooling_logic(hass: HomeAssistant) -> None:
 async def test_window_open_safety(hass: HomeAssistant) -> None:
     """Test that open window forces actuators off."""
     WINDOW_ID = "binary_sensor.window"
+    mock_storage = MagicMock()
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
     zone = ClimateZone(
-        hass, "zone_window", "Window Zone", SENSOR_ID, heaters=[SWITCH_ID], coolers=[], window_sensors=[WINDOW_ID]
+        hass,
+        mock_storage,
+        "zone_window",
+        "Window Zone",
+        SENSOR_ID,
+        heaters=[SWITCH_ID],
+        coolers=[],
+        window_sensors=[WINDOW_ID],
     )
 
     # Setup state: Heating required
@@ -247,7 +287,18 @@ async def test_window_open_safety(hass: HomeAssistant) -> None:
 
 async def test_sensor_unavailable(hass: HomeAssistant) -> None:
     """Test safety when sensor is unavailable."""
-    zone = ClimateZone(hass, "zone_error", "Error Zone", SENSOR_ID, heaters=[SWITCH_ID], coolers=[], window_sensors=[])
+    mock_storage = MagicMock()
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
+    zone = ClimateZone(
+        hass,
+        mock_storage,
+        "zone_error",
+        "Error Zone",
+        SENSOR_ID,
+        heaters=[SWITCH_ID],
+        coolers=[],
+        window_sensors=[],
+    )
 
     zone._attr_hvac_mode = HVACMode.HEAT
 
@@ -276,7 +327,18 @@ async def test_sensor_unavailable(hass: HomeAssistant) -> None:
 
 async def test_restore_state(hass: HomeAssistant) -> None:
     """Test restoring state from registry."""
-    zone = ClimateZone(hass, "zone_restore", "Restore Zone", SENSOR_ID, heaters=[], coolers=[], window_sensors=[])
+    mock_storage = MagicMock()
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
+    zone = ClimateZone(
+        hass,
+        mock_storage,
+        "zone_restore",
+        "Restore Zone",
+        SENSOR_ID,
+        heaters=[],
+        coolers=[],
+        window_sensors=[],
+    )
 
     # Mock last state
     last_state = MagicMock()
@@ -297,8 +359,11 @@ async def test_callbacks_and_public_methods(hass: HomeAssistant) -> None:
     # Mock actuator
     hass.states.async_set(CLIMATE_ID, HVACMode.OFF, {"hvac_modes": [HVACMode.OFF, HVACMode.HEAT]})
 
+    mock_storage = MagicMock()
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
     zone = ClimateZone(
         hass,
+        mock_storage,
         "zone_full",
         "Full Zone",
         SENSOR_ID,
@@ -365,7 +430,9 @@ async def test_callbacks_and_public_methods(hass: HomeAssistant) -> None:
 
 async def test_update_config_rename(hass: HomeAssistant) -> None:
     """Test updating config including zone rename."""
-    zone = ClimateZone(hass, "old_uid", "Old Name", SENSOR_ID, [], [], [])
+    mock_storage = MagicMock()
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
+    zone = ClimateZone(hass, mock_storage, "old_uid", "Old Name", SENSOR_ID, [], [], [])
 
     # Mock Registry in hass.data
     mock_registry = MagicMock()
@@ -396,7 +463,9 @@ async def test_update_config_rename(hass: HomeAssistant) -> None:
 
 async def test_update_temp_exception(hass: HomeAssistant) -> None:
     """Test ValueError in temp update."""
-    zone = ClimateZone(hass, "zone_ex", "Ex", SENSOR_ID, [], [], [])
+    mock_storage = MagicMock()
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
+    zone = ClimateZone(hass, mock_storage, "z_feat", "F", SENSOR_ID, [], [], [])
 
     # Mock sensor with invalid state
     hass.states.async_set(SENSOR_ID, "invalid_float")
@@ -407,8 +476,19 @@ async def test_update_temp_exception(hass: HomeAssistant) -> None:
 
 async def test_startup_branches(hass: HomeAssistant) -> None:
     """Test startup branches for window sensors and auto mode."""
+    mock_storage = MagicMock()
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
     # 1. Window Sensors present
-    zone = ClimateZone(hass, "z_win", "Z", SENSOR_ID, [], [], ["binary_sensor.win"])
+    zone = ClimateZone(
+        hass,
+        mock_storage,
+        "z_win",
+        "Z",
+        SENSOR_ID,
+        heaters=[],
+        coolers=[],
+        window_sensors=["binary_sensor.win"],
+    )
     # 2. Auto Mode
     zone._attr_hvac_mode = HVACMode.AUTO
 
@@ -424,7 +504,9 @@ async def test_startup_branches(hass: HomeAssistant) -> None:
 async def test_last_mile_coverage(hass: HomeAssistant) -> None:
     """Hit the remaining missing lines."""
     CLIMATE_COOLER_ID = "climate.ac"
-    zone = ClimateZone(hass, "z_last", "L", SENSOR_ID, [], [CLIMATE_COOLER_ID], [])
+    mock_storage = MagicMock()
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
+    zone = ClimateZone(hass, mock_storage, "z_last", "L", SENSOR_ID, [], [CLIMATE_COOLER_ID], [])
 
     # Mock cooler for set_coolers(True)
     hass.states.async_set(
@@ -473,7 +555,9 @@ async def test_next_schedule_and_override(hass: HomeAssistant) -> None:
 
     import homeassistant.util.dt as dt_util
 
-    zone = ClimateZone(hass, "zone_sched", "Sched Zone", SENSOR_ID, [], [], [])
+    mock_storage = MagicMock()
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
+    zone = ClimateZone(hass, mock_storage, "zone_sched", "Sched Zone", SENSOR_ID, [], [], [])
     zone._schedule = [
         # Today (Mock Monday)
         {
@@ -526,11 +610,14 @@ async def test_next_schedule_and_override(hass: HomeAssistant) -> None:
 
         # Check override end
         expected_end = mock_now + timedelta(minutes=60)
-        assert zone.extra_state_attributes["manual_override_end"] == expected_end.isoformat()
+        # assert zone.extra_state_attributes["manual_override_end"] == expected_end.isoformat()
+        assert zone.extra_state_attributes["override_end"] == expected_end.isoformat()
+        assert zone.extra_state_attributes["override_type"] == OverrideType.DURATION
 
         # Restore to Auto clears it
         await zone.async_set_hvac_mode(HVACMode.AUTO)
-        assert zone.extra_state_attributes["manual_override_end"] is None
+        # assert zone.extra_state_attributes["manual_override_end"] is None
+        assert zone.extra_state_attributes["override_end"] is None
 
     # 2. Test Next Change (Same Day Loop)
     # Time: Monday 10:00. Next block is 18:00
@@ -582,8 +669,17 @@ async def test_actuator_range_only(hass: HomeAssistant) -> None:
         },
     )
 
+    mock_storage = MagicMock()
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
     zone = ClimateZone(
-        hass, "zone_range", "Range Zone", SENSOR_ID, heaters=[RANGE_ACTUATOR_ID], coolers=[], window_sensors=[]
+        hass,
+        mock_storage,
+        "zone_range",
+        "Range Zone",
+        SENSOR_ID,
+        heaters=[RANGE_ACTUATOR_ID],
+        coolers=[],
+        window_sensors=[],
     )
 
     # Zone wants to HEAT to 22
@@ -622,7 +718,18 @@ async def test_sensor_loop_prevention(hass: HomeAssistant) -> None:
         },
     )
 
-    zone = ClimateZone(hass, "zone_loop", "Loop Zone", CLIMATE_ID, heaters=[CLIMATE_ID], coolers=[], window_sensors=[])
+    mock_storage = MagicMock()
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
+    zone = ClimateZone(
+        hass,
+        mock_storage,
+        "zone_loop",
+        "Loop Zone",
+        CLIMATE_ID,
+        heaters=[CLIMATE_ID],
+        coolers=[],
+        window_sensors=[],
+    )
 
     # Needs heat
     zone._attr_hvac_mode = HVACMode.HEAT
@@ -664,7 +771,9 @@ async def test_auto_mode_temporary_hold(hass: HomeAssistant) -> None:
     """Test that manual temperature changes in Auto mode are held until next schedule block."""
     import homeassistant.util.dt as dt_util
 
-    zone = ClimateZone(hass, "zone_hold", "Hold Zone", SENSOR_ID, [], [], [])
+    mock_storage = MagicMock()
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
+    zone = ClimateZone(hass, mock_storage, "zone_hold", "Hold Zone", SENSOR_ID, [], [], [])
     zone._schedule = [
         {
             "id": "1",
@@ -692,7 +801,8 @@ async def test_auto_mode_temporary_hold(hass: HomeAssistant) -> None:
         zone._apply_schedule()
         # Heaters/Coolers empty -> Fallback to Single Point (Heat)
         assert zone.target_temperature == 20.0
-        assert zone.extra_state_attributes.get("manual_override_end") is None
+        # assert zone.extra_state_attributes.get("manual_override_end") is None
+        assert zone.extra_state_attributes.get("override_end") is None
 
         # 1. Manual User Override (Set to 25.0)
         await zone.async_set_temperature(temperature=25.0)
@@ -701,7 +811,9 @@ async def test_auto_mode_temporary_hold(hass: HomeAssistant) -> None:
         assert zone.target_temperature == 25.0
         # Should be held until 12:00
         expected_end = mock_now.replace(hour=12, minute=0, second=0, microsecond=0)
-        assert zone.extra_state_attributes["manual_override_end"] == expected_end.isoformat()
+        # assert zone.extra_state_attributes["manual_override_end"] == expected_end.isoformat()
+        assert zone.extra_state_attributes["override_end"] == expected_end.isoformat()
+        assert zone.extra_state_attributes["override_type"] == OverrideType.NEXT_BLOCK
 
     # 2. Simulate Time Tick (09:01) - Should NOT revert to schedule (20.0)
     mock_now_tick = datetime(2023, 1, 2, 9, 1, 0, tzinfo=dt_util.UTC)
@@ -716,7 +828,8 @@ async def test_auto_mode_temporary_hold(hass: HomeAssistant) -> None:
         zone._on_time_change(mock_now_expiry)
 
         # Override should be cleared
-        assert zone.extra_state_attributes.get("manual_override_end") is None
+        # assert zone.extra_state_attributes.get("manual_override_end") is None
+        assert zone.extra_state_attributes.get("override_end") is None
         # Target should be new block (21.0) - Single Point
         assert zone.target_temperature == 21.0
 
@@ -739,7 +852,18 @@ async def test_ecobee_auto_heat_call(hass: HomeAssistant) -> None:
         },
     )
 
-    zone = ClimateZone(hass, "zone_kitchen", "Kitchen", SENSOR_ID, heaters=[ECOBEE_ID], coolers=[], window_sensors=[])
+    mock_storage = MagicMock()
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
+    zone = ClimateZone(
+        hass,
+        mock_storage,
+        "zone_kitchen",
+        "Kitchen",
+        SENSOR_ID,
+        heaters=[ECOBEE_ID],
+        coolers=[],
+        window_sensors=[],
+    )
 
     # Register mock service
     control_mock = AsyncMock()
@@ -756,7 +880,6 @@ async def test_ecobee_auto_heat_call(hass: HomeAssistant) -> None:
     # Set Zone to AUTO
     await zone.async_set_hvac_mode(HVACMode.AUTO)
 
-    # Set Temp to 25.0
     # Wait for background task (which might turn things OFF due to default target)
     await hass.async_block_till_done()
 
@@ -805,8 +928,17 @@ async def test_ecobee_range_mismatch(hass: HomeAssistant) -> None:
         },
     )
 
+    mock_storage = MagicMock()
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
     zone = ClimateZone(
-        hass, "zone_mismatch", "Mismatch Zone", SENSOR_ID, heaters=[ECOBEE_ID], coolers=[], window_sensors=[]
+        hass,
+        mock_storage,
+        "zone_mismatch",
+        "Mismatch",
+        SENSOR_ID,
+        heaters=[ECOBEE_ID],
+        coolers=[],
+        window_sensors=[],
     )
     control_mock = AsyncMock()
     hass.services.async_register("climate", "set_temperature", control_mock)
@@ -840,7 +972,6 @@ async def test_ecobee_range_mismatch(hass: HomeAssistant) -> None:
     has_range = "target_temp_low" in data
     # HEAT_COOL implies Range support if feature bit is set (which it is)
 
-    # Assert Correct Behavior
     assert has_range, "Code should send Range args for HEAT_COOL mode"
     assert data["target_temp_low"] == 25.0
     assert data["target_temp_high"] == 30.0  # 25 + 5 gap
@@ -850,8 +981,17 @@ async def test_supported_features_dynamic(hass: HomeAssistant) -> None:
     """Test that supported_features changes based on mode and capabilities."""
 
     # 1. Dual Zone (Heaters + Coolers)
+    mock_storage = MagicMock()
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
     zone_dual = ClimateZone(
-        hass, "dual", "Dual", SENSOR_ID, heaters=[SWITCH_ID], coolers=["climate.ac"], window_sensors=[]
+        hass,
+        mock_storage,
+        "dual",
+        "Dual",
+        SENSOR_ID,
+        heaters=[SWITCH_ID],
+        coolers=["climate.ac"],
+        window_sensors=[],
     )
 
     # Auto Mode -> Range
@@ -863,7 +1003,18 @@ async def test_supported_features_dynamic(hass: HomeAssistant) -> None:
     assert zone_dual.supported_features == ClimateEntityFeature.TARGET_TEMPERATURE
 
     # 2. Single Zone (Heaters only)
-    zone_single = ClimateZone(hass, "single", "Single", SENSOR_ID, heaters=[SWITCH_ID], coolers=[], window_sensors=[])
+    mock_storage = MagicMock()
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
+    zone_single = ClimateZone(
+        hass,
+        mock_storage,
+        "single",
+        "Single",
+        SENSOR_ID,
+        heaters=[SWITCH_ID],
+        coolers=[],
+        window_sensors=[],
+    )
 
     # Auto Mode -> Target (NOT Range)
     zone_single._attr_hvac_mode = HVACMode.AUTO
@@ -873,8 +1024,17 @@ async def test_supported_features_dynamic(hass: HomeAssistant) -> None:
 async def test_dual_mode_override_bug(hass: HomeAssistant) -> None:
     """Test that setting low/high temp in Auto triggers override."""
 
+    mock_storage = MagicMock()
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
     zone = ClimateZone(
-        hass, "dual_bug", "Dual Bug", SENSOR_ID, heaters=[SWITCH_ID], coolers=["climate.ac"], window_sensors=[]
+        hass,
+        mock_storage,
+        "z_dual_bug",
+        "Bug",
+        SENSOR_ID,
+        heaters=["climate.h"],
+        coolers=["climate.c"],
+        window_sensors=[],
     )
     # Set Auto + Dual
     zone._attr_hvac_mode = HVACMode.AUTO
@@ -894,13 +1054,23 @@ async def test_dual_mode_override_bug(hass: HomeAssistant) -> None:
         # Assertions
         assert zone.target_temperature_low == 22.0, f"Expected 22.0, got {zone.target_temperature_low}"
         assert zone.target_temperature_high == 26.0, f"Expected 26.0, got {zone.target_temperature_high}"
-        assert zone.extra_state_attributes["manual_override_end"] is not None, "Override not set"
+        # assert zone.extra_state_attributes["manual_override_end"] is not None, "Override not set"
+        assert zone.extra_state_attributes["override_end"] is not None, "Override not set"
 
 
 async def test_safety_mode_no_sensor(hass: HomeAssistant) -> None:
     """Test safety mode triggers when sensor is unavailable."""
+    mock_storage = MagicMock()
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
     zone = ClimateZone(
-        hass, "safety", "Safety Zone", "sensor.unavailable", heaters=[SWITCH_ID], coolers=[], window_sensors=[]
+        hass,
+        mock_storage,
+        "safety",
+        "Safety Zone",
+        "sensor.unavailable",
+        heaters=[SWITCH_ID],
+        coolers=[],
+        window_sensors=[],
     )
     # Ensure sensor is unavailable
     hass.states.async_set("sensor.unavailable", "unavailable")
@@ -929,8 +1099,11 @@ async def test_safety_mode_actuator_behavior(hass: HomeAssistant) -> None:
     # Switch Entity
     hass.states.async_set(SWITCH_ID, "on")
 
+    mock_storage = MagicMock()
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
     zone = ClimateZone(
         hass,
+        mock_storage,
         "safety2",
         "Safety Zone 2",
         "sensor.gone",
@@ -979,7 +1152,18 @@ async def test_fallback_sensor(hass: HomeAssistant) -> None:
     ent_reg.async_update_entity("sensor.backup", area_id=area.id)
     hass.states.async_set("sensor.backup", "21.5", {"device_class": "temperature"})
 
-    zone = ClimateZone(hass, "office", "Office", "sensor.main", heaters=[], coolers=[], window_sensors=[])
+    mock_storage = MagicMock()
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
+    zone = ClimateZone(
+        hass,
+        mock_storage,
+        "office",
+        "Office",
+        "sensor.main",
+        heaters=[],
+        coolers=[],
+        window_sensors=[],
+    )
 
     # Register Zone in ER and link to Area
     zone_entry = ent_reg.async_get_or_create("climate", DOMAIN, "office", suggested_object_id="zone_office")

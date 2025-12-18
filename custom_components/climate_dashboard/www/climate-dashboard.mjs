@@ -22,7 +22,7 @@ let Ue = class {
     return this.cssText;
   }
 };
-const qe = (a) => new Ue(typeof a == "string" ? a : a + "", void 0, _e), T = (a, ...e) => {
+const qe = (a) => new Ue(typeof a == "string" ? a : a + "", void 0, _e), O = (a, ...e) => {
   const t = a.length === 1 ? a[0] : e.reduce((i, s, o) => i + ((r) => {
     if (r._$cssResult$ === !0) return r.cssText;
     if (typeof r == "number") return r;
@@ -284,9 +284,9 @@ U.elementStyles = [], U.shadowRootOptions = { mode: "open" }, U[K("elementProper
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const V = globalThis, re = V.trustedTypes, De = re ? re.createPolicy("lit-html", { createHTML: (a) => a }) : void 0, He = "$lit$", C = `lit$${Math.random().toFixed(9).slice(2)}$`, je = "?" + C, Qe = `<${je}>`, P = document, X = () => P.createComment(""), Y = (a) => a === null || typeof a != "object" && typeof a != "function", ve = Array.isArray, et = (a) => ve(a) || typeof (a == null ? void 0 : a[Symbol.iterator]) == "function", pe = `[ 	
-\f\r]`, J = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Ne = /-->/g, Oe = />/g, D = RegExp(`>|${pe}(?:([^\\s"'>=/]+)(${pe}*=${pe}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`, "g"), Pe = /'/g, Te = /"/g, Le = /^(?:script|style|textarea|title)$/i, tt = (a) => (e, ...t) => ({ _$litType$: a, strings: e, values: t }), l = tt(1), H = Symbol.for("lit-noChange"), g = Symbol.for("lit-nothing"), Me = /* @__PURE__ */ new WeakMap(), N = P.createTreeWalker(P, 129);
+const V = globalThis, re = V.trustedTypes, De = re ? re.createPolicy("lit-html", { createHTML: (a) => a }) : void 0, He = "$lit$", C = `lit$${Math.random().toFixed(9).slice(2)}$`, je = "?" + C, Qe = `<${je}>`, T = document, X = () => T.createComment(""), Y = (a) => a === null || typeof a != "object" && typeof a != "function", ve = Array.isArray, et = (a) => ve(a) || typeof (a == null ? void 0 : a[Symbol.iterator]) == "function", pe = `[ 	
+\f\r]`, J = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Ne = /-->/g, Pe = />/g, D = RegExp(`>|${pe}(?:([^\\s"'>=/]+)(${pe}*=${pe}*(?:[^ 	
+\f\r"'\`<>=]|("|')|))|$)`, "g"), Te = /'/g, Oe = /"/g, Le = /^(?:script|style|textarea|title)$/i, tt = (a) => (e, ...t) => ({ _$litType$: a, strings: e, values: t }), l = tt(1), H = Symbol.for("lit-noChange"), g = Symbol.for("lit-nothing"), Me = /* @__PURE__ */ new WeakMap(), N = T.createTreeWalker(T, 129);
 function Ze(a, e) {
   if (!ve(a) || !a.hasOwnProperty("raw")) throw Error("invalid template strings array");
   return De !== void 0 ? De.createHTML(e) : e;
@@ -296,10 +296,10 @@ const it = (a, e) => {
   let s, o = e === 2 ? "<svg>" : e === 3 ? "<math>" : "", r = J;
   for (let n = 0; n < t; n++) {
     const d = a[n];
-    let c, h, p = -1, m = 0;
-    for (; m < d.length && (r.lastIndex = m, h = r.exec(d), h !== null); ) m = r.lastIndex, r === J ? h[1] === "!--" ? r = Ne : h[1] !== void 0 ? r = Oe : h[2] !== void 0 ? (Le.test(h[2]) && (s = RegExp("</" + h[2], "g")), r = D) : h[3] !== void 0 && (r = D) : r === D ? h[0] === ">" ? (r = s ?? J, p = -1) : h[1] === void 0 ? p = -2 : (p = r.lastIndex - h[2].length, c = h[1], r = h[3] === void 0 ? D : h[3] === '"' ? Te : Pe) : r === Te || r === Pe ? r = D : r === Ne || r === Oe ? r = J : (r = D, s = void 0);
+    let c, p, h = -1, m = 0;
+    for (; m < d.length && (r.lastIndex = m, p = r.exec(d), p !== null); ) m = r.lastIndex, r === J ? p[1] === "!--" ? r = Ne : p[1] !== void 0 ? r = Pe : p[2] !== void 0 ? (Le.test(p[2]) && (s = RegExp("</" + p[2], "g")), r = D) : p[3] !== void 0 && (r = D) : r === D ? p[0] === ">" ? (r = s ?? J, h = -1) : p[1] === void 0 ? h = -2 : (h = r.lastIndex - p[2].length, c = p[1], r = p[3] === void 0 ? D : p[3] === '"' ? Oe : Te) : r === Oe || r === Te ? r = D : r === Ne || r === Pe ? r = J : (r = D, s = void 0);
     const f = r === D && a[n + 1].startsWith("/>") ? " " : "";
-    o += r === J ? d + Qe : p >= 0 ? (i.push(c), d.slice(0, p) + He + d.slice(p) + C + f) : d + C + (p === -2 ? n : f);
+    o += r === J ? d + Qe : h >= 0 ? (i.push(c), d.slice(0, h) + He + d.slice(h) + C + f) : d + C + (h === -2 ? n : f);
   }
   return [Ze(a, o + (a[t] || "<?>") + (e === 2 ? "</svg>" : e === 3 ? "</math>" : "")), i];
 };
@@ -308,35 +308,35 @@ class Q {
     let s;
     this.parts = [];
     let o = 0, r = 0;
-    const n = e.length - 1, d = this.parts, [c, h] = it(e, t);
+    const n = e.length - 1, d = this.parts, [c, p] = it(e, t);
     if (this.el = Q.createElement(c, i), N.currentNode = this.el.content, t === 2 || t === 3) {
-      const p = this.el.content.firstChild;
-      p.replaceWith(...p.childNodes);
+      const h = this.el.content.firstChild;
+      h.replaceWith(...h.childNodes);
     }
     for (; (s = N.nextNode()) !== null && d.length < n; ) {
       if (s.nodeType === 1) {
-        if (s.hasAttributes()) for (const p of s.getAttributeNames()) if (p.endsWith(He)) {
-          const m = h[r++], f = s.getAttribute(p).split(C), v = /([.?@])?(.*)/.exec(m);
-          d.push({ type: 1, index: o, name: v[2], strings: f, ctor: v[1] === "." ? ot : v[1] === "?" ? rt : v[1] === "@" ? at : ne }), s.removeAttribute(p);
-        } else p.startsWith(C) && (d.push({ type: 6, index: o }), s.removeAttribute(p));
+        if (s.hasAttributes()) for (const h of s.getAttributeNames()) if (h.endsWith(He)) {
+          const m = p[r++], f = s.getAttribute(h).split(C), v = /([.?@])?(.*)/.exec(m);
+          d.push({ type: 1, index: o, name: v[2], strings: f, ctor: v[1] === "." ? ot : v[1] === "?" ? rt : v[1] === "@" ? at : ne }), s.removeAttribute(h);
+        } else h.startsWith(C) && (d.push({ type: 6, index: o }), s.removeAttribute(h));
         if (Le.test(s.tagName)) {
-          const p = s.textContent.split(C), m = p.length - 1;
+          const h = s.textContent.split(C), m = h.length - 1;
           if (m > 0) {
             s.textContent = re ? re.emptyScript : "";
-            for (let f = 0; f < m; f++) s.append(p[f], X()), N.nextNode(), d.push({ type: 2, index: ++o });
-            s.append(p[m], X());
+            for (let f = 0; f < m; f++) s.append(h[f], X()), N.nextNode(), d.push({ type: 2, index: ++o });
+            s.append(h[m], X());
           }
         }
       } else if (s.nodeType === 8) if (s.data === je) d.push({ type: 2, index: o });
       else {
-        let p = -1;
-        for (; (p = s.data.indexOf(C, p + 1)) !== -1; ) d.push({ type: 7, index: o }), p += C.length - 1;
+        let h = -1;
+        for (; (h = s.data.indexOf(C, h + 1)) !== -1; ) d.push({ type: 7, index: o }), h += C.length - 1;
       }
       o++;
     }
   }
   static createElement(e, t) {
-    const i = P.createElement("template");
+    const i = T.createElement("template");
     return i.innerHTML = e, i;
   }
 }
@@ -358,7 +358,7 @@ class st {
     return this._$AM._$AU;
   }
   u(e) {
-    const { el: { content: t }, parts: i } = this._$AD, s = ((e == null ? void 0 : e.creationScope) ?? P).importNode(t, !0);
+    const { el: { content: t }, parts: i } = this._$AD, s = ((e == null ? void 0 : e.creationScope) ?? T).importNode(t, !0);
     N.currentNode = s;
     let o = N.nextNode(), r = 0, n = 0, d = i[0];
     for (; d !== void 0; ) {
@@ -368,7 +368,7 @@ class st {
       }
       r !== (d == null ? void 0 : d.index) && (o = N.nextNode(), r++);
     }
-    return N.currentNode = P, s;
+    return N.currentNode = T, s;
   }
   p(e) {
     let t = 0;
@@ -404,7 +404,7 @@ class ee {
     this._$AH !== e && (this._$AR(), this._$AH = this.O(e));
   }
   _(e) {
-    this._$AH !== g && Y(this._$AH) ? this._$AA.nextSibling.data = e : this.T(P.createTextNode(e)), this._$AH = e;
+    this._$AH !== g && Y(this._$AH) ? this._$AA.nextSibling.data = e : this.T(T.createTextNode(e)), this._$AH = e;
   }
   $(e) {
     var o;
@@ -520,7 +520,7 @@ const lt = (a, e, t) => {
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const O = globalThis;
+const P = globalThis;
 class w extends U {
   constructor() {
     super(...arguments), this.renderOptions = { host: this }, this._$Do = void 0;
@@ -547,10 +547,10 @@ class w extends U {
   }
 }
 var Be;
-w._$litElement$ = !0, w.finalized = !0, (Be = O.litElementHydrateSupport) == null || Be.call(O, { LitElement: w });
-const me = O.litElementPolyfillSupport;
+w._$litElement$ = !0, w.finalized = !0, (Be = P.litElementHydrateSupport) == null || Be.call(P, { LitElement: w });
+const me = P.litElementPolyfillSupport;
 me == null || me({ LitElement: w });
-(O.litElementVersions ?? (O.litElementVersions = [])).push("4.2.1");
+(P.litElementVersions ?? (P.litElementVersions = [])).push("4.2.1");
 /**
  * @license
  * Copyright 2017 Google LLC
@@ -773,7 +773,7 @@ const be = class be extends w {
     `;
   }
 };
-be.styles = T`
+be.styles = O`
     :host {
       display: none;
       position: fixed;
@@ -1056,7 +1056,7 @@ const $e = class $e extends w {
     }
   }
 };
-$e.styles = T`
+$e.styles = O`
     :host {
       display: block;
       padding: 16px;
@@ -1127,7 +1127,8 @@ $e.styles = T`
     .settings-row label {
       font-weight: 500;
     }
-    select, input {
+    select,
+    input {
       padding: 8px;
       border-radius: 4px;
       border: 1px solid var(--divider-color);
@@ -1234,16 +1235,16 @@ const xe = class xe extends w {
       return e.length === 0 ? [] : [{ floorName: null, floorIcon: null, zones: e }];
     const t = {}, i = [];
     e.forEach((r) => {
-      var p, m, f;
-      const n = (p = this.hass.entities) == null ? void 0 : p[r.entity_id], d = n == null ? void 0 : n.area_id, c = d ? (m = this.hass.areas) == null ? void 0 : m[d] : null, h = c == null ? void 0 : c.floor_id;
-      if (h && ((f = this.hass.floors) != null && f[h])) {
-        const v = this.hass.floors[h];
-        t[h] || (t[h] = {
+      var h, m, f;
+      const n = (h = this.hass.entities) == null ? void 0 : h[r.entity_id], d = n == null ? void 0 : n.area_id, c = d ? (m = this.hass.areas) == null ? void 0 : m[d] : null, p = c == null ? void 0 : c.floor_id;
+      if (p && ((f = this.hass.floors) != null && f[p])) {
+        const v = this.hass.floors[p];
+        t[p] || (t[p] = {
           floorName: v.name,
           floorIcon: v.icon,
           level: v.level,
           zones: []
-        }), t[h].zones.push(r);
+        }), t[p].zones.push(r);
       } else
         i.push(r);
     });
@@ -1281,36 +1282,36 @@ const xe = class xe extends w {
       (c) => c.days.includes(t)
     );
     if (n.sort(
-      (c, h) => c.start_time.localeCompare(h.start_time)
+      (c, p) => c.start_time.localeCompare(p.start_time)
     ), (n.length > 0 ? n[0].start_time : "24:00") > "00:00") {
-      const c = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], h = c.indexOf(t);
-      let p = null;
+      const c = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], p = c.indexOf(t);
+      let h = null;
       for (let m = 1; m <= 7; m++) {
-        const f = (h - m + 7) % 7, v = c[f], M = i.filter(
+        const f = (p - m + 7) % 7, v = c[f], M = i.filter(
           (W) => W.days.includes(v)
         );
         if (M.length > 0) {
           M.sort(
             (W, le) => W.start_time.localeCompare(le.start_time)
-          ), p = M[M.length - 1];
+          ), h = M[M.length - 1];
           break;
         }
       }
-      if (p) {
+      if (h) {
         const m = {
-          ...p,
+          ...h,
           start_time: "00:00",
-          name: `Carry-over (${p.name})`
+          name: `Carry-over (${h.name})`
           // We render this block effectively from 00:00 to the start of the next block
         };
         n.unshift(m);
       }
     }
-    return n.map((c, h) => {
-      const [p, m] = c.start_time.split(":").map(Number), f = p * 60 + m;
+    return n.map((c, p) => {
+      const [h, m] = c.start_time.split(":").map(Number), f = h * 60 + m;
       let v = 1440;
-      if (h < n.length - 1) {
-        const z = n[h + 1], [de, ce] = z.start_time.split(":").map(Number);
+      if (p < n.length - 1) {
+        const z = n[p + 1], [de, ce] = z.start_time.split(":").map(Number);
         v = de * 60 + ce;
       }
       const M = v - f, W = f / 1440 * 100, le = M / 1440 * 100;
@@ -1363,7 +1364,7 @@ const xe = class xe extends w {
     );
   }
 };
-xe.styles = T`
+xe.styles = O`
     /* ... existing styles ... */
     :host {
       display: block;
@@ -1623,16 +1624,16 @@ const we = class we extends w {
       return e.length === 0 ? [] : [{ floorName: null, floorIcon: null, zones: e }];
     const t = {}, i = [];
     e.forEach((r) => {
-      var p, m, f;
-      const n = (p = this.hass.entities) == null ? void 0 : p[r.entity_id], d = n == null ? void 0 : n.area_id, c = d ? (m = this.hass.areas) == null ? void 0 : m[d] : null, h = c == null ? void 0 : c.floor_id;
-      if (h && ((f = this.hass.floors) != null && f[h])) {
-        const v = this.hass.floors[h];
-        t[h] || (t[h] = {
+      var h, m, f;
+      const n = (h = this.hass.entities) == null ? void 0 : h[r.entity_id], d = n == null ? void 0 : n.area_id, c = d ? (m = this.hass.areas) == null ? void 0 : m[d] : null, p = c == null ? void 0 : c.floor_id;
+      if (p && ((f = this.hass.floors) != null && f[p])) {
+        const v = this.hass.floors[p];
+        t[p] || (t[p] = {
           floorName: v.name,
           floorIcon: v.icon,
           level: v.level,
           zones: []
-        }), t[h].zones.push(r);
+        }), t[p].zones.push(r);
       } else
         i.push(r);
     });
@@ -1695,42 +1696,43 @@ const we = class we extends w {
     `;
   }
   _renderStatus(e) {
-    const t = e.attributes.next_scheduled_change, i = e.attributes.manual_override_end, s = e.state;
-    let o = "";
+    const t = e.attributes.next_scheduled_change, i = e.attributes.override_end, s = e.attributes.override_type, o = e.state;
+    let r = "";
     if (e.attributes.safety_mode)
-      o = "Sensor Unavailable: Safety Mode active";
+      r = "Sensor Unavailable: Safety Mode active";
     else if (e.attributes.using_fallback_sensor)
-      o = "Warning: Using Area Fallback Sensor";
-    else if (i)
-      o = `Overridden until ${new Date(i).toLocaleTimeString([], {
+      r = "Warning: Using Area Fallback Sensor";
+    else if (i) {
+      const n = new Date(i).toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit"
-      })}`;
-    else if (e.attributes.open_window_sensor)
-      o = `${e.attributes.open_window_sensor} open`;
-    else if (s === "auto" && t) {
-      const r = new Date(t).toLocaleTimeString([], {
+      });
+      s === "duration" ? r = `Timer until ${n}` : r = `Until ${n}`;
+    } else if (e.attributes.open_window_sensor)
+      r = `${e.attributes.open_window_sensor} open`;
+    else if (o === "auto" && t) {
+      const n = new Date(t).toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit"
-      }), n = e.attributes.next_scheduled_temp_heat, d = e.attributes.next_scheduled_temp_cool, c = e.attributes.hvac_modes || [], h = c.includes("heat"), p = c.includes("cool");
-      let m = l``;
-      if (h && p && n != null && d != null ? m = l`<span class="heat">${n}°</span>/<span class="cool"
-            >${d}°</span
-          >` : h && n != null ? m = l`<span class="heat">${n}°</span>` : p && d != null && (m = l`<span class="cool">${d}°</span>`), h && n != null || p && d != null)
+      }), d = e.attributes.next_scheduled_temp_heat, c = e.attributes.next_scheduled_temp_cool, p = e.attributes.hvac_modes || [], h = p.includes("heat"), m = p.includes("cool");
+      let f = l``;
+      if (h && m && d != null && c != null ? f = l`<span class="heat">${d}°</span>/<span class="cool"
+            >${c}°</span
+          >` : h && d != null ? f = l`<span class="heat">${d}°</span>` : m && c != null && (f = l`<span class="cool">${c}°</span>`), h && d != null || m && c != null)
         return l`
           <div
             style="font-size: 0.75rem; color: var(--secondary-text-color); margin-top: 4px;"
           >
-            ${r} -> ${m}
+            ${n} -> ${f}
           </div>
         `;
-      o = `${r}`;
+      r = `${n}`;
     }
-    return o ? l`
+    return r ? l`
       <div
         style="font-size: 0.75rem; color: var(--secondary-text-color); margin-top: 4px;"
       >
-        ${o}
+        ${r}
       </div>
     ` : l``;
   }
@@ -1759,7 +1761,7 @@ const we = class we extends w {
     );
   }
 };
-we.styles = T`
+we.styles = O`
     :host {
       display: block;
       padding: 16px;
@@ -2146,7 +2148,7 @@ const Ae = class Ae extends w {
     `;
   }
 };
-Ae.styles = T`
+Ae.styles = O`
     :host {
       display: block;
       padding: 16px;
@@ -2486,7 +2488,7 @@ const vt = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], ke = class ke exte
     `;
   }
 };
-ke.styles = T`
+ke.styles = O`
     :host {
       display: block;
       padding: 16px;
@@ -2746,7 +2748,7 @@ const Se = class Se extends w {
     `;
   }
 };
-Se.styles = T`
+Se.styles = O`
     :host {
       display: flex;
       flex-direction: column;

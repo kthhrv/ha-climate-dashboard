@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Callable
+from typing import Any
 
 import homeassistant.util.dt as dt_util
 from homeassistant.components.climate import (
@@ -23,14 +24,13 @@ from homeassistant.const import (
 from homeassistant.core import CoreState, HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import (
-    async_call_later,
     async_track_state_change_event,
     async_track_time_change,
 )
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.util import slugify
 
-from .storage import ScheduleBlock
+from .storage import ClimateDashboardStorage, OverrideType, ScheduleBlock
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -39,6 +39,17 @@ DEFAULT_TOLERANCE = 0.3
 DEFAULT_TEMP_HEAT = 20.0
 DEFAULT_TEMP_COOL = 24.0
 SAFETY_TARGET_TEMP = 5.0
+
+
+@dataclass
+class ZoneOverride:
+    """Representation of an active override."""
+
+    type: OverrideType
+    end_time: datetime | None  # Optional for Infinite hold
+    target_temp_low: float | None = None
+    target_temp_high: float | None = None
+    hvac_mode: HVACMode | None = None
 
 
 class ClimateZone(ClimateEntity, RestoreEntity):
@@ -56,6 +67,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
     def __init__(
         self,
         hass: HomeAssistant,
+        storage: ClimateDashboardStorage,
         unique_id: str,
         name: str,
         temperature_sensor: str,
@@ -69,6 +81,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
         Args:
             hass: HomeAssistant instance.
+            storage: Storage instance.
             unique_id: Unique ID for the zone.
             name: Friendly name of the zone.
             temperature_sensor: Entity ID of the temperature sensor.
@@ -79,10 +92,14 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             restore_delay_minutes: Minutes to wait before restoring AUTO mode.
         """
         self.hass = hass
+        self._storage = storage
         self._attr_unique_id = unique_id
         self._attr_name = name
 
         self.entity_id = f"climate.zone_{slugify(name)}"
+
+        # State attributes
+        self._active_override: ZoneOverride | None = None
 
         self._temperature_sensor = temperature_sensor
         self._heaters = heaters
@@ -90,7 +107,9 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self._window_sensors = window_sensors
         self._schedule = schedule or []
         self._restore_delay_minutes = restore_delay_minutes
-        self._restore_timer: Callable[[], None] | None = None
+        self._restore_delay_minutes = restore_delay_minutes
+        # self._restore_timer: Callable[[], None] | None = None
+        self._attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT, HVACMode.AUTO]
         self._attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT, HVACMode.AUTO]
         if self._coolers:
             self._attr_hvac_modes.append(HVACMode.COOL)
@@ -103,7 +122,8 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self._attr_next_scheduled_change: str | None = None
         self._attr_next_scheduled_temp_heat: float | None = None
         self._attr_next_scheduled_temp_cool: float | None = None
-        self._attr_manual_override_end: str | None = None
+
+        # self._attr_manual_override_end: str | None = None
 
         self._attr_target_temperature_high: float | None = None
         self._attr_target_temperature_low: float | None = None
@@ -197,7 +217,11 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             "next_scheduled_change": self._attr_next_scheduled_change,
             "next_scheduled_temp_heat": self._attr_next_scheduled_temp_heat,
             "next_scheduled_temp_cool": self._attr_next_scheduled_temp_cool,
-            "manual_override_end": self._attr_manual_override_end,
+            # "manual_override_end": self._attr_manual_override_end, # Deprecated
+            "override_type": self._active_override.type if self._active_override else None,
+            "override_end": self._active_override.end_time.isoformat()
+            if self._active_override and self._active_override.end_time
+            else None,
             "open_window_sensor": self._attr_open_window_sensor,
             "safety_mode": self._attr_safety_mode,
             "using_fallback_sensor": self._attr_using_fallback_sensor,
@@ -287,23 +311,28 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         if not self._schedule:
             return
 
-        # Check Temporary Hold in Auto
         now = dt_util.now()
-        if self._attr_manual_override_end:
-            try:
-                override_end = datetime.fromisoformat(self._attr_manual_override_end)
-                if now < override_end:
-                    # Hold active, do NOT apply schedule
-                    # Recalculate next change (it might still be relevant for display)
-                    self._calculate_next_scheduled_change(now)
-                    self.async_write_ha_state()
-                    self.hass.async_create_task(self._async_control_actuator())
-                    return
-                else:
-                    # Hold expired
-                    self._attr_manual_override_end = None
-            except ValueError:
-                self._attr_manual_override_end = None
+
+        # Check Active Override
+        if self._active_override:
+            # Check expiry
+            if self._active_override.end_time and now >= self._active_override.end_time:
+                # Expired -> Clear
+                _LOGGER.debug("Override expired for %s", self.entity_id)
+                self._active_override = None
+
+                # Revert to AUTO if not in AUTO?
+                # This ensures we go back to following the schedule fully.
+                if self._attr_hvac_mode != HVACMode.AUTO:
+                    self._attr_hvac_mode = HVACMode.AUTO
+            else:
+                # Active -> Skip schedule application
+                # Recalculate next change for display
+                self._calculate_next_scheduled_change(now)
+                self.async_write_ha_state()
+                self.hass.async_create_task(self._async_control_actuator())
+                return
+
         day_name = now.strftime("%a").lower()
         current_time_str = now.strftime("%H:%M")
 
@@ -501,37 +530,25 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         """Set new target hvac mode."""
         self._attr_hvac_mode = hvac_mode
 
-        # Handle Auto-Restore Timer
-        if self._restore_timer:
-            self._restore_timer()  # Cancel existing
-            self._restore_timer = None
-            self._attr_manual_override_end = None
+        # Clear existing override when mode changes manually
+        # Unless this IS the setting of a mode with a restore delay?
+        # Let's say explicit mode change clears any previous "next block" temperature holds.
+        self._active_override = None
 
         if hvac_mode == HVACMode.AUTO:
             self._apply_schedule()
         elif hvac_mode in (HVACMode.HEAT, HVACMode.COOL):
-            # If manual mode and delay is set, schedule restore
+            # If manual mode and delay is set, create DURATION override
             if self._restore_delay_minutes > 0:
-                _LOGGER.info("Scheduling auto-restore to AUTO in %s minutes", self._restore_delay_minutes)
-
-                # Calculate end time
+                _LOGGER.info("Scheduling manual mode with auto-restore in %s minutes", self._restore_delay_minutes)
                 end_time = dt_util.now() + timedelta(minutes=self._restore_delay_minutes)
-                self._attr_manual_override_end = end_time.isoformat()
 
-                self._restore_timer = async_call_later(
-                    self.hass, self._restore_delay_minutes * 60, self._restore_schedule
-                )
+                self._active_override = ZoneOverride(type=OverrideType.DURATION, end_time=end_time, hvac_mode=hvac_mode)
 
         await self._async_control_actuator()
         self.async_write_ha_state()
 
-    @callback
-    def _restore_schedule(self, _now: datetime) -> None:
-        """Restore schedule after delay."""
-        _LOGGER.info("Auto-restoring zone %s to AUTO mode", self.entity_id)
-        self._restore_timer = None
-        self._attr_manual_override_end = None
-        self.hass.async_create_task(self.async_set_hvac_mode(HVACMode.AUTO))
+    # _restore_schedule Removed - Handled by _apply_schedule logic on override expiry
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
         """Set new target temperature."""
@@ -540,28 +557,69 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
         # Track if we need to apply override logic
         set_temp = False
+        new_temp = None
+        new_low = None
+        new_high = None
 
         # Handle Single Point
         if (temp := kwargs.get(ATTR_TEMPERATURE)) is not None:
-            self._attr_target_temperature = temp
+            new_temp = temp
             set_temp = True
 
         # Handle Dual Point
         low = kwargs.get("target_temp_low")
         high = kwargs.get("target_temp_high")
         if low is not None and high is not None:
-            self._attr_target_temperature_low = low
-            self._attr_target_temperature_high = high
-            self._attr_target_temperature = None
+            new_low = low
+            new_high = high
             set_temp = True
 
-        if not set_temp:
+        if not set_temp and mode is None:
             return
 
-        # Implement Temporary Hold if in Auto
-        if self._attr_hvac_mode == HVACMode.AUTO and self._attr_next_scheduled_change:
-            # Lookahead already calculated. Hold until then.
-            self._attr_manual_override_end = self._attr_next_scheduled_change
+        # If changing temp, create override
+        if set_temp:
+            # Update attributes immediately for feedback
+            if new_temp is not None:
+                self._attr_target_temperature = new_temp
+            if new_low is not None:
+                self._attr_target_temperature_low = new_low
+                self._attr_target_temperature_high = new_high
+                self._attr_target_temperature = None  # Clear single target if dual set
+
+            # Determine Override Type
+            settings = self._storage.settings
+            override_type = settings.get("default_override_type", OverrideType.NEXT_BLOCK)
+
+            end_time = None
+            now = dt_util.now()
+
+            if override_type == OverrideType.NEXT_BLOCK:
+                # Use current lookahead if available, or calculate it
+                if not self._attr_next_scheduled_change:
+                    self._calculate_next_scheduled_change(now)
+
+                if self._attr_next_scheduled_change:
+                    end_time = datetime.fromisoformat(self._attr_next_scheduled_change)
+                else:
+                    # Fallback to Duration if no next block (e.g. empty schedule)?
+                    # Or just infinite hold? Let's use 24h fallback.
+                    end_time = now + timedelta(hours=24)
+
+            elif override_type == OverrideType.DURATION:
+                minutes = settings.get("default_timer_minutes", 60)
+                end_time = now + timedelta(minutes=minutes)
+
+            # Create Override
+            if end_time:
+                self._active_override = ZoneOverride(
+                    type=override_type,
+                    end_time=end_time,
+                    target_temp_low=self._attr_target_temperature_low,
+                    target_temp_high=self._attr_target_temperature_high,
+                    # We store just the temperature override.
+                    # If mode was changed, strictly speaking it should be an override too?
+                )
 
         await self._async_control_actuator()
         self.async_write_ha_state()

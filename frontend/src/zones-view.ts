@@ -331,7 +331,8 @@ export class ZonesView extends LitElement {
 
   private _renderStatus(zone: HassEntity): TemplateResult {
     const nextChange = zone.attributes.next_scheduled_change;
-    const overrideEnd = zone.attributes.manual_override_end;
+    const overrideEnd = zone.attributes.override_end;
+    const overrideType = zone.attributes.override_type;
     const mode = zone.state;
 
     let message = "";
@@ -345,7 +346,11 @@ export class ZonesView extends LitElement {
         hour: "2-digit",
         minute: "2-digit",
       });
-      message = `Overridden until ${time}`;
+      if (overrideType === "duration") {
+        message = `Timer until ${time}`;
+      } else {
+        message = `Until ${time}`;
+      }
     } else if (zone.attributes.open_window_sensor) {
       message = `${zone.attributes.open_window_sensor} open`;
     } else if (mode === "auto" && nextChange) {

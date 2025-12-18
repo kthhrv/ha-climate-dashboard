@@ -74,6 +74,7 @@ async def async_setup_platform(
                 # Create NEW
                 entity = ClimateZone(
                     hass,
+                    storage,
                     unique_id=uid,
                     name=zone_config["name"],
                     temperature_sensor=zone_config["temperature_sensor"],
