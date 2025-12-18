@@ -208,6 +208,49 @@ async def _async_delete_zone(hass: HomeAssistant, connection: ActiveConnection, 
 
 
 @callback
+def websocket_get_settings(
+    hass: HomeAssistant,
+    connection: ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Handle get settings command."""
+    if DOMAIN not in hass.data:
+        connection.send_error(msg["id"], "internal_error", "Integration not initialized")
+        return
+
+    storage = hass.data[DOMAIN]["storage"]
+    connection.send_result(msg["id"], storage.settings)
+
+
+@callback
+def websocket_update_settings(
+    hass: HomeAssistant,
+    connection: ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Handle update settings command."""
+    hass.async_create_task(_async_update_settings(hass, connection, msg))
+
+
+async def _async_update_settings(hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]) -> None:
+    """Handle update settings command."""
+    if DOMAIN not in hass.data:
+        connection.send_error(msg["id"], "internal_error", "Integration not initialized")
+        return
+
+    storage = hass.data[DOMAIN]["storage"]
+
+    updates = {}
+    if "default_override_type" in msg:
+        updates["default_override_type"] = msg["default_override_type"]
+    if "default_timer_minutes" in msg:
+        updates["default_timer_minutes"] = msg["default_timer_minutes"]
+
+    await storage.async_update_settings(updates)
+    connection.send_result(msg["id"], storage.settings)
+
+
+@callback
 def async_register_api(hass: HomeAssistant) -> None:
     """Register the Climate Dashboard WebSocket API."""
     async_register_command(hass, ws_scan_unmanaged)
@@ -254,6 +297,28 @@ def async_register_api(hass: HomeAssistant) -> None:
             {
                 vol.Required("type"): "climate_dashboard/delete",
                 vol.Required("unique_id"): str,
+            }
+        ),
+    )
+    async_register_command(
+        hass,
+        "climate_dashboard/settings/get",
+        websocket_get_settings,
+        schema=websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
+            {
+                vol.Required("type"): "climate_dashboard/settings/get",
+            }
+        ),
+    )
+    async_register_command(
+        hass,
+        "climate_dashboard/settings/update",
+        websocket_update_settings,
+        schema=websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
+            {
+                vol.Required("type"): "climate_dashboard/settings/update",
+                vol.Optional("default_override_type"): str,
+                vol.Optional("default_timer_minutes"): int,
             }
         ),
     )

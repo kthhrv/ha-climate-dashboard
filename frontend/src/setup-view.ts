@@ -12,11 +12,20 @@ interface ClimateEntity {
   area_id?: string;
 }
 
+interface GlobalSettings {
+  default_override_type: "next_block" | "duration";
+  default_timer_minutes: number;
+}
+
 export class SetupView extends LitElement {
   @property({ attribute: false }) public hass!: any;
 
   @state() private _devices: ClimateEntity[] = [];
   @state() private _loading = false;
+  @state() private _settings: GlobalSettings = {
+    default_override_type: "next_block",
+    default_timer_minutes: 60,
+  };
 
   // Dialog State
   @state() private _dialogOpen = false;
@@ -84,10 +93,37 @@ export class SetupView extends LitElement {
     .adopt-btn:hover {
       background-color: var(--primary-color-dark, #0288d1);
     }
+    .settings-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .settings-row label {
+      font-weight: 500;
+    }
+    select,
+    input {
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid var(--divider-color);
+    }
   `;
 
   protected firstUpdated(): void {
     this._fetchDevices();
+    this._fetchSettings();
+  }
+
+  private async _fetchSettings() {
+    if (!this.hass) return;
+    try {
+      this._settings = await this.hass.callWS({
+        type: "climate_dashboard/settings/get",
+      });
+    } catch (e) {
+      console.error("Failed to fetch settings", e);
+    }
   }
 
   private async _fetchDevices() {
@@ -106,6 +142,44 @@ export class SetupView extends LitElement {
 
   protected render(): TemplateResult {
     return html`
+      <div class="card">
+        <h2>System Settings</h2>
+        <div class="settings-row">
+          <label>Default Override Behavior</label>
+          <select
+            .value=${this._settings.default_override_type}
+            @change=${(e: Event) =>
+              this._updateSetting(
+                "default_override_type",
+                (e.target as HTMLSelectElement).value,
+              )}
+          >
+            <option value="next_block">Until Next Schedule</option>
+            <option value="duration">Timer (Fixed Duration)</option>
+          </select>
+        </div>
+
+        ${this._settings.default_override_type === "duration"
+          ? html`
+              <div class="settings-row">
+                <label>Default Duration (minutes)</label>
+                <input
+                  type="number"
+                  min="5"
+                  max="720"
+                  step="5"
+                  .value=${this._settings.default_timer_minutes}
+                  @change=${(e: Event) =>
+                    this._updateSetting(
+                      "default_timer_minutes",
+                      parseInt((e.target as HTMLInputElement).value),
+                    )}
+                />
+              </div>
+            `
+          : ""}
+      </div>
+
       <div class="card">
         <h2>Unmanaged Devices</h2>
         ${this._loading ? html`<p>Scanning...</p>` : this._renderList()}
@@ -182,6 +256,23 @@ export class SetupView extends LitElement {
     this._dialogOpen = false;
     this._selectedEntity = null;
     this._fetchDevices(); // Refresh list
+  }
+
+  private async _updateSetting(key: string, value: any) {
+    // Update local state immediately for responsiveness
+    this._settings = { ...this._settings, [key]: value };
+
+    // Persist
+    try {
+      await this.hass.callWS({
+        type: "climate_dashboard/settings/update",
+        [key]: value,
+      });
+    } catch (e) {
+      console.error("Failed to update settings", e);
+      // Revert on error?
+      this._fetchSettings();
+    }
   }
 }
 
