@@ -30,6 +30,7 @@ class GlobalSettings(TypedDict, total=False):
 
     default_override_type: OverrideType
     default_timer_minutes: int
+    window_open_delay_seconds: int
 
 
 class ScheduleBlock(TypedDict, total=False):
@@ -85,6 +86,7 @@ class ClimateDashboardStorage:
         settings: GlobalSettings = {
             "default_override_type": OverrideType.NEXT_BLOCK,
             "default_timer_minutes": 60,
+            "window_open_delay_seconds": 30,
         }
 
         if data:
@@ -129,6 +131,7 @@ class ClimateDashboardStorage:
             return {
                 "default_override_type": OverrideType.NEXT_BLOCK,
                 "default_timer_minutes": 60,
+                "window_open_delay_seconds": 30,
             }
         return self._data.settings
 
@@ -140,6 +143,7 @@ class ClimateDashboardStorage:
                 settings={
                     "default_override_type": OverrideType.NEXT_BLOCK,
                     "default_timer_minutes": 60,
+                    "window_open_delay_seconds": 30,
                 },
             )
 
@@ -196,6 +200,7 @@ class ClimateDashboardStorage:
                 settings={
                     "default_override_type": OverrideType.NEXT_BLOCK,
                     "default_timer_minutes": 60,
+                    "window_open_delay_seconds": 30,
                 },
             )
 

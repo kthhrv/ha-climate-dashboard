@@ -134,6 +134,8 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self._attr_safety_mode: bool = False
         self._attr_using_fallback_sensor: str | None = None
 
+        self._window_open_timestamp: datetime | None = None
+
     async def async_update_config(
         self,
         name: str,
@@ -687,13 +689,36 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self._attr_open_window_sensor = open_sensor
 
         if open_sensor:
-            # Force everything OFF
-            await self._async_turn_off_all()
-            self._attr_hvac_action = HVACAction.OFF
-            self._attr_safety_mode = False
-            self._attr_using_fallback_sensor = None
-            self.async_write_ha_state()
-            return
+            # Window IS Open
+            # Check delay
+            now = dt_util.now()
+            if self._window_open_timestamp is None:
+                self._window_open_timestamp = now
+                _LOGGER.debug("Zone %s: Window open detected. Starting delay.", self.name)
+
+            settings = self._storage.settings
+            delay = settings.get("window_open_delay_seconds", 30)
+
+            time_open = (now - self._window_open_timestamp).total_seconds()
+
+            if time_open < delay:
+                # Delay active - Do NOT force off yet
+                _LOGGER.debug("Zone %s: Window open delay active (%d/%d s).", self.name, int(time_open), delay)
+                # Continue to normal logic (heating stays on)
+            else:
+                # Delay passed -> Force OFF
+                await self._async_turn_off_all()
+                self._attr_hvac_action = HVACAction.OFF
+                self._attr_safety_mode = False
+                self._attr_using_fallback_sensor = None
+                self.async_write_ha_state()
+                return
+
+        else:
+            # Window IS Closed
+            if self._window_open_timestamp is not None:
+                _LOGGER.debug("Zone %s: Window closed. Resetting delay.", self.name)
+                self._window_open_timestamp = None
 
         if self._attr_hvac_mode == HVACMode.OFF:
             await self._async_turn_off_all()

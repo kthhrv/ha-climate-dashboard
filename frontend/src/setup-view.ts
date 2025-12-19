@@ -15,6 +15,7 @@ interface ClimateEntity {
 interface GlobalSettings {
   default_override_type: "next_block" | "duration";
   default_timer_minutes: number;
+  window_open_delay_seconds: number;
 }
 
 export class SetupView extends LitElement {
@@ -25,6 +26,7 @@ export class SetupView extends LitElement {
   @state() private _settings: GlobalSettings = {
     default_override_type: "next_block",
     default_timer_minutes: 60,
+    window_open_delay_seconds: 30,
   };
 
   // Dialog State
@@ -178,6 +180,22 @@ export class SetupView extends LitElement {
               </div>
             `
           : ""}
+
+        <div class="settings-row">
+          <label>Door/Window Open Delay (seconds)</label>
+          <input
+            type="number"
+            min="0"
+            max="300"
+            step="5"
+            .value=${this._settings.window_open_delay_seconds}
+            @change=${(e: Event) =>
+              this._updateSetting(
+                "window_open_delay_seconds",
+                parseInt((e.target as HTMLInputElement).value),
+              )}
+          />
+        </div>
       </div>
 
       <div class="card">
