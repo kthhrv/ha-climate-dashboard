@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.typing import ConfigType
@@ -43,6 +45,14 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     from homeassistant.helpers.discovery import async_load_platform
 
     hass.async_create_task(async_load_platform(hass, "climate", DOMAIN, {}, config))
+
+    async def _async_shutdown(event: Any) -> None:
+        """Shutdown the coordinator."""
+        coordinator.shutdown()
+
+    from homeassistant.const import EVENT_HOMEASSISTANT_STOP
+
+    hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, _async_shutdown)
 
     return True
 

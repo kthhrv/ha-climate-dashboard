@@ -1,7 +1,7 @@
 """Coordinator for Climate Dashboard."""
 
 import logging
-from typing import Any
+from typing import Any, Callable
 
 from homeassistant.const import STATE_HOME, STATE_ON
 from homeassistant.core import HomeAssistant, callback
@@ -19,11 +19,13 @@ class ClimateDashboardCoordinator:
         """Initialize."""
         self.hass = hass
         self._storage = storage
-        self._remove_listener = None
-        self._timer_remove = None
+        self._remove_listener: Callable[[], None] | None = None
+        self._timer_remove: Callable[[], None] | None = None
 
         # Listen to storage changes to re-hook entity listener if entity_id changes
-        self._storage.async_add_listener(self._handle_storage_update)
+        self._remove_storage_listener: Callable[[], None] | None = self._storage.async_add_listener(
+            self._handle_storage_update
+        )
 
         # Initial hook
         self._handle_storage_update()
@@ -87,3 +89,18 @@ class ClimateDashboardCoordinator:
         self._timer_remove = None
         _LOGGER.info("Away Mode timer expired: Enabling Away Mode.")
         self.hass.async_create_task(self._storage.async_update_settings({"is_away_mode_on": True}))
+
+    @callback
+    def shutdown(self) -> None:
+        """Shutdown the coordinator."""
+        if self._remove_storage_listener:
+            self._remove_storage_listener()
+            self._remove_storage_listener = None
+
+        if self._remove_listener:
+            self._remove_listener()
+            self._remove_listener = None
+
+        if self._timer_remove:
+            self._timer_remove()
+            self._timer_remove = None

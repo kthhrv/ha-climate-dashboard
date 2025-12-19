@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Callable, Final, TypedDict
+from typing import Any, Callable, Final, TypedDict
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
@@ -76,7 +76,7 @@ class ClimateDashboardStorage:
     def __init__(self, hass: HomeAssistant) -> None:
         """Initialize the storage."""
         self.hass = hass
-        self._store: Store[ClimateDashboardData] = Store(hass, STORAGE_VERSION, STORAGE_KEY)
+        self._store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, STORAGE_KEY)
         self._data: ClimateDashboardData | None = None
         self._listeners: list[Callable[[], None]] = []
 
@@ -232,6 +232,12 @@ class ClimateDashboardStorage:
         await self._async_save_data()
         self._async_fire_callbacks()
 
-    def async_add_listener(self, callback: Callable[[], None]) -> None:
+    def async_add_listener(self, callback: Callable[[], None]) -> Callable[[], None]:
         """Add a listener for data changes."""
         self._listeners.append(callback)
+
+        def remove_listener() -> None:
+            if callback in self._listeners:
+                self._listeners.remove(callback)
+
+        return remove_listener
