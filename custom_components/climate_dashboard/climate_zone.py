@@ -284,12 +284,15 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         _LOGGER.debug("Running initial control for %s", self.entity_id)
 
         # Retry loop: Wait for sensor to become valid
-        for attempt in range(1, 11):  # Try for 10 seconds
+        for attempt in range(1, 61):  # Try for 60 seconds
             self._async_update_temp()
             if self._attr_current_temperature is not None:
                 break
 
-            _LOGGER.debug("Zone %s waiting for sensor %s (Attempt %d/10)", self.name, self._temperature_sensor, attempt)
+            if attempt % 10 == 0:
+                _LOGGER.debug(
+                    "Zone %s waiting for sensor %s (Attempt %d/60)", self.name, self._temperature_sensor, attempt
+                )
             await asyncio.sleep(1.0)
 
         # Finally run control (will trigger Safety Mode if still None)
