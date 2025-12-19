@@ -260,6 +260,7 @@ async def test_window_open_safety(hass: HomeAssistant) -> None:
         coolers=[],
         window_sensors=[WINDOW_ID],
     )
+    zone._startup_grace_period = False  # Enable Safety Mode
 
     # Setup state: Heating required
     zone._attr_hvac_mode = HVACMode.HEAT
@@ -299,6 +300,7 @@ async def test_sensor_unavailable(hass: HomeAssistant) -> None:
         coolers=[],
         window_sensors=[],
     )
+    zone._startup_grace_period = False  # Enable Safety Mode
 
     zone._attr_hvac_mode = HVACMode.HEAT
 

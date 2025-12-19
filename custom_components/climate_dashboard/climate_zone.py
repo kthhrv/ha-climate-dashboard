@@ -136,6 +136,9 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
         self._window_open_timestamp: datetime | None = None
 
+        # Startup Grace Period (Prevents Safety Mode during initialization)
+        self._startup_grace_period: bool = True
+
         # Listen for storage/setting changes (Global Away Mode)
         self._storage.async_add_listener(self._async_on_storage_change)
 
@@ -295,7 +298,10 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                 )
             await asyncio.sleep(1.0)
 
-        # Finally run control (will trigger Safety Mode if still None)
+        # End grace period
+        self._startup_grace_period = False
+
+        # Finally run control (will trigger Safety Mode if still None/Unavailable)
         await self._async_control_actuator()
 
     @callback
@@ -774,6 +780,14 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
             # --- FAILSAFE LOGIC ---
             if current is None:
+                # Check for startup grace period - SKIP Safety Mode if waiting
+                if self._startup_grace_period:
+                    _LOGGER.debug(
+                        "Zone %s skipping Safety Mode check (Startup Grace Period Active)",
+                        self.name,
+                    )
+                    return
+
                 # 1. Try Area Fallback
                 fallback = self._get_backup_sensor_value()
                 if fallback:
