@@ -6,7 +6,7 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 import homeassistant.util.dt as dt_util
 from homeassistant.components.climate import (
@@ -17,6 +17,7 @@ from homeassistant.components.climate import (
 )
 from homeassistant.const import (
     ATTR_TEMPERATURE,
+    ATTR_UNIT_OF_MEASUREMENT,
     EVENT_HOMEASSISTANT_STARTED,
     PRECISION_TENTHS,
     UnitOfTemperature,
@@ -29,6 +30,7 @@ from homeassistant.helpers.event import (
 )
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.util import slugify
+from homeassistant.util.unit_conversion import TemperatureConverter
 
 from .storage import ClimateDashboardStorage, OverrideType, ScheduleBlock
 
@@ -60,7 +62,6 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
     _attr_has_entity_name = True
     _attr_name = None
-    _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_precision = PRECISION_TENTHS
     _attr_precision = PRECISION_TENTHS
 
@@ -98,8 +99,31 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
         self.entity_id = f"climate.zone_{slugify(name)}"
 
-        # State attributes
+        self._attr_hvac_mode = HVACMode.OFF
+        self._attr_preset_mode = None
+        self._attr_hvac_action = HVACAction.OFF
+        self._attr_target_temperature: float | None = None
+        self._attr_current_temperature: float | None = None
+
+        # Convert Default Constants to System Unit
+        self._default_temp_heat = DEFAULT_TEMP_HEAT
+        self._default_temp_cool = DEFAULT_TEMP_COOL
+        self._safety_target_temp = SAFETY_TARGET_TEMP
+
+        if self.temperature_unit == UnitOfTemperature.FAHRENHEIT:
+            self._default_temp_heat = TemperatureConverter.convert(
+                DEFAULT_TEMP_HEAT, UnitOfTemperature.CELSIUS, UnitOfTemperature.FAHRENHEIT
+            )
+            self._default_temp_cool = TemperatureConverter.convert(
+                DEFAULT_TEMP_COOL, UnitOfTemperature.CELSIUS, UnitOfTemperature.FAHRENHEIT
+            )
+            self._safety_target_temp = TemperatureConverter.convert(
+                SAFETY_TARGET_TEMP, UnitOfTemperature.CELSIUS, UnitOfTemperature.FAHRENHEIT
+            )
+
+        # Initialize schedule state
         self._active_override: ZoneOverride | None = None
+        self._next_schedule_block: ScheduleBlock | None = None
 
         self._temperature_sensor = temperature_sensor
         self._heaters = heaters
@@ -107,17 +131,10 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self._window_sensors = window_sensors
         self._schedule = schedule or []
         self._restore_delay_minutes = restore_delay_minutes
-        self._restore_delay_minutes = restore_delay_minutes
         # self._restore_timer: Callable[[], None] | None = None
-        self._attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT, HVACMode.AUTO]
         self._attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT, HVACMode.AUTO]
         if self._coolers:
             self._attr_hvac_modes.append(HVACMode.COOL)
-
-        self._attr_current_temperature: float | None = None
-        self._attr_target_temperature: float | None = DEFAULT_TEMP_HEAT
-        self._attr_hvac_mode = HVACMode.AUTO
-        self._attr_hvac_action = HVACAction.IDLE
 
         self._attr_next_scheduled_change: str | None = None
         self._attr_next_scheduled_temp_heat: float | None = None
@@ -205,11 +222,29 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self.async_write_ha_state()
 
     @property
+    def temperature_unit(self) -> str:
+        """Return the unit of measurement used by the platform."""
+        return cast(str, self.hass.config.units.temperature_unit)
+
+    @property
+    def target_temperature(self) -> float | None:
+        """Return the temperature we try to reach."""
+        return self._attr_target_temperature
+
+    @property
     def supported_features(self) -> ClimateEntityFeature:
         """Return the list of supported features."""
-        if self._attr_hvac_mode == HVACMode.AUTO and self._heaters and self._coolers:
-            return ClimateEntityFeature.TARGET_TEMPERATURE_RANGE
-        return ClimateEntityFeature.TARGET_TEMPERATURE
+        # Dynamic Feature Flags
+        features = ClimateEntityFeature.TURN_OFF | ClimateEntityFeature.TURN_ON
+
+        # If we have heaters AND coolers, we support range (AUTO mode)
+        if self._heaters and self._coolers:
+            features |= ClimateEntityFeature.TARGET_TEMPERATURE_RANGE
+            features |= ClimateEntityFeature.TARGET_TEMPERATURE
+        else:
+            features |= ClimateEntityFeature.TARGET_TEMPERATURE
+
+        return features
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -534,15 +569,33 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             self._attr_current_temperature = None
             return
 
+        raw_value = None
         # If it's a climate entity, get the attribute
         if state.domain == "climate":
-            self._attr_current_temperature = state.attributes.get("current_temperature")
+            raw_value = state.attributes.get("current_temperature")
         else:
             # Assume it's a sensor (state is the value)
             try:
-                self._attr_current_temperature = float(state.state)
+                raw_value = float(state.state)
             except ValueError:
-                self._attr_current_temperature = None
+                raw_value = None
+
+        if raw_value is None:
+            self._attr_current_temperature = None
+            return
+
+        # Unit Conversion
+        sensor_unit = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
+        if sensor_unit and sensor_unit != self.temperature_unit:
+            try:
+                self._attr_current_temperature = TemperatureConverter.convert(
+                    raw_value, sensor_unit, self.temperature_unit
+                )
+            except Exception:
+                _LOGGER.warning("Failed to convert temperature from %s to %s", sensor_unit, self.temperature_unit)
+                self._attr_current_temperature = raw_value
+        else:
+            self._attr_current_temperature = raw_value
 
     @callback
     def _async_on_storage_change(self) -> None:

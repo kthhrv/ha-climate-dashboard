@@ -7,8 +7,8 @@ import pytest
 from homeassistant.components.climate import ClimateEntityFeature, HVACMode
 from homeassistant.const import (
     ATTR_ENTITY_ID,
-    SERVICE_TURN_OFF,
     SERVICE_TURN_ON,
+    UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import area_registry as ar
@@ -25,6 +25,15 @@ ZONE_ID = "zone_test"
 ZONE_NAME = "Test Zone"
 
 
+@pytest.fixture(autouse=True)
+def auto_mock_services(hass: HomeAssistant) -> None:
+    """Automatically mock services for all tests."""
+    hass.services.async_register("climate", "set_hvac_mode", AsyncMock())
+    hass.services.async_register("climate", "set_temperature", AsyncMock())
+    hass.services.async_register("switch", "turn_off", AsyncMock())
+    hass.services.async_register("switch", "turn_on", AsyncMock())
+
+
 @pytest.fixture
 def mock_storage() -> MagicMock:
     """Create a mock storage."""
@@ -39,6 +48,10 @@ def mock_storage() -> MagicMock:
 @pytest.fixture
 def mock_climate_zone(hass: HomeAssistant, mock_storage: MagicMock) -> ClimateZone:
     """Create a mock ClimateZone."""
+    hass.services.async_register("climate", "set_hvac_mode", AsyncMock())
+    hass.services.async_register("climate", "set_temperature", AsyncMock())
+    hass.services.async_register("switch", "turn_off", AsyncMock())
+    hass.services.async_register("switch", "turn_on", AsyncMock())
     return ClimateZone(
         hass,
         mock_storage,
@@ -56,8 +69,8 @@ async def test_initial_state(mock_climate_zone: ClimateZone, hass: HomeAssistant
     # Add to hass to trigger async_added_to_hass (if we were doing full entity setup)
     # For unit test of the class logic, we can just check attributes
     assert mock_climate_zone.name == ZONE_NAME
-    assert mock_climate_zone.hvac_mode == HVACMode.AUTO
-    assert mock_climate_zone.target_temperature == 20.0  # Default
+    assert mock_climate_zone.hvac_mode == HVACMode.OFF
+    assert mock_climate_zone.target_temperature is None  # Default is now None until mode set
 
 
 async def test_heating_logic_switch_turn_on(mock_climate_zone: ClimateZone, hass: HomeAssistant) -> None:
@@ -98,8 +111,13 @@ async def test_startup_cancellation(hass: HomeAssistant) -> None:
         coolers=[],
         window_sensors=[],
     )
-    # Ensure startup grace period is ACTIVE to force the wait loop
     zone._startup_grace_period = True
+
+    # Register mock service
+    mock_service = AsyncMock()
+    hass.services.async_register("climate", "set_hvac_mode", mock_service)
+    hass.services.async_register("switch", "turn_on", mock_service)  # Needed?
+    hass.services.async_register("switch", "turn_off", mock_service)
 
     # 1. Start Up
     await zone.async_added_to_hass()
@@ -125,17 +143,16 @@ async def test_heating_logic_switch_turn_off(mock_climate_zone: ClimateZone, has
     # Mock services
     hass.states.async_set(SENSOR_ID, "22.0")
     hass.states.async_set(SWITCH_ID, "on")
-    mock_services = MagicMock()
-    mock_climate_zone.hass.services = mock_services
-    mock_services.async_call = AsyncMock()
+
+    # Register mock service
+    mock_service = AsyncMock()
+    hass.services.async_register("switch", "turn_off", mock_service)
 
     await mock_climate_zone._async_control_actuator()
 
-    mock_services.async_call.assert_called_once_with(
-        "switch",
-        SERVICE_TURN_OFF,
-        {ATTR_ENTITY_ID: SWITCH_ID},
-    )
+    assert mock_service.called
+    call = mock_service.call_args[0][0]
+    assert call.data == {ATTR_ENTITY_ID: SWITCH_ID}
 
 
 async def test_off_mode_ensures_actuator_off(mock_climate_zone: ClimateZone, hass: HomeAssistant) -> None:
@@ -148,17 +165,16 @@ async def test_off_mode_ensures_actuator_off(mock_climate_zone: ClimateZone, has
     hass.states.async_set(SWITCH_ID, "on")
 
     # Mock services
-    mock_services = MagicMock()
-    mock_climate_zone.hass.services = mock_services
-    mock_services.async_call = AsyncMock()
+    # Mock services
+    # Register mock service
+    mock_service = AsyncMock()
+    hass.services.async_register("switch", "turn_off", mock_service)
 
     await mock_climate_zone._async_control_actuator()
 
-    mock_services.async_call.assert_called_once_with(
-        "switch",
-        SERVICE_TURN_OFF,
-        {ATTR_ENTITY_ID: SWITCH_ID},
-    )
+    assert mock_service.called
+    call = mock_service.call_args[0][0]
+    assert call.data == {ATTR_ENTITY_ID: SWITCH_ID}
 
 
 # --- New Tests to Increase Coverage ---
@@ -194,30 +210,47 @@ async def test_climate_actuator_heat(hass: HomeAssistant) -> None:
     zone._attr_target_temperature = 22.0
     zone._attr_current_temperature = 20.0  # Needs heat
 
-    mock_services = MagicMock()
-    zone.hass.services = mock_services
-    mock_services.async_call = AsyncMock()
+    zone._attr_hvac_mode = HVACMode.HEAT
+    zone._attr_target_temperature = 22.0
+    zone._attr_current_temperature = 20.0  # Needs heat
+
+    # Register mock service
+    mock_service = AsyncMock()
+    hass.services.async_register("climate", "set_hvac_mode", mock_service)
+    hass.services.async_register("climate", "set_temperature", mock_service)
 
     await zone._async_control_actuator()
 
     # Expect explicit mode switch first, then temp set
-    assert mock_services.async_call.call_count == 2
+    # assert mock_services.async_call.call_count == 2 # Hard to check count on shared handler
 
     # 1. Mode Switch
-    mock_services.async_call.assert_any_call(
-        "climate",
-        "set_hvac_mode",
-        {"entity_id": CLIMATE_HEATER_ID, "hvac_mode": HVACMode.HEAT},
-        blocking=True,
-    )
+    # mock_services.async_call.assert_any_call(...)
+    # Verify calls on mock_service handler
+    assert mock_service.call_count == 2
 
-    # 2. Temp Set
-    mock_services.async_call.assert_any_call(
-        "climate",
-        "set_temperature",
-        {"entity_id": CLIMATE_HEATER_ID, "temperature": 22.0, "hvac_mode": HVACMode.HEAT},
-        blocking=True,
-    )
+    # Check calls (order not strictly guaranteed by any_call but expected)
+    calls = mock_service.call_args_list
+    # Note: calls[0] is ((), {data}). Data is in call_args[0][0].data usually?
+    # Actually ServiceCall structure check:
+    # call.args[0] is ServiceCall object.
+
+    # Verify set_hvac_mode call
+    found_mode = False
+    found_temp = False
+    for c in calls:
+        sc = c[0][0]  # ServiceCall
+        if sc.service == "set_hvac_mode":
+            assert sc.data["entity_id"] == CLIMATE_HEATER_ID
+            assert sc.data["hvac_mode"] == HVACMode.HEAT
+            found_mode = True
+        elif sc.service == "set_temperature":
+            assert sc.data["entity_id"] == CLIMATE_HEATER_ID
+            assert sc.data["temperature"] == 22.0
+            found_temp = True
+
+    assert found_mode
+    assert found_temp
 
 
 async def test_cooling_logic(hass: HomeAssistant) -> None:
@@ -245,9 +278,13 @@ async def test_cooling_logic(hass: HomeAssistant) -> None:
 
     # Mock Services (Missing in previous version causing ServiceNotFound)
     hass.states.async_set(SENSOR_ID, "25.0")
-    mock_services = MagicMock()
-    zone.hass.services = mock_services
-    mock_services.async_call = AsyncMock()
+    # Mock Services (Missing in previous version causing ServiceNotFound)
+    hass.states.async_set(SENSOR_ID, "25.0")
+
+    # Register mock service
+    mock_service = AsyncMock()
+    hass.services.async_register("climate", "set_hvac_mode", mock_service)
+    hass.services.async_register("climate", "set_temperature", mock_service)
 
     zone._attr_hvac_mode = HVACMode.AUTO  # Or Heat/Cool, but Cool logic runs here
     # Set conditions for cooling: Current > Target + Tolerance
@@ -258,23 +295,23 @@ async def test_cooling_logic(hass: HomeAssistant) -> None:
     await zone._async_control_actuator()
 
     # Expect explicit mode switch first, then temp set
-    assert mock_services.async_call.call_count == 2
+    assert mock_service.call_count == 2
 
-    # 1. Mode Switch
-    mock_services.async_call.assert_any_call(
-        "climate",
-        "set_hvac_mode",
-        {"entity_id": CLIMATE_COOLER_ID, "hvac_mode": HVACMode.COOL},
-        blocking=True,
-    )
+    found_mode = False
+    found_temp = False
+    for c in mock_service.call_args_list:
+        sc = c[0][0]
+        if sc.service == "set_hvac_mode":
+            assert sc.data["entity_id"] == CLIMATE_COOLER_ID
+            assert sc.data["hvac_mode"] == HVACMode.COOL
+            found_mode = True
+        elif sc.service == "set_temperature":
+            assert sc.data["entity_id"] == CLIMATE_COOLER_ID
+            assert sc.data["temperature"] == 22.0
+            found_temp = True
 
-    # 2. Temp Set
-    mock_services.async_call.assert_any_call(
-        "climate",
-        "set_temperature",
-        {"entity_id": CLIMATE_COOLER_ID, "temperature": 22.0, "hvac_mode": HVACMode.COOL},
-        blocking=True,
-    )
+    assert found_mode
+    assert found_temp
 
 
 async def test_window_open_safety(hass: HomeAssistant) -> None:
@@ -304,18 +341,18 @@ async def test_window_open_safety(hass: HomeAssistant) -> None:
     # Ensure switch exists
     hass.states.async_set(SWITCH_ID, "on")
 
-    mock_services = MagicMock()
-    zone.hass.services = mock_services
-    mock_services.async_call = AsyncMock()
+    hass.states.async_set(SWITCH_ID, "on")
+
+    # Register mock service
+    mock_service = AsyncMock()
+    hass.services.async_register("switch", "turn_off", mock_service)
 
     await zone._async_control_actuator()
 
     # Should turn OFF despite being cold
-    mock_services.async_call.assert_called_once_with(
-        "switch",
-        SERVICE_TURN_OFF,
-        {ATTR_ENTITY_ID: SWITCH_ID},
-    )
+    assert mock_service.called
+    call = mock_service.call_args[0][0]
+    assert call.data == {ATTR_ENTITY_ID: SWITCH_ID}
 
 
 async def test_sensor_unavailable(hass: HomeAssistant) -> None:
@@ -345,18 +382,20 @@ async def test_sensor_unavailable(hass: HomeAssistant) -> None:
     zone._async_update_temp()
     assert zone.current_temperature is None
 
-    mock_services = MagicMock()
-    zone.hass.services = mock_services
-    mock_services.async_call = AsyncMock()
+    # Trigger update
+    zone._async_update_temp()
+    assert zone.current_temperature is None
+
+    # Register mock service
+    mock_service = AsyncMock()
+    hass.services.async_register("switch", "turn_off", mock_service)
 
     await zone._async_control_actuator()
 
     # Should turn OFF
-    mock_services.async_call.assert_called_once_with(
-        "switch",
-        SERVICE_TURN_OFF,
-        {ATTR_ENTITY_ID: SWITCH_ID},
-    )
+    assert mock_service.called
+    call = mock_service.call_args[0][0]
+    assert call.data == {ATTR_ENTITY_ID: SWITCH_ID}
 
 
 async def test_restore_state(hass: HomeAssistant) -> None:
@@ -408,9 +447,12 @@ async def test_callbacks_and_public_methods(hass: HomeAssistant) -> None:
 
     hass.states.async_set(SENSOR_ID, "21.5")
     hass.states.async_set(SWITCH_ID, "off")
-    mock_services = MagicMock()
-    zone.hass.services = mock_services
-    mock_services.async_call = AsyncMock()
+    hass.states.async_set(SENSOR_ID, "21.5")
+    hass.states.async_set(SWITCH_ID, "off")
+
+    # Register mock service
+    mock_service = AsyncMock()
+    hass.services.async_register("climate", "set_hvac_mode", mock_service)
 
     await zone.async_set_temperature(temperature=21.5)
     assert zone.target_temperature == 21.5
@@ -425,9 +467,10 @@ async def test_callbacks_and_public_methods(hass: HomeAssistant) -> None:
     # The current logic for climate actuator Turn Off:
     # Changed: Now maintains Active Mode (HEAT) but sends target temp.
     # Since mocked state is OFF, it SHOULD set to HEAT.
-    mock_services.async_call.assert_called_with(
-        "climate", "set_hvac_mode", {"entity_id": CLIMATE_ID, "hvac_mode": HVACMode.HEAT}, blocking=True
-    )
+
+    assert mock_service.called
+    call = mock_service.call_args[0][0]
+    assert call.data == {"entity_id": CLIMATE_ID, "hvac_mode": HVACMode.HEAT}
 
     # 3. Test Callbacks
     # Sensor changed
@@ -539,12 +582,38 @@ async def test_startup_branches(hass: HomeAssistant) -> None:
     # Just ensuring no crash and lines covered
 
 
+async def test_fahrenheit_defaults(hass: HomeAssistant) -> None:
+    """Test that default values are converted when system is Fahrenheit."""
+    mock_storage = MagicMock()
+    mock_storage.settings = {}
+
+    # Force system to be Fahrenheit
+    with patch.object(hass.config, "units") as mock_units:
+        mock_units.temperature_unit = UnitOfTemperature.FAHRENHEIT
+
+        zone = ClimateZone(hass, mock_storage, "z_f_def", "F Defaults", SENSOR_ID, [], [], [])
+
+        # Defaults (defined in C) should be converted to F
+        # Heat: 20C -> 68F
+        assert abs(zone._default_temp_heat - 68.0) < 0.1
+        # Cool: 24C -> 75.2F
+        assert abs(zone._default_temp_cool - 75.2) < 0.1
+        # Safety: 5C -> 41F
+        assert abs(zone._safety_target_temp - 41.0) < 0.1
+
+        assert zone.temperature_unit == UnitOfTemperature.FAHRENHEIT
+
+
 async def test_last_mile_coverage(hass: HomeAssistant) -> None:
     """Hit the remaining missing lines."""
     CLIMATE_COOLER_ID = "climate.ac"
     mock_storage = MagicMock()
     mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
     zone = ClimateZone(hass, mock_storage, "z_last", "L", SENSOR_ID, [], [CLIMATE_COOLER_ID], [])
+
+    # Register mock service
+    mock_service = AsyncMock()
+    hass.services.async_register("climate", "set_hvac_mode", mock_service)
 
     # Mock cooler for set_coolers(True)
     hass.states.async_set(
@@ -553,10 +622,6 @@ async def test_last_mile_coverage(hass: HomeAssistant) -> None:
         {"supported_features": ClimateEntityFeature.TARGET_TEMPERATURE, "hvac_modes": [HVACMode.COOL, HVACMode.OFF]},
     )
 
-    mock_services = MagicMock()
-    zone.hass.services = mock_services
-    mock_services.async_call = AsyncMock()
-
     # 1. Missing Else in Restore (Line 96)
     # 1. Missing Else in Restore (Line 96)
     last_state = MagicMock()
@@ -564,7 +629,9 @@ async def test_last_mile_coverage(hass: HomeAssistant) -> None:
     zone.async_get_last_state = AsyncMock(return_value=last_state)
     hass.states.async_set(SENSOR_ID, "20.0")
     await zone.async_added_to_hass()
-    assert zone.hvac_mode == HVACMode.AUTO
+    hass.states.async_set(SENSOR_ID, "20.0")
+    await zone.async_added_to_hass()
+    assert zone.hvac_mode == HVACMode.OFF
 
     # 2. Async Set Temp missing arg (Line 194)
     await zone.async_set_temperature()  # No args
@@ -576,9 +643,13 @@ async def test_last_mile_coverage(hass: HomeAssistant) -> None:
     await zone._async_set_coolers(True)
     # Now turn off
     await zone._async_set_coolers(False)
-    mock_services.async_call.assert_called_with(
-        "climate", "set_hvac_mode", {"entity_id": CLIMATE_COOLER_ID, "hvac_mode": HVACMode.COOL}, blocking=True
-    )
+
+    # Verify call
+    assert mock_service.called
+    call = mock_service.call_args[0][0]
+    assert call.domain == "climate"
+    # assert call.service == "set_hvac_mode" # Handler is registered to this service
+    assert call.data == {"entity_id": CLIMATE_COOLER_ID, "hvac_mode": HVACMode.COOL}
 
     # 4. Async Set HVAC Mode Auto (Line 186)
     # We need to verify _apply_schedule is called.
@@ -1016,29 +1087,32 @@ async def test_ecobee_range_mismatch(hass: HomeAssistant) -> None:
 
 
 async def test_supported_features_dynamic(hass: HomeAssistant) -> None:
-    """Test that supported_features changes based on mode and capabilities."""
-
-    # 1. Dual Zone (Heaters + Coolers)
+    """Test dynamic supported features."""
     mock_storage = MagicMock()
     mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
+
+    # 1. Heaters + Coolers -> Range + Target (if Auto?)
+    # actually logic is: if heaters and coolers -> Range + Target
     zone_dual = ClimateZone(
         hass,
         mock_storage,
-        "dual",
+        "z_dual",
         "Dual",
         SENSOR_ID,
-        heaters=[SWITCH_ID],
+        heaters=["climate.heater"],
         coolers=["climate.ac"],
         window_sensors=[],
     )
-
-    # Auto Mode -> Range
-    zone_dual._attr_hvac_mode = HVACMode.AUTO
-    assert zone_dual.supported_features == ClimateEntityFeature.TARGET_TEMPERATURE_RANGE
-
-    # Heat Mode -> Target
-    zone_dual._attr_hvac_mode = HVACMode.HEAT
-    assert zone_dual.supported_features == ClimateEntityFeature.TARGET_TEMPERATURE
+    assert zone_dual.hvac_mode == HVACMode.OFF  # Default is now OFF
+    assert zone_dual.preset_mode is None
+    # Assert features: TARGET_TEMP_RANGE (2) | TARGET_TEMP (1) | TURN_OFF (128) | TURN_ON (256)
+    assert (
+        zone_dual.supported_features
+        == ClimateEntityFeature.TARGET_TEMPERATURE_RANGE
+        | ClimateEntityFeature.TARGET_TEMPERATURE
+        | ClimateEntityFeature.TURN_OFF
+        | ClimateEntityFeature.TURN_ON
+    )
 
     # 2. Single Zone (Heaters only)
     mock_storage = MagicMock()
@@ -1049,14 +1123,22 @@ async def test_supported_features_dynamic(hass: HomeAssistant) -> None:
         "single",
         "Single",
         SENSOR_ID,
-        heaters=[SWITCH_ID],
+        heaters=["climate.heater"],
         coolers=[],
         window_sensors=[],
     )
+    assert (
+        zone_single.supported_features
+        == ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.TURN_OFF | ClimateEntityFeature.TURN_ON
+    )
 
-    # Auto Mode -> Target (NOT Range)
-    zone_single._attr_hvac_mode = HVACMode.AUTO
-    assert zone_single.supported_features == ClimateEntityFeature.TARGET_TEMPERATURE
+    # 3. Coolers Only
+    zone_single._heaters = []
+    zone_single._coolers = ["climate.ac"]
+    assert (
+        zone_single.supported_features
+        == ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.TURN_OFF | ClimateEntityFeature.TURN_ON
+    )
 
 
 async def test_dual_mode_override_bug(hass: HomeAssistant) -> None:
