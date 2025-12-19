@@ -63,7 +63,6 @@ class ClimateZone(ClimateEntity, RestoreEntity):
     _attr_has_entity_name = True
     _attr_name = None
     _attr_precision = PRECISION_TENTHS
-    _attr_precision = PRECISION_TENTHS
 
     def __init__(
         self,
@@ -99,7 +98,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
         self.entity_id = f"climate.zone_{slugify(name)}"
 
-        self._attr_hvac_mode = HVACMode.OFF
+        self._attr_hvac_mode = HVACMode.AUTO
         self._attr_preset_mode = None
         self._attr_hvac_action = HVACAction.OFF
         self._attr_target_temperature: float | None = None
@@ -278,7 +277,6 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         await super().async_added_to_hass()
 
         # Restore state
-        # Restore state
         if (last_state := await self.async_get_last_state()) is not None:
             # Check for Unique ID match to prevent ghost state from deleted entities
             if last_state.attributes.get("unique_id") == self.unique_id:
@@ -289,6 +287,10 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
                 if last_state.attributes.get(ATTR_TEMPERATURE):
                     self._attr_target_temperature = float(last_state.attributes[ATTR_TEMPERATURE])
+
+                _LOGGER.info("Zone %s restored state: %s", self.name, self._attr_hvac_mode)
+        else:
+            _LOGGER.info("Zone %s has no restored state. Defaulting to %s", self.name, self._attr_hvac_mode)
 
         # Track temperature sensor changes
         self.async_on_remove(
@@ -311,7 +313,6 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         if self._attr_hvac_mode == HVACMode.AUTO:
             self._apply_schedule()
 
-        # Wait for HA to be fully started before running control logic
         # Wait for HA to be fully started before running control logic
         if self.hass.state == CoreState.running:
             self._startup_task = self.hass.async_create_task(self._async_initial_control())
@@ -1032,12 +1033,9 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                 # 2. Set Mode
                 if force_off:
                     if state.state != HVACMode.OFF:
-                        if self._async_is_actuator_active_elsewhere(entity_id, HVACAction.HEATING):
-                            _LOGGER.debug("Not turning off %s because it is needed by another zone", entity_id)
-                        else:
-                            await self.hass.services.async_call(
-                                "climate", "set_hvac_mode", {"entity_id": entity_id, "hvac_mode": HVACMode.OFF}
-                            )
+                        await self.hass.services.async_call(
+                            "climate", "set_hvac_mode", {"entity_id": entity_id, "hvac_mode": HVACMode.OFF}
+                        )
                 else:
                     # Active OR Idle -> Maintain Active Mode (Heat/Auto)
                     if target_mode and state.state != target_mode:
