@@ -706,7 +706,7 @@ def setup_config_entries() -> dict[str, str]:
                 "target_temp": thermo["target_temp"],
                 "cold_tolerance": 0.3,
                 "hot_tolerance": 0.3,
-                "initial_hvac_mode": "off",
+                # "initial_hvac_mode": "off",  # Allow restore state to avoid startup warnings
                 "away_temp": 16,
                 "precision": 0.1,
             },
