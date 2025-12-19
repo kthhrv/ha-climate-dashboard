@@ -245,6 +245,18 @@ async def _async_update_settings(hass: HomeAssistant, connection: ActiveConnecti
         updates["default_override_type"] = msg["default_override_type"]
     if "default_timer_minutes" in msg:
         updates["default_timer_minutes"] = msg["default_timer_minutes"]
+    if "window_open_delay_seconds" in msg:
+        updates["window_open_delay_seconds"] = msg["window_open_delay_seconds"]
+    if "home_away_entity_id" in msg:
+        updates["home_away_entity_id"] = msg["home_away_entity_id"]
+    if "away_delay_minutes" in msg:
+        updates["away_delay_minutes"] = msg["away_delay_minutes"]
+    if "away_temperature" in msg:
+        updates["away_temperature"] = msg["away_temperature"]
+    if "away_temperature_cool" in msg:
+        updates["away_temperature_cool"] = msg["away_temperature_cool"]
+    if "is_away_mode_on" in msg:
+        updates["is_away_mode_on"] = msg["is_away_mode_on"]
 
     await storage.async_update_settings(updates)
     connection.send_result(msg["id"], storage.settings)
@@ -319,6 +331,12 @@ def async_register_api(hass: HomeAssistant) -> None:
                 vol.Required("type"): "climate_dashboard/settings/update",
                 vol.Optional("default_override_type"): str,
                 vol.Optional("default_timer_minutes"): int,
+                vol.Optional("window_open_delay_seconds"): int,
+                vol.Optional("home_away_entity_id"): vol.Any(str, None),
+                vol.Optional("away_delay_minutes"): int,
+                vol.Optional("away_temperature"): vol.Coerce(float),
+                vol.Optional("away_temperature_cool"): vol.Coerce(float),
+                vol.Optional("is_away_mode_on"): bool,
             }
         ),
     )

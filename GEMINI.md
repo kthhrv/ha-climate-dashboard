@@ -39,6 +39,12 @@
     *   **Heat Mode:** Activates heaters if `current < target`.
     *   **Cool Mode:** Activates coolers if `current > target`.
     *   **Auto Mode:** Maintains `target ± tolerance` (Deadband Logic).
+    *   **Global Away Mode:**
+        *   Overrides local targets with global `away_temperature` (Heat) and `away_temperature_cool` (Cool).
+        *   Dual-point zones use wide deadband (e.g., 16°C - 30°C) to stay idle.
+        *   Single-point zones use the relevant target for their mode.
+        *   **Actuator Sync:** Forces target temperature to devices even if idle/off to ensure display sync.
+        *   **Presence Automation:** Monitors `home_away_entity_id`. Presence Loss triggers reconfigurable "Away Delay" before activating.
 *   **Hardware Abstraction:** Can control a `switch` (bang-bang) or a `climate` device (passing through setpoints).
 *   **Wall Thermostat Sync:** Bi-directional sync with physical Zigbee dials (Screen reflects Schedule; Dial override triggers Manual Hold).
 
@@ -66,10 +72,14 @@ See [design/control_patterns.md](design/control_patterns.md) for detailed hardwa
 ## 6. Project Roadmap
 
 ### Immediate Next Steps
-- [x] **Failsafes & Safety:**
-    - Handle "Unavailable" sensors gracefully (safety default temp).
-    - Frontend visual warnings for offline sensors.
+- [x] **Global Modes:**
+    - [x] Implement "Home" vs "Away" logic affecting all zones.
+    - [x] Presence detection with automatic "Away Delay".
+    - [x] "Away Cool" setting for dual-mode zones.
 - [ ] **Timeline Interactivity:**
+    - Click-to-Edit schedule blocks.
+    - Touch-optimized resize/move (Long-press actions).
+- [ ] **Smart Defaults:**
     - Click-to-Edit schedule blocks.
     - Touch-optimized resize/move (Long-press actions).
 - [ ] **Global Modes:**

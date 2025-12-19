@@ -6,6 +6,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.typing import ConfigType
 
+from .coordinator import ClimateDashboardCoordinator
 from .panel import async_register_panel
 from .storage import ClimateDashboardStorage
 from .websocket import async_register_api
@@ -22,6 +23,10 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     storage = ClimateDashboardStorage(hass)
     await storage.async_load()
     hass.data[DOMAIN]["storage"] = storage
+
+    # Init Coordinator (Manages Home/Away logic)
+    coordinator = ClimateDashboardCoordinator(hass, storage)
+    hass.data[DOMAIN]["coordinator"] = coordinator
 
     # Register the panel (also works without config entry for simple testing)
     await async_register_panel(hass)

@@ -16,6 +16,11 @@ interface GlobalSettings {
   default_override_type: "next_block" | "duration";
   default_timer_minutes: number;
   window_open_delay_seconds: number;
+  home_away_entity_id: string | null;
+  away_delay_minutes: number;
+  away_temperature: number;
+  away_temperature_cool: number;
+  is_away_mode_on: boolean;
 }
 
 export class SetupView extends LitElement {
@@ -27,6 +32,11 @@ export class SetupView extends LitElement {
     default_override_type: "next_block",
     default_timer_minutes: 60,
     window_open_delay_seconds: 30,
+    home_away_entity_id: null,
+    away_delay_minutes: 10,
+    away_temperature: 16.0,
+    away_temperature_cool: 30.0,
+    is_away_mode_on: false,
   };
 
   // Dialog State
@@ -193,6 +203,70 @@ export class SetupView extends LitElement {
               this._updateSetting(
                 "window_open_delay_seconds",
                 parseInt((e.target as HTMLInputElement).value),
+              )}
+          />
+        </div>
+
+        <h3>Home/Away Automation</h3>
+
+        <div class="settings-row">
+          <label>Presence Entity (Optional)</label>
+          <input
+            type="text"
+            placeholder="group.family"
+            .value=${this._settings.home_away_entity_id || ""}
+            @change=${(e: Event) =>
+              this._updateSetting(
+                "home_away_entity_id",
+                (e.target as HTMLInputElement).value || null,
+              )}
+          />
+        </div>
+
+        <div class="settings-row">
+          <label>Away Delay (minutes)</label>
+          <input
+            type="number"
+            min="1"
+            max="60"
+            step="1"
+            .value=${this._settings.away_delay_minutes}
+            @change=${(e: Event) =>
+              this._updateSetting(
+                "away_delay_minutes",
+                parseInt((e.target as HTMLInputElement).value),
+              )}
+          />
+        </div>
+
+        <div class="settings-row">
+          <label>Away Heat Temperature (°C)</label>
+          <input
+            type="number"
+            min="5"
+            max="30"
+            step="0.5"
+            .value=${this._settings.away_temperature}
+            @change=${(e: Event) =>
+              this._updateSetting(
+                "away_temperature",
+                parseFloat((e.target as HTMLInputElement).value),
+              )}
+          />
+        </div>
+
+        <div class="settings-row">
+          <label>Away Cool Temperature (°C)</label>
+          <input
+            type="number"
+            min="16"
+            max="35"
+            step="0.5"
+            .value=${this._settings.away_temperature_cool || 30.0}
+            @change=${(e: Event) =>
+              this._updateSetting(
+                "away_temperature_cool",
+                parseFloat((e.target as HTMLInputElement).value),
               )}
           />
         </div>

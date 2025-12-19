@@ -136,6 +136,9 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
         self._window_open_timestamp: datetime | None = None
 
+        # Listen for storage/setting changes (Global Away Mode)
+        self._storage.async_add_listener(self._async_on_storage_change)
+
     async def async_update_config(
         self,
         name: str,
@@ -264,11 +267,6 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
         # Initial update
         self._async_update_temp()
-
-        # Initial schedule check
-        # Initial schedule check
-        if self._attr_hvac_mode == HVACMode.AUTO:
-            self._apply_schedule()
 
         # Initial schedule check
         if self._attr_hvac_mode == HVACMode.AUTO:
@@ -528,6 +526,19 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             except ValueError:
                 self._attr_current_temperature = None
 
+    @callback
+    def _async_on_storage_change(self) -> None:
+        """Handle storage changes (e.g. Away Mode toggle)."""
+        settings = self._storage.settings
+
+        # If Away Mode turned OFF, try to restore schedule
+        if not settings.get("is_away_mode_on"):
+            if self._attr_hvac_mode == HVACMode.AUTO:
+                self._apply_schedule()
+
+        self.hass.async_create_task(self._async_control_actuator())
+        self.async_write_ha_state()
+
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set new target hvac mode."""
         self._attr_hvac_mode = hvac_mode
@@ -707,7 +718,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                 # Continue to normal logic (heating stays on)
             else:
                 # Delay passed -> Force OFF
-                await self._async_turn_off_all()
+                await self._async_turn_off_all(force_off=True)
                 self._attr_hvac_action = HVACAction.OFF
                 self._attr_safety_mode = False
                 self._attr_using_fallback_sensor = None
@@ -721,12 +732,39 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                 self._window_open_timestamp = None
 
         if self._attr_hvac_mode == HVACMode.OFF:
-            await self._async_turn_off_all()
+            await self._async_turn_off_all(force_off=True)
             self._attr_hvac_action = HVACAction.OFF
             self._attr_safety_mode = False
             self._attr_using_fallback_sensor = None
             self.async_write_ha_state()
+            self.async_write_ha_state()
             return
+
+        # --- GLOBAL AWAY MODE OVERRIDE ---
+        settings = self._storage.settings
+        if settings.get("is_away_mode_on"):
+            # Force Away Temperatures
+            away_temp = float(settings.get("away_temperature", 16.0))
+            away_cool_temp = float(settings.get("away_temperature_cool", 30.0))
+
+            # Apply logic based on Mode capabilities
+            if self._heaters and self._coolers and self._attr_hvac_mode == HVACMode.AUTO:
+                # DUAL MODE -> Use Range
+                self._attr_target_temperature = None
+                self._attr_target_temperature_low = away_temp
+                self._attr_target_temperature_high = away_cool_temp
+                _LOGGER.debug("Zone %s in Global Away Mode (Range: %s - %s)", self.name, away_temp, away_cool_temp)
+            else:
+                # SINGLE MODE -> Use appropriate target
+                # If in COOL mode, use the cool setback.
+                # If in HEAT mode, use the heat setback.
+                if self._attr_hvac_mode == HVACMode.COOL:
+                    self._attr_target_temperature = away_cool_temp
+                    _LOGGER.debug("Zone %s in Global Away Mode (Cool Target: %s)", self.name, away_cool_temp)
+                else:
+                    # HEAT or AUTO (single)
+                    self._attr_target_temperature = away_temp
+                    _LOGGER.debug("Zone %s in Global Away Mode (Heat Target: %s)", self.name, away_temp)
 
         if self._attr_hvac_mode in (HVACMode.HEAT, HVACMode.AUTO):
             current = self._attr_current_temperature
@@ -795,11 +833,11 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                     if current < (target - DEFAULT_TOLERANCE):
                         self._attr_hvac_action = HVACAction.HEATING
                         await self._async_set_heaters(True)
-                        await self._async_set_coolers(False)
+                        await self._async_set_coolers(False, force_off=True)
                     else:
                         self._attr_hvac_action = HVACAction.IDLE
                         await self._async_set_heaters(False)
-                        await self._async_set_coolers(False)
+                        await self._async_set_coolers(False, force_off=True)
 
             elif self._attr_hvac_mode == HVACMode.COOL:
                 # Summer Strategy: Keep at or below target
@@ -807,11 +845,11 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                 if target is not None:
                     if current > (target + DEFAULT_TOLERANCE) and self._coolers:
                         self._attr_hvac_action = HVACAction.COOLING
-                        await self._async_set_heaters(False)
+                        await self._async_set_heaters(False, force_off=True)
                         await self._async_set_coolers(True)
                     else:
                         self._attr_hvac_action = HVACAction.IDLE
-                        await self._async_set_heaters(False)
+                        await self._async_set_heaters(False, force_off=True)
                         await self._async_set_coolers(False)
 
             elif self._attr_hvac_mode == HVACMode.AUTO:
@@ -841,27 +879,20 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
             self.async_write_ha_state()
 
-    async def _async_turn_off_all(self) -> None:
+    async def _async_turn_off_all(self, force_off: bool = True) -> None:
         """Turn off all actuators."""
-        await self._async_set_heaters(False)
-        await self._async_set_coolers(False)
+        await self._async_set_heaters(False, force_off=force_off)
+        await self._async_set_coolers(False, force_off=force_off)
 
-    async def _async_set_heaters(self, enable: bool) -> None:
-        """Control heaters.
-
-        Args:
-            enable: True to turn on/heat, False to turn off/idle.
-
-        Handles:
-        - Switches: turn_on/turn_off
-        - Climate (Smart TRVs): set_hvac_mode and set_temperature.
-          Maps zone target (single or range) to device capabilities.
-        """
+    async def _async_set_heaters(self, enable: bool, force_off: bool = False) -> None:
+        """Control heaters."""
         for entity_id in self._heaters:
             domain = entity_id.split(".")[0]
             if domain == "switch":
                 if self.hass.states.get(entity_id):
-                    service = "turn_on" if enable else "turn_off"
+                    # Switch follows demand strictly, but definitely OFF if force_off
+                    is_on = enable and not force_off
+                    service = "turn_on" if is_on else "turn_off"
                     await self.hass.services.async_call("switch", service, {"entity_id": entity_id})
             elif domain == "climate":
                 state = self.hass.states.get(entity_id)
@@ -869,19 +900,59 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                     continue
 
                 features = state.attributes.get("supported_features", 0)
+                service_data: dict[str, Any] = {"entity_id": entity_id}
 
-                if enable:
-                    # Smart Thermostat Logic
-                    valid_modes = state.attributes.get("hvac_modes", [])
-                    target_mode = None
+                # Resolve Target Mode (Active)
+                # We want to know the active mode to send with set_temperature,
+                # even if we are Idle (enable=False) or forcing off.
+                valid_modes = state.attributes.get("hvac_modes", [])
+                target_mode = None
 
-                    if HVACMode.HEAT_COOL in valid_modes:
-                        target_mode = HVACMode.HEAT_COOL
-                    elif HVACMode.HEAT in valid_modes:
-                        target_mode = HVACMode.HEAT
-                    elif HVACMode.AUTO in valid_modes:
-                        target_mode = HVACMode.AUTO
+                if HVACMode.HEAT_COOL in valid_modes:
+                    target_mode = HVACMode.HEAT_COOL
+                elif HVACMode.HEAT in valid_modes:
+                    target_mode = HVACMode.HEAT
+                elif HVACMode.AUTO in valid_modes:
+                    target_mode = HVACMode.AUTO
 
+                # Resolve Target Temp
+                target = self._attr_target_temperature
+                if target is None:
+                    target = self._attr_target_temperature_low
+
+                if features & ClimateEntityFeature.TARGET_TEMPERATURE and target is not None:
+                    service_data["temperature"] = target
+                elif features & ClimateEntityFeature.TARGET_TEMPERATURE_RANGE:
+                    low = self._attr_target_temperature_low
+                    high = self._attr_target_temperature_high
+
+                    if low is not None and high is not None:
+                        service_data["target_temp_low"] = low
+                        service_data["target_temp_high"] = high
+                    elif target is not None:
+                        service_data["target_temp_low"] = target
+                        service_data["target_temp_high"] = target + 5
+
+                # 1. Update Temperature (Sync)
+                if "temperature" in service_data or "target_temp_low" in service_data:
+                    if target_mode and not force_off:
+                        service_data["hvac_mode"] = target_mode
+
+                    await self.hass.services.async_call(
+                        "climate",
+                        "set_temperature",
+                        service_data,
+                        blocking=True,
+                    )
+
+                # 2. Set Mode
+                if force_off:
+                    if state.state != HVACMode.OFF:
+                        await self.hass.services.async_call(
+                            "climate", "set_hvac_mode", {"entity_id": entity_id, "hvac_mode": HVACMode.OFF}
+                        )
+                else:
+                    # Active OR Idle -> Maintain Active Mode (Heat/Auto)
                     if target_mode and state.state != target_mode:
                         await self.hass.services.async_call(
                             "climate",
@@ -890,103 +961,68 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                             blocking=True,
                         )
 
-                    service_data: dict[str, Any] = {"entity_id": entity_id}
-
-                    # Resolve Target
-                    # In Auto/Dual mode, target_temperature is None.
-                    # For Heating, we want to target the LOW setpoint.
-                    target = self._attr_target_temperature
-                    if target is None:
-                        target = self._attr_target_temperature_low
-
-                    if features & ClimateEntityFeature.TARGET_TEMPERATURE and target is not None:
-                        service_data["temperature"] = target
-                    elif features & ClimateEntityFeature.TARGET_TEMPERATURE_RANGE:
-                        # If range supported, send both if available, else construct from target
-                        low = self._attr_target_temperature_low
-                        high = self._attr_target_temperature_high
-
-                        if low is not None and high is not None:
-                            service_data["target_temp_low"] = low
-                            service_data["target_temp_high"] = high
-                        elif target is not None:
-                            service_data["target_temp_low"] = target
-                            service_data["target_temp_high"] = target + 5  # Safety gap
-
-                    if "temperature" in service_data or "target_temp_low" in service_data:
-                        if target_mode:
-                            service_data["hvac_mode"] = target_mode
-
-                        await self.hass.services.async_call(
-                            "climate",
-                            "set_temperature",
-                            service_data,
-                            blocking=True,
-                        )
-                else:
-                    await self.hass.services.async_call(
-                        "climate", "set_hvac_mode", {"entity_id": entity_id, "hvac_mode": HVACMode.OFF}
-                    )
-
-    async def _async_set_coolers(self, enable: bool) -> None:
+    async def _async_set_coolers(self, enable: bool, force_off: bool = False) -> None:
         """Control coolers."""
         for entity_id in self._coolers:
             domain = entity_id.split(".")[0]
             if domain == "climate":
-                if enable:
-                    state = self.hass.states.get(entity_id)
-                    if not state:
-                        continue
-                    features = state.attributes.get("supported_features", 0)
-                    valid_modes = state.attributes.get("hvac_modes", [])
+                state = self.hass.states.get(entity_id)
+                if not state:
+                    continue
+                features = state.attributes.get("supported_features", 0)
+                service_data: dict[str, Any] = {"entity_id": entity_id}
 
-                    target_mode = HVACMode.COOL
-                    if HVACMode.COOL not in valid_modes:
-                        if HVACMode.HEAT_COOL in valid_modes:
-                            target_mode = HVACMode.HEAT_COOL
-                        elif HVACMode.AUTO in valid_modes:
-                            target_mode = HVACMode.AUTO
+                # Resolve Target Mode (Cool)
+                valid_modes = state.attributes.get("hvac_modes", [])
+                target_mode = HVACMode.COOL
+                if HVACMode.COOL not in valid_modes:
+                    if HVACMode.HEAT_COOL in valid_modes:
+                        target_mode = HVACMode.HEAT_COOL
+                    elif HVACMode.AUTO in valid_modes:
+                        target_mode = HVACMode.AUTO
 
+                # Resolve Target for Cooling (HIGH setpoint)
+                target = self._attr_target_temperature
+                if target is None:
+                    target = self._attr_target_temperature_high
+
+                if features & ClimateEntityFeature.TARGET_TEMPERATURE and target is not None:
+                    service_data["temperature"] = target
+                elif features & ClimateEntityFeature.TARGET_TEMPERATURE_RANGE:
+                    low = self._attr_target_temperature_low
+                    high = self._attr_target_temperature_high
+
+                    if low is not None and high is not None:
+                        service_data["target_temp_low"] = low
+                        service_data["target_temp_high"] = high
+                    elif target is not None:
+                        service_data["target_temp_high"] = target
+                        service_data["target_temp_low"] = target - 5  # Safety gap
+
+                # 1. Update Temperature (Sync)
+                if "temperature" in service_data or "target_temp_high" in service_data:
+                    if target_mode and not force_off:
+                        service_data["hvac_mode"] = target_mode
+
+                    await self.hass.services.async_call(
+                        "climate",
+                        "set_temperature",
+                        service_data,
+                        blocking=True,
+                    )
+
+                # 2. Set Mode
+                if force_off:
+                    if state.state != HVACMode.OFF:
+                        await self.hass.services.async_call(
+                            "climate", "set_hvac_mode", {"entity_id": entity_id, "hvac_mode": HVACMode.OFF}
+                        )
+                else:
+                    # Active or Idle -> Keep COOL mode
                     if state.state != target_mode:
                         await self.hass.services.async_call(
                             "climate",
                             "set_hvac_mode",
                             {"entity_id": entity_id, "hvac_mode": target_mode},
                             blocking=True,
-                        )
-
-                    service_data: dict[str, Any] = {
-                        "entity_id": entity_id,
-                        "hvac_mode": target_mode,
-                    }
-
-                    # Resolve Target for Cooling (HIGH setpoint)
-                    target = self._attr_target_temperature
-                    if target is None:
-                        target = self._attr_target_temperature_high
-
-                    if features & ClimateEntityFeature.TARGET_TEMPERATURE and target is not None:
-                        service_data["temperature"] = target
-                    elif features & ClimateEntityFeature.TARGET_TEMPERATURE_RANGE:
-                        low = self._attr_target_temperature_low
-                        high = self._attr_target_temperature_high
-
-                        if low is not None and high is not None:
-                            service_data["target_temp_low"] = low
-                            service_data["target_temp_high"] = high
-                        elif target is not None:
-                            service_data["target_temp_high"] = target
-                            service_data["target_temp_low"] = target - 5  # Safety gap
-
-                    if "temperature" in service_data or "target_temp_high" in service_data:
-                        await self.hass.services.async_call(
-                            "climate",
-                            "set_temperature",
-                            service_data,
-                            blocking=True,
-                        )
-                else:
-                    if self.hass.states.get(entity_id):
-                        await self.hass.services.async_call(
-                            "climate", "set_hvac_mode", {"entity_id": entity_id, "hvac_mode": HVACMode.OFF}
                         )

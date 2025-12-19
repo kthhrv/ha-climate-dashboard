@@ -389,8 +389,10 @@ async def test_callbacks_and_public_methods(hass: HomeAssistant) -> None:
     await zone._async_control_actuator()
     # Expect heater to be turned OFF (or not turned on)
     # The current logic for climate actuator Turn Off:
+    # Changed: Now maintains Active Mode (HEAT) but sends target temp.
+    # Since mocked state is OFF, it SHOULD set to HEAT.
     mock_services.async_call.assert_called_with(
-        "climate", "set_hvac_mode", {"entity_id": CLIMATE_ID, "hvac_mode": HVACMode.OFF}
+        "climate", "set_hvac_mode", {"entity_id": CLIMATE_ID, "hvac_mode": HVACMode.HEAT}, blocking=True
     )
 
     # 3. Test Callbacks
@@ -539,7 +541,7 @@ async def test_last_mile_coverage(hass: HomeAssistant) -> None:
     # Now turn off
     await zone._async_set_coolers(False)
     mock_services.async_call.assert_called_with(
-        "climate", "set_hvac_mode", {"entity_id": CLIMATE_COOLER_ID, "hvac_mode": HVACMode.OFF}
+        "climate", "set_hvac_mode", {"entity_id": CLIMATE_COOLER_ID, "hvac_mode": HVACMode.COOL}, blocking=True
     )
 
     # 4. Async Set HVAC Mode Auto (Line 186)

@@ -77,6 +77,11 @@ INPUT_BOOLEANS: dict[str, dict[str, str]] = {
         "icon": "mdi:window-closed",
         "area_id": "__SKIP__",
     },
+    "family_home": {
+        "name": "Family Home",
+        "icon": "mdi:home-account",
+        "area_id": "__SKIP__",
+    },
 }
 
 INPUT_NUMBERS: dict[str, dict[str, Any]] = {

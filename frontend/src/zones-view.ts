@@ -9,6 +9,7 @@ interface HassEntity {
 
 export class ZonesView extends LitElement {
   @property({ attribute: false }) public hass!: any;
+  @property({ type: Boolean }) public isAwayMode = false;
 
   static styles = css`
     :host {
@@ -337,12 +338,24 @@ export class ZonesView extends LitElement {
 
     let message = "";
 
+    // Global Away Mode takes precedence over schedule but maybe not safety?
+    // Safety usually overrides everything.
     if (zone.attributes.safety_mode) {
       message = "Sensor Unavailable: Safety Mode active";
     } else if (zone.attributes.using_fallback_sensor) {
       message = "Warning: Using Area Fallback Sensor";
     } else if (zone.attributes.open_window_sensor) {
       message = `${zone.attributes.open_window_sensor} open`;
+    } else if (this.isAwayMode) {
+      // In Away Mode
+      if (
+        zone.attributes.target_temp_low != null &&
+        zone.attributes.target_temp_high != null
+      ) {
+        message = `Away ${zone.attributes.target_temp_low}°/${zone.attributes.target_temp_high}°`;
+      } else {
+        message = `Away ${zone.attributes.temperature}°`;
+      }
     } else if (overrideEnd) {
       const time = new Date(overrideEnd).toLocaleTimeString([], {
         hour: "2-digit",

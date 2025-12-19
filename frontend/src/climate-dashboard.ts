@@ -19,6 +19,7 @@ export class ClimateDashboard extends LitElement {
     | "schedule" = "zones";
   @state() private _editingZoneId: string | null = null;
   @state() private _unmanagedCount = 0;
+  @state() private _isAwayMode = false;
 
   static styles = css`
     :host {
@@ -43,6 +44,7 @@ export class ClimateDashboard extends LitElement {
       font-size: 20px;
       font-weight: 500;
       flex: 1;
+      margin-left: 16px;
     }
     .actions {
       display: flex;
@@ -64,6 +66,43 @@ export class ClimateDashboard extends LitElement {
     .icon-btn.active {
       color: var(--primary-text-color, white);
       background: rgba(255, 255, 255, 0.2);
+    }
+    .center-toggle {
+      display: flex;
+      background: var(--card-background-color, white);
+      border-radius: 24px;
+      padding: 4px;
+      gap: 4px;
+      margin: 16px auto 0 auto;
+      width: fit-content;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .toggle-option {
+      padding: 8px 20px;
+      border-radius: 20px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--secondary-text-color, #757575);
+      transition: all 0.2s;
+      border: none;
+      background: none;
+      line-height: normal;
+    }
+    .toggle-option.active {
+      background: var(--primary-color, #03a9f4);
+      color: white;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    /* Specific Colors for Active States - actually, let's just use primary color for active bg */
+    .toggle-option.home.active {
+      background: var(--primary-color, #03a9f4);
+    }
+    .toggle-option.away.active {
+      background: var(--warning-color, #ff9800);
     }
     .badge {
       position: absolute;
@@ -90,6 +129,19 @@ export class ClimateDashboard extends LitElement {
 
   protected firstUpdated(): void {
     this._scanForBadge();
+    this._fetchGlobalSettings();
+  }
+
+  private async _fetchGlobalSettings() {
+    if (!this.hass) return;
+    try {
+      const settings = await this.hass.callWS({
+        type: "climate_dashboard/settings/get",
+      });
+      this._isAwayMode = settings.is_away_mode_on;
+    } catch (e) {
+      console.error("Failed to fetch settings", e);
+    }
   }
 
   private async _scanForBadge() {
@@ -147,10 +199,12 @@ export class ClimateDashboard extends LitElement {
                 <ha-icon icon="mdi:arrow-left"></ha-icon>
               </button>
             `
-          : html`<ha-menu-button
-              .hass=${this.hass}
-              .narrow=${this.narrow}
-            ></ha-menu-button>`}
+          : html`
+              <ha-menu-button
+                .hass=${this.hass}
+                .narrow=${this.narrow}
+              ></ha-menu-button>
+            `}
 
         <div class="title">Climate</div>
 
@@ -177,9 +231,33 @@ export class ClimateDashboard extends LitElement {
       </div>
 
       <div class="content">
+        <!-- Global Mode Toggles (Only show in main views) -->
+        ${this._view === "zones" || this._view === "timeline"
+          ? html`
+              <div class="center-toggle">
+                <button
+                  class="toggle-option home ${!this._isAwayMode
+                    ? "active"
+                    : ""}"
+                  @click=${() => this._setAwayMode(false)}
+                >
+                  <ha-icon icon="mdi:home"></ha-icon>
+                  <span>Home</span>
+                </button>
+                <button
+                  class="toggle-option away ${this._isAwayMode ? "active" : ""}"
+                  @click=${() => this._setAwayMode(true)}
+                >
+                  <ha-icon icon="mdi:walk"></ha-icon>
+                  <span>Away</span>
+                </button>
+              </div>
+            `
+          : ""}
         ${this._view === "zones"
           ? html`<zones-view
               .hass=${this.hass}
+              .isAwayMode=${this._isAwayMode}
               @zone-settings=${(e: CustomEvent) => {
                 this._editingZoneId = e.detail.entityId;
                 this._view = "editor";
@@ -231,6 +309,25 @@ export class ClimateDashboard extends LitElement {
           : ""}
       </div>
     `;
+  }
+
+  private async _setAwayMode(enabled: boolean) {
+    if (this._isAwayMode === enabled) return;
+
+    // Optimistic update
+    const previous = this._isAwayMode;
+    this._isAwayMode = enabled;
+
+    try {
+      await this.hass.callWS({
+        type: "climate_dashboard/settings/update",
+        is_away_mode_on: enabled,
+      });
+    } catch (e) {
+      // Revert
+      this._isAwayMode = previous;
+      console.error("Failed to set Away Mode", e);
+    }
   }
 }
 

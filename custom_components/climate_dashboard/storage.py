@@ -31,6 +31,11 @@ class GlobalSettings(TypedDict, total=False):
     default_override_type: OverrideType
     default_timer_minutes: int
     window_open_delay_seconds: int
+    home_away_entity_id: str | None
+    away_delay_minutes: int
+    away_temperature: float
+    away_temperature_cool: float
+    is_away_mode_on: bool
 
 
 class ScheduleBlock(TypedDict, total=False):
@@ -87,6 +92,11 @@ class ClimateDashboardStorage:
             "default_override_type": OverrideType.NEXT_BLOCK,
             "default_timer_minutes": 60,
             "window_open_delay_seconds": 30,
+            "home_away_entity_id": None,
+            "away_delay_minutes": 10,
+            "away_temperature": 16.0,
+            "away_temperature_cool": 30.0,
+            "is_away_mode_on": False,
         }
 
         if data:
@@ -132,6 +142,11 @@ class ClimateDashboardStorage:
                 "default_override_type": OverrideType.NEXT_BLOCK,
                 "default_timer_minutes": 60,
                 "window_open_delay_seconds": 30,
+                "home_away_entity_id": None,
+                "away_delay_minutes": 10,
+                "away_temperature": 16.0,
+                "away_temperature_cool": 30.0,
+                "is_away_mode_on": False,
             }
         return self._data.settings
 
@@ -144,6 +159,10 @@ class ClimateDashboardStorage:
                     "default_override_type": OverrideType.NEXT_BLOCK,
                     "default_timer_minutes": 60,
                     "window_open_delay_seconds": 30,
+                    "home_away_entity_id": None,
+                    "away_delay_minutes": 10,
+                    "away_temperature": 16.0,
+                    "is_away_mode_on": False,
                 },
             )
 
@@ -201,6 +220,11 @@ class ClimateDashboardStorage:
                     "default_override_type": OverrideType.NEXT_BLOCK,
                     "default_timer_minutes": 60,
                     "window_open_delay_seconds": 30,
+                    "home_away_entity_id": None,
+                    "away_delay_minutes": 10,
+                    "away_temperature": 16.0,
+                    "away_temperature_cool": 30.0,
+                    "is_away_mode_on": False,
                 },
             )
 
