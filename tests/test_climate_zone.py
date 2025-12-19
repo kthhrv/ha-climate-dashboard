@@ -75,12 +75,44 @@ async def test_heating_logic_switch_turn_on(mock_climate_zone: ClimateZone, hass
     mock_services.async_call = AsyncMock()
 
     await mock_climate_zone._async_control_actuator()
+    await hass.async_block_till_done()
 
     mock_services.async_call.assert_called_once_with(
         "switch",
         SERVICE_TURN_ON,
         {ATTR_ENTITY_ID: SWITCH_ID},
     )
+
+
+async def test_startup_cancellation(hass: HomeAssistant) -> None:
+    """Test that startup task is cancelled exactly once on removal."""
+    mock_storage = MagicMock()
+    mock_storage.settings = {}
+    zone = ClimateZone(
+        hass,
+        mock_storage,
+        "zone_cancel",
+        "Cancel Zone",
+        "sensor.missing",  # Sensor missing -> triggers wait loop
+        heaters=[],
+        coolers=[],
+        window_sensors=[],
+    )
+    # Ensure startup grace period is ACTIVE to force the wait loop
+    zone._startup_grace_period = True
+
+    # 1. Start Up
+    await zone.async_added_to_hass()
+
+    # Verify task created
+    assert zone._startup_task is not None
+    assert not zone._startup_task.done()
+
+    # 2. Remove (Cancel Task)
+    await zone.async_will_remove_from_hass()
+
+    # 3. Verify task is cancelled
+    assert zone._startup_task is None  # We set it to None
 
 
 async def test_heating_logic_switch_turn_off(mock_climate_zone: ClimateZone, hass: HomeAssistant) -> None:
@@ -500,7 +532,9 @@ async def test_startup_branches(hass: HomeAssistant) -> None:
     zone._schedule = []
 
     hass.states.async_set(SENSOR_ID, "20.0")
+    hass.states.async_set(SENSOR_ID, "20.0")
     await zone.async_added_to_hass()
+    await hass.async_block_till_done()  # Allow background task to finish
     # Logic should track window changes and try to apply schedule
     # Just ensuring no crash and lines covered
 

@@ -138,6 +138,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
         # Startup Grace Period (Prevents Safety Mode during initialization)
         self._startup_grace_period: bool = True
+        self._startup_task: asyncio.Task | None = None
 
         # Listen for storage/setting changes (Global Away Mode)
         self._storage.async_add_listener(self._async_on_storage_change)
@@ -276,10 +277,18 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             self._apply_schedule()
 
         # Wait for HA to be fully started before running control logic
+        # Wait for HA to be fully started before running control logic
         if self.hass.state == CoreState.running:
-            await self._async_initial_control()
+            self._startup_task = self.hass.async_create_task(self._async_initial_control())
         else:
             self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, self._async_initial_control)
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Run when entity will be removed."""
+        if self._startup_task:
+            self._startup_task.cancel()
+            self._startup_task = None
+        await super().async_will_remove_from_hass()
 
     @callback
     async def _async_initial_control(self, _event: Any = None) -> None:
