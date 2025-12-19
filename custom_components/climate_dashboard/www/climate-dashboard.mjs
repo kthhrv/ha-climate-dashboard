@@ -45,7 +45,7 @@ const We = (a) => new Ue(typeof a == "string" ? a : a + "", void 0, fe), O = (a,
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const { is: Ge, defineProperty: Je, getOwnPropertyDescriptor: Ke, getOwnPropertyNames: Ve, getOwnPropertySymbols: Xe, getPrototypeOf: Ye } = Object, I = globalThis, Ie = I.trustedTypes, Qe = Ie ? Ie.emptyScript : "", he = I.reactiveElementPolyfillSupport, K = (a, e) => a, re = { toAttribute(a, e) {
+const { is: Ge, defineProperty: Je, getOwnPropertyDescriptor: Ve, getOwnPropertyNames: Ke, getOwnPropertySymbols: Xe, getPrototypeOf: Ye } = Object, I = globalThis, Ie = I.trustedTypes, Qe = Ie ? Ie.emptyScript : "", he = I.reactiveElementPolyfillSupport, V = (a, e) => a, re = { toAttribute(a, e) {
   switch (e) {
     case Boolean:
       a = a ? Qe : null;
@@ -89,28 +89,28 @@ let H = class extends HTMLElement {
     }
   }
   static getPropertyDescriptor(e, t, i) {
-    const { get: s, set: o } = Ke(this.prototype, e) ?? { get() {
+    const { get: s, set: o } = Ve(this.prototype, e) ?? { get() {
       return this[t];
     }, set(r) {
       this[t] = r;
     } };
     return { get: s, set(r) {
-      const n = s == null ? void 0 : s.call(this);
-      o == null || o.call(this, r), this.requestUpdate(e, n, i);
+      const l = s == null ? void 0 : s.call(this);
+      o == null || o.call(this, r), this.requestUpdate(e, l, i);
     }, configurable: !0, enumerable: !0 };
   }
   static getPropertyOptions(e) {
     return this.elementProperties.get(e) ?? ze;
   }
   static _$Ei() {
-    if (this.hasOwnProperty(K("elementProperties"))) return;
+    if (this.hasOwnProperty(V("elementProperties"))) return;
     const e = Ye(this);
     e.finalize(), e.l !== void 0 && (this.l = [...e.l]), this.elementProperties = new Map(e.elementProperties);
   }
   static finalize() {
-    if (this.hasOwnProperty(K("finalized"))) return;
-    if (this.finalized = !0, this._$Ei(), this.hasOwnProperty(K("properties"))) {
-      const t = this.properties, i = [...Ve(t), ...Xe(t)];
+    if (this.hasOwnProperty(V("finalized"))) return;
+    if (this.finalized = !0, this._$Ei(), this.hasOwnProperty(V("properties"))) {
+      const t = this.properties, i = [...Ke(t), ...Xe(t)];
       for (const s of i) this.createProperty(s, t[s]);
     }
     const e = this[Symbol.metadata];
@@ -192,9 +192,9 @@ let H = class extends HTMLElement {
     var o, r;
     const i = this.constructor, s = i._$Eh.get(e);
     if (s !== void 0 && this._$Em !== s) {
-      const n = i.getPropertyOptions(s), d = typeof n.converter == "function" ? { fromAttribute: n.converter } : ((o = n.converter) == null ? void 0 : o.fromAttribute) !== void 0 ? n.converter : re;
+      const l = i.getPropertyOptions(s), d = typeof l.converter == "function" ? { fromAttribute: l.converter } : ((o = l.converter) == null ? void 0 : o.fromAttribute) !== void 0 ? l.converter : re;
       this._$Em = s;
-      const c = d.fromAttribute(t, n.type);
+      const c = d.fromAttribute(t, l.type);
       this[s] = c ?? ((r = this._$Ej) == null ? void 0 : r.get(s)) ?? c, this._$Em = null;
     }
   }
@@ -233,8 +233,8 @@ let H = class extends HTMLElement {
       }
       const s = this.constructor.elementProperties;
       if (s.size > 0) for (const [o, r] of s) {
-        const { wrapped: n } = r, d = this[o];
-        n !== !0 || this._$AL.has(o) || d === void 0 || this.C(o, void 0, r, d);
+        const { wrapped: l } = r, d = this[o];
+        l !== !0 || this._$AL.has(o) || d === void 0 || this.C(o, void 0, r, d);
       }
     }
     let e = !1;
@@ -278,28 +278,28 @@ let H = class extends HTMLElement {
   firstUpdated(e) {
   }
 };
-H.elementStyles = [], H.shadowRootOptions = { mode: "open" }, H[K("elementProperties")] = /* @__PURE__ */ new Map(), H[K("finalized")] = /* @__PURE__ */ new Map(), he == null || he({ ReactiveElement: H }), (I.reactiveElementVersions ?? (I.reactiveElementVersions = [])).push("2.1.1");
+H.elementStyles = [], H.shadowRootOptions = { mode: "open" }, H[V("elementProperties")] = /* @__PURE__ */ new Map(), H[V("finalized")] = /* @__PURE__ */ new Map(), he == null || he({ ReactiveElement: H }), (I.reactiveElementVersions ?? (I.reactiveElementVersions = [])).push("2.1.1");
 /**
  * @license
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const V = globalThis, ae = V.trustedTypes, Me = ae ? ae.createPolicy("lit-html", { createHTML: (a) => a }) : void 0, He = "$lit$", C = `lit$${Math.random().toFixed(9).slice(2)}$`, je = "?" + C, et = `<${je}>`, T = document, X = () => T.createComment(""), Y = (a) => a === null || typeof a != "object" && typeof a != "function", ve = Array.isArray, tt = (a) => ve(a) || typeof (a == null ? void 0 : a[Symbol.iterator]) == "function", pe = `[ 	
-\f\r]`, J = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, De = /-->/g, Ne = />/g, M = RegExp(`>|${pe}(?:([^\\s"'>=/]+)(${pe}*=${pe}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`, "g"), Te = /'/g, Oe = /"/g, Le = /^(?:script|style|textarea|title)$/i, it = (a) => (e, ...t) => ({ _$litType$: a, strings: e, values: t }), l = it(1), j = Symbol.for("lit-noChange"), g = Symbol.for("lit-nothing"), Pe = /* @__PURE__ */ new WeakMap(), D = T.createTreeWalker(T, 129);
+const K = globalThis, ae = K.trustedTypes, De = ae ? ae.createPolicy("lit-html", { createHTML: (a) => a }) : void 0, He = "$lit$", C = `lit$${Math.random().toFixed(9).slice(2)}$`, je = "?" + C, et = `<${je}>`, T = document, X = () => T.createComment(""), Y = (a) => a === null || typeof a != "object" && typeof a != "function", ve = Array.isArray, tt = (a) => ve(a) || typeof (a == null ? void 0 : a[Symbol.iterator]) == "function", pe = `[ 	
+\f\r]`, J = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Me = /-->/g, Ne = />/g, D = RegExp(`>|${pe}(?:([^\\s"'>=/]+)(${pe}*=${pe}*(?:[^ 	
+\f\r"'\`<>=]|("|')|))|$)`, "g"), Te = /'/g, Oe = /"/g, Le = /^(?:script|style|textarea|title)$/i, it = (a) => (e, ...t) => ({ _$litType$: a, strings: e, values: t }), n = it(1), j = Symbol.for("lit-noChange"), g = Symbol.for("lit-nothing"), Pe = /* @__PURE__ */ new WeakMap(), M = T.createTreeWalker(T, 129);
 function Ze(a, e) {
   if (!ve(a) || !a.hasOwnProperty("raw")) throw Error("invalid template strings array");
-  return Me !== void 0 ? Me.createHTML(e) : e;
+  return De !== void 0 ? De.createHTML(e) : e;
 }
 const st = (a, e) => {
   const t = a.length - 1, i = [];
   let s, o = e === 2 ? "<svg>" : e === 3 ? "<math>" : "", r = J;
-  for (let n = 0; n < t; n++) {
-    const d = a[n];
+  for (let l = 0; l < t; l++) {
+    const d = a[l];
     let c, p, h = -1, _ = 0;
-    for (; _ < d.length && (r.lastIndex = _, p = r.exec(d), p !== null); ) _ = r.lastIndex, r === J ? p[1] === "!--" ? r = De : p[1] !== void 0 ? r = Ne : p[2] !== void 0 ? (Le.test(p[2]) && (s = RegExp("</" + p[2], "g")), r = M) : p[3] !== void 0 && (r = M) : r === M ? p[0] === ">" ? (r = s ?? J, h = -1) : p[1] === void 0 ? h = -2 : (h = r.lastIndex - p[2].length, c = p[1], r = p[3] === void 0 ? M : p[3] === '"' ? Oe : Te) : r === Oe || r === Te ? r = M : r === De || r === Ne ? r = J : (r = M, s = void 0);
-    const m = r === M && a[n + 1].startsWith("/>") ? " " : "";
-    o += r === J ? d + et : h >= 0 ? (i.push(c), d.slice(0, h) + He + d.slice(h) + C + m) : d + C + (h === -2 ? n : m);
+    for (; _ < d.length && (r.lastIndex = _, p = r.exec(d), p !== null); ) _ = r.lastIndex, r === J ? p[1] === "!--" ? r = Me : p[1] !== void 0 ? r = Ne : p[2] !== void 0 ? (Le.test(p[2]) && (s = RegExp("</" + p[2], "g")), r = D) : p[3] !== void 0 && (r = D) : r === D ? p[0] === ">" ? (r = s ?? J, h = -1) : p[1] === void 0 ? h = -2 : (h = r.lastIndex - p[2].length, c = p[1], r = p[3] === void 0 ? D : p[3] === '"' ? Oe : Te) : r === Oe || r === Te ? r = D : r === Me || r === Ne ? r = J : (r = D, s = void 0);
+    const m = r === D && a[l + 1].startsWith("/>") ? " " : "";
+    o += r === J ? d + et : h >= 0 ? (i.push(c), d.slice(0, h) + He + d.slice(h) + C + m) : d + C + (h === -2 ? l : m);
   }
   return [Ze(a, o + (a[t] || "<?>") + (e === 2 ? "</svg>" : e === 3 ? "</math>" : "")), i];
 };
@@ -308,12 +308,12 @@ class Q {
     let s;
     this.parts = [];
     let o = 0, r = 0;
-    const n = e.length - 1, d = this.parts, [c, p] = st(e, t);
-    if (this.el = Q.createElement(c, i), D.currentNode = this.el.content, t === 2 || t === 3) {
+    const l = e.length - 1, d = this.parts, [c, p] = st(e, t);
+    if (this.el = Q.createElement(c, i), M.currentNode = this.el.content, t === 2 || t === 3) {
       const h = this.el.content.firstChild;
       h.replaceWith(...h.childNodes);
     }
-    for (; (s = D.nextNode()) !== null && d.length < n; ) {
+    for (; (s = M.nextNode()) !== null && d.length < l; ) {
       if (s.nodeType === 1) {
         if (s.hasAttributes()) for (const h of s.getAttributeNames()) if (h.endsWith(He)) {
           const _ = p[r++], m = s.getAttribute(h).split(C), y = /([.?@])?(.*)/.exec(_);
@@ -323,7 +323,7 @@ class Q {
           const h = s.textContent.split(C), _ = h.length - 1;
           if (_ > 0) {
             s.textContent = ae ? ae.emptyScript : "";
-            for (let m = 0; m < _; m++) s.append(h[m], X()), D.nextNode(), d.push({ type: 2, index: ++o });
+            for (let m = 0; m < _; m++) s.append(h[m], X()), M.nextNode(), d.push({ type: 2, index: ++o });
             s.append(h[_], X());
           }
         }
@@ -341,11 +341,11 @@ class Q {
   }
 }
 function L(a, e, t = a, i) {
-  var r, n;
+  var r, l;
   if (e === j) return e;
   let s = i !== void 0 ? (r = t._$Co) == null ? void 0 : r[i] : t._$Cl;
   const o = Y(e) ? void 0 : e._$litDirective$;
-  return (s == null ? void 0 : s.constructor) !== o && ((n = s == null ? void 0 : s._$AO) == null || n.call(s, !1), o === void 0 ? s = void 0 : (s = new o(a), s._$AT(a, t, i)), i !== void 0 ? (t._$Co ?? (t._$Co = []))[i] = s : t._$Cl = s), s !== void 0 && (e = L(a, s._$AS(a, e.values), s, i)), e;
+  return (s == null ? void 0 : s.constructor) !== o && ((l = s == null ? void 0 : s._$AO) == null || l.call(s, !1), o === void 0 ? s = void 0 : (s = new o(a), s._$AT(a, t, i)), i !== void 0 ? (t._$Co ?? (t._$Co = []))[i] = s : t._$Cl = s), s !== void 0 && (e = L(a, s._$AS(a, e.values), s, i)), e;
 }
 class ot {
   constructor(e, t) {
@@ -359,16 +359,16 @@ class ot {
   }
   u(e) {
     const { el: { content: t }, parts: i } = this._$AD, s = ((e == null ? void 0 : e.creationScope) ?? T).importNode(t, !0);
-    D.currentNode = s;
-    let o = D.nextNode(), r = 0, n = 0, d = i[0];
+    M.currentNode = s;
+    let o = M.nextNode(), r = 0, l = 0, d = i[0];
     for (; d !== void 0; ) {
       if (r === d.index) {
         let c;
-        d.type === 2 ? c = new te(o, o.nextSibling, this, e) : d.type === 1 ? c = new d.ctor(o, d.name, d.strings, this, e) : d.type === 6 && (c = new lt(o, this, e)), this._$AV.push(c), d = i[++n];
+        d.type === 2 ? c = new te(o, o.nextSibling, this, e) : d.type === 1 ? c = new d.ctor(o, d.name, d.strings, this, e) : d.type === 6 && (c = new lt(o, this, e)), this._$AV.push(c), d = i[++l];
       }
-      r !== (d == null ? void 0 : d.index) && (o = D.nextNode(), r++);
+      r !== (d == null ? void 0 : d.index) && (o = M.nextNode(), r++);
     }
-    return D.currentNode = T, s;
+    return M.currentNode = T, s;
   }
   p(e) {
     let t = 0;
@@ -411,8 +411,8 @@ class te {
     const { values: t, _$litType$: i } = e, s = typeof i == "number" ? this._$AC(e) : (i.el === void 0 && (i.el = Q.createElement(Ze(i.h, i.h[0]), this.options)), i);
     if (((o = this._$AH) == null ? void 0 : o._$AD) === s) this._$AH.p(t);
     else {
-      const r = new ot(s, this), n = r.u(this.options);
-      r.p(t), this.T(n), this._$AH = r;
+      const r = new ot(s, this), l = r.u(this.options);
+      r.p(t), this.T(l), this._$AH = r;
     }
   }
   _$AC(e) {
@@ -453,9 +453,9 @@ class ne {
     let r = !1;
     if (o === void 0) e = L(this, e, t, 0), r = !Y(e) || e !== this._$AH && e !== j, r && (this._$AH = e);
     else {
-      const n = e;
+      const l = e;
       let d, c;
-      for (e = o[0], d = 0; d < o.length - 1; d++) c = L(this, n[i + d], t, d), c === j && (c = this._$AH[d]), r || (r = !Y(c) || c !== this._$AH[d]), c === g ? e = g : e !== g && (e += (c ?? "") + o[d + 1]), this._$AH[d] = c;
+      for (e = o[0], d = 0; d < o.length - 1; d++) c = L(this, l[i + d], t, d), c === j && (c = this._$AH[d]), r || (r = !Y(c) || c !== this._$AH[d]), c === g ? e = g : e !== g && (e += (c ?? "") + o[d + 1]), this._$AH[d] = c;
     }
     r && !s && this.j(e);
   }
@@ -504,8 +504,8 @@ class lt {
     L(this, e);
   }
 }
-const ue = V.litHtmlPolyfillSupport;
-ue == null || ue(Q, te), (V.litHtmlVersions ?? (V.litHtmlVersions = [])).push("3.3.1");
+const ue = K.litHtmlPolyfillSupport;
+ue == null || ue(Q, te), (K.litHtmlVersions ?? (K.litHtmlVersions = [])).push("3.3.1");
 const dt = (a, e, t) => {
   const i = (t == null ? void 0 : t.renderBefore) ?? e;
   let s = i._$litPart$;
@@ -561,18 +561,18 @@ const ct = { attribute: !0, type: String, converter: re, reflect: !1, hasChanged
   let o = globalThis.litPropertyMetadata.get(s);
   if (o === void 0 && globalThis.litPropertyMetadata.set(s, o = /* @__PURE__ */ new Map()), i === "setter" && ((a = Object.create(a)).wrapped = !0), o.set(t.name, a), i === "accessor") {
     const { name: r } = t;
-    return { set(n) {
+    return { set(l) {
       const d = e.get.call(this);
-      e.set.call(this, n), this.requestUpdate(r, d, a);
-    }, init(n) {
-      return n !== void 0 && this.C(r, void 0, a, n), n;
+      e.set.call(this, l), this.requestUpdate(r, d, a);
+    }, init(l) {
+      return l !== void 0 && this.C(r, void 0, a, l), l;
     } };
   }
   if (i === "setter") {
     const { name: r } = t;
-    return function(n) {
+    return function(l) {
       const d = this[r];
-      e.call(this, n), this.requestUpdate(r, d, a);
+      e.call(this, l), this.requestUpdate(r, d, a);
     };
   }
   throw Error("Unsupported decorator location: " + i);
@@ -640,11 +640,11 @@ const be = class be extends w {
   }
   render() {
     const e = this._getEntityList(["climate", "switch"]), t = this._getEntityList(["climate"]), i = this._getEntityList(["binary_sensor"]), s = this._getSensors();
-    return l`
+    return n`
       <div class="dialog">
         <div class="dialog-header">
           <h2>Adopt Zone</h2>
-          ${this._targetAreaId ? l`
+          ${this._targetAreaId ? n`
                 <label class="filter-toggle">
                   <input
                     type="checkbox"
@@ -685,7 +685,7 @@ const be = class be extends w {
           >
             <option value="">Select Sensor</option>
             ${s.map(
-      (o) => l`
+      (o) => n`
                 <option
                   value="${o.entity_id}"
                   ?selected=${this._temperatureSensor === o.entity_id}
@@ -701,7 +701,7 @@ const be = class be extends w {
           <label>Heaters</label>
           <div class="checkbox-list">
             ${e.map(
-      (o) => l`
+      (o) => n`
                 <div class="checkbox-item">
                   <input
                     type="checkbox"
@@ -712,7 +712,7 @@ const be = class be extends w {
                 </div>
               `
     )}
-            ${e.length === 0 ? l`<div style="color:var(--secondary-text-color)">
+            ${e.length === 0 ? n`<div style="color:var(--secondary-text-color)">
                   No heaters found in this area
                 </div>` : ""}
           </div>
@@ -722,7 +722,7 @@ const be = class be extends w {
           <label>Coolers</label>
           <div class="checkbox-list">
             ${t.map(
-      (o) => l`
+      (o) => n`
                 <div class="checkbox-item">
                   <input
                     type="checkbox"
@@ -733,7 +733,7 @@ const be = class be extends w {
                 </div>
               `
     )}
-            ${t.length === 0 ? l`<div style="color:var(--secondary-text-color)">
+            ${t.length === 0 ? n`<div style="color:var(--secondary-text-color)">
                   No coolers found in this area
                 </div>` : ""}
           </div>
@@ -743,7 +743,7 @@ const be = class be extends w {
           <label>Window Sensors</label>
           <div class="checkbox-list">
             ${i.map(
-      (o) => l`
+      (o) => n`
                 <div class="checkbox-item">
                   <input
                     type="checkbox"
@@ -754,7 +754,7 @@ const be = class be extends w {
                 </div>
               `
     )}
-            ${i.length === 0 ? l`<div style="color:var(--secondary-text-color)">
+            ${i.length === 0 ? n`<div style="color:var(--secondary-text-color)">
                   No window sensors found in this area
                 </div>` : ""}
           </div>
@@ -956,7 +956,7 @@ const $e = class $e extends w {
     }
   }
   render() {
-    return l`
+    return n`
       <div class="card">
         <h2>System Settings</h2>
         <div class="settings-row">
@@ -973,7 +973,7 @@ const $e = class $e extends w {
           </select>
         </div>
 
-        ${this._settings.default_override_type === "duration" ? l`
+        ${this._settings.default_override_type === "duration" ? n`
               <div class="settings-row">
                 <label>Default Duration (minutes)</label>
                 <input
@@ -1006,7 +1006,7 @@ const $e = class $e extends w {
         </div>
 
         <h3>Home/Away Automation</h3>
-        
+
         <div class="settings-row">
           <label>Presence Entity (Optional)</label>
           <input
@@ -1068,7 +1068,7 @@ const $e = class $e extends w {
 
       <div class="card">
         <h2>Unmanaged Devices</h2>
-        ${this._loading ? l`<p>Scanning...</p>` : this._renderList()}
+        ${this._loading ? n`<p>Scanning...</p>` : this._renderList()}
       </div>
 
       <adopt-dialog
@@ -1084,10 +1084,10 @@ const $e = class $e extends w {
     const e = this._devices.filter(
       (t) => ["climate", "switch"].includes(t.domain)
     );
-    return e.length === 0 ? l`<div class="empty">No unmanaged actuators found.</div>` : l`
+    return e.length === 0 ? n`<div class="empty">No unmanaged actuators found.</div>` : n`
       <div class="list">
         ${e.map(
-      (t) => l`
+      (t) => n`
             <div class="item">
               <div class="item-info">
                 <span class="icon">
@@ -1100,7 +1100,7 @@ const $e = class $e extends w {
                   <div
                     style="font-size: 0.8em; color: var(--secondary-text-color); display: flex; align-items: center; margin-top: 2px;"
                   >
-                    ${t.area_name ? l`<span class="area-badge"
+                    ${t.area_name ? n`<span class="area-badge"
                           >${t.area_name}</span
                         >` : ""}
                     ${t.entity_id} • ${t.state}
@@ -1245,65 +1245,69 @@ const xe = class xe extends w {
     super(...arguments), this._selectedDay = (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { weekday: "short" }).toLowerCase();
   }
   render() {
-    if (!this.hass) return l``;
-    const e = this._getGroupedZones(), t = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], i = (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { weekday: "short" }).toLowerCase();
-    return l`
-      <div class="card">
-        <h2>Timeline</h2>
+    try {
+      if (!this.hass) return n``;
+      const e = this._getGroupedZones(), t = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], i = (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { weekday: "short" }).toLowerCase();
+      return n`
+        <div class="card">
+          <h2>Timeline</h2>
 
-        <div class="day-selector">
-          ${t.map(
-      (s) => l`
-              <button
-                class="day-tab ${this._selectedDay === s ? "active" : ""}"
-                @click=${() => this._selectedDay = s}
-              >
-                ${s.toUpperCase()}
-              </button>
-            `
-    )}
-        </div>
+          <div class="day-selector">
+            ${t.map(
+        (s) => n`
+                <button
+                  class="day-tab ${this._selectedDay === s ? "active" : ""}"
+                  @click=${() => this._selectedDay = s}
+                >
+                  ${s.toUpperCase()}
+                </button>
+              `
+      )}
+          </div>
 
-        ${e.length === 0 ? l`<p>No zones adopted yet.</p>` : l`
-              <div class="timeline-container">
-                <!-- Time Axis -->
-                <div class="time-axis">
-                  <div class="time-axis-spacer"></div>
-                  <div class="time-axis-track">
-                    ${[0, 4, 8, 12, 16, 20, 24].map(
-      (s) => l`
-                        <div
-                          class="time-marker"
-                          style="left: ${s / 24 * 100}%"
-                        >
-                          ${s.toString().padStart(2, "0")}:00
-                        </div>
-                      `
-    )}
-                  </div>
-                </div>
-
-                <!-- Zones -->
-                ${e.map((s) => l`
-                    ${s.floorName ? l`
-                          <div class="floor-header">
-                            <ha-icon
-                              icon="${s.floorIcon || "mdi:home-floor-1"}"
-                            ></ha-icon>
-                            ${s.floorName}
+          ${e.length === 0 ? n`<p>No zones adopted yet.</p>` : n`
+                <div class="timeline-container">
+                  <!-- Time Axis -->
+                  <div class="time-axis">
+                    <div class="time-axis-spacer"></div>
+                    <div class="time-axis-track">
+                      ${[0, 4, 8, 12, 16, 20, 24].map(
+        (s) => n`
+                          <div
+                            class="time-marker"
+                            style="left: ${s / 24 * 100}%"
+                          >
+                            ${s.toString().padStart(2, "0")}:00
                           </div>
-                        ` : l``}
-                    ${s.zones.map(
-      (o) => this._renderZoneRow(o, this._selectedDay)
-    )}
-                  `)}
+                        `
+      )}
+                    </div>
+                  </div>
 
-                <!-- Current Time Indicator (Only show if viewing today) -->
-                ${this._selectedDay === i ? this._renderCurrentTimeLine() : ""}
-              </div>
-            `}
-      </div>
-    `;
+                  <!-- Zones -->
+                  ${e.map((s) => n`
+                      ${s.floorName ? n`
+                            <div class="floor-header">
+                              <ha-icon
+                                icon="${s.floorIcon || "mdi:home-floor-1"}"
+                              ></ha-icon>
+                              ${s.floorName}
+                            </div>
+                          ` : n``}
+                      ${s.zones.map(
+        (o) => this._renderZoneRow(o, this._selectedDay)
+      )}
+                    `)}
+
+                  <!-- Current Time Indicator (Only show if viewing today) -->
+                  ${this._selectedDay === i ? this._renderCurrentTimeLine() : ""}
+                </div>
+              `}
+        </div>
+      `;
+    } catch (e) {
+      return console.error("Error rendering TimelineView:", e), n`<div class="error">Error loading timeline</div>`;
+    }
   }
   _getGroupedZones() {
     if (!this.hass) return [];
@@ -1317,7 +1321,7 @@ const xe = class xe extends w {
     const t = {}, i = [];
     e.forEach((r) => {
       var h, _, m;
-      const n = (h = this.hass.entities) == null ? void 0 : h[r.entity_id], d = n == null ? void 0 : n.area_id, c = d ? (_ = this.hass.areas) == null ? void 0 : _[d] : null, p = c == null ? void 0 : c.floor_id;
+      const l = (h = this.hass.entities) == null ? void 0 : h[r.entity_id], d = l == null ? void 0 : l.area_id, c = d ? (_ = this.hass.areas) == null ? void 0 : _[d] : null, p = c == null ? void 0 : c.floor_id;
       if (p && ((m = this.hass.floors) != null && m[p])) {
         const y = this.hass.floors[p];
         t[p] || (t[p] = {
@@ -1329,7 +1333,7 @@ const xe = class xe extends w {
       } else
         i.push(r);
     });
-    const o = Object.values(t).sort((r, n) => r.level !== null && n.level !== null ? n.level - r.level : r.floorName.localeCompare(n.floorName)).map((r) => ({
+    const o = Object.values(t).sort((r, l) => r.level !== null && l.level !== null ? l.level - r.level : r.floorName.localeCompare(l.floorName)).map((r) => ({
       floorName: r.floorName,
       floorIcon: r.floorIcon,
       zones: r.zones
@@ -1341,7 +1345,7 @@ const xe = class xe extends w {
     }), o;
   }
   _renderZoneRow(e, t) {
-    return l`
+    return n`
       <div class="zone-row" @click=${() => this._editSchedule(e.entity_id)}>
         <div class="zone-label">
           <div>${e.attributes.friendly_name || e.entity_id}</div>
@@ -1359,12 +1363,12 @@ const xe = class xe extends w {
     const i = e.attributes.schedule || [], s = (e.attributes.heaters || []).length > 0, o = (e.attributes.coolers || []).length > 0;
     let r = "off";
     s && o ? r = "auto" : s ? r = "heat" : o && (r = "cool");
-    const n = i.filter(
+    const l = i.filter(
       (c) => c.days.includes(t)
     );
-    if (n.sort(
+    if (l.sort(
       (c, p) => c.start_time.localeCompare(p.start_time)
-    ), (n.length > 0 ? n[0].start_time : "24:00") > "00:00") {
+    ), (l.length > 0 ? l[0].start_time : "24:00") > "00:00") {
       const c = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], p = c.indexOf(t);
       let h = null;
       for (let _ = 1; _ <= 7; _++) {
@@ -1385,14 +1389,14 @@ const xe = class xe extends w {
           name: `Carry-over (${h.name})`
           // We render this block effectively from 00:00 to the start of the next block
         };
-        n.unshift(_);
+        l.unshift(_);
       }
     }
-    return n.map((c, p) => {
+    return l.map((c, p) => {
       const [h, _] = c.start_time.split(":").map(Number), m = h * 60 + _;
       let y = 1440;
-      if (p < n.length - 1) {
-        const z = n[p + 1], [de, ce] = z.start_time.split(":").map(Number);
+      if (p < l.length - 1) {
+        const z = l[p + 1], [de, ce] = z.start_time.split(":").map(Number);
         y = de * 60 + ce;
       }
       const B = y - m, W = m / 1440 * 100, le = B / 1440 * 100;
@@ -1413,7 +1417,7 @@ const xe = class xe extends w {
         G = Math.max(de, qe);
       } else
         U = `${F}°`, G = 0.5;
-      return l`
+      return n`
         <div
           class="schedule-block mode-${r}"
           style="left: ${W}%; width: ${le}%; --block-opacity: ${G.toFixed(
@@ -1428,7 +1432,7 @@ const xe = class xe extends w {
   }
   _renderCurrentTimeLine() {
     const e = /* @__PURE__ */ new Date(), i = (e.getHours() * 60 + e.getMinutes()) / 1440 * 100;
-    return l`
+    return n`
       <div
         class="current-time-line"
         style="left: calc(136px + (100% - 136px) * ${i / 100})"
@@ -1675,29 +1679,33 @@ const we = class we extends w {
     super(...arguments), this.isAwayMode = !1;
   }
   render() {
-    const e = this._getGroupedZones();
-    return e.length === 0 ? l`
-        <div class="empty">
-          <p>No zones configured yet.</p>
-          <p>Use the Setup button above to adopt devices.</p>
+    try {
+      const e = this._getGroupedZones();
+      return e.length === 0 ? n`
+          <div class="empty">
+            <p>No zones configured yet.</p>
+            <p>Use the Setup button above to adopt devices.</p>
+          </div>
+        ` : n`
+        <div class="grid">
+          ${e.map((t) => n`
+              ${t.floorName ? n`
+                    <div class="floor-header">
+                      <ha-icon
+                        icon="${t.floorIcon || "mdi:home-floor-1"}"
+                      ></ha-icon>
+                      ${t.floorName}
+                    </div>
+                  ` : n`<div class="floor-header">
+                    <ha-icon icon="mdi:devices"></ha-icon>Other Devices
+                  </div>`}
+              ${t.zones.map((i) => this._renderZoneCard(i))}
+            `)}
         </div>
-      ` : l`
-      <div class="grid">
-        ${e.map((t) => l`
-            ${t.floorName ? l`
-                  <div class="floor-header">
-                    <ha-icon
-                      icon="${t.floorIcon || "mdi:home-floor-1"}"
-                    ></ha-icon>
-                    ${t.floorName}
-                  </div>
-                ` : l`<div class="floor-header">
-                  <ha-icon icon="mdi:devices"></ha-icon>Other Devices
-                </div>`}
-            ${t.zones.map((i) => this._renderZoneCard(i))}
-          `)}
-      </div>
-    `;
+      `;
+    } catch (e) {
+      return console.error("Error rendering ZonesView:", e), n`<div class="error">Error loading zones</div>`;
+    }
   }
   _getGroupedZones() {
     if (!this.hass) return [];
@@ -1709,7 +1717,7 @@ const we = class we extends w {
     const t = {}, i = [];
     e.forEach((r) => {
       var h, _, m;
-      const n = (h = this.hass.entities) == null ? void 0 : h[r.entity_id], d = n == null ? void 0 : n.area_id, c = d ? (_ = this.hass.areas) == null ? void 0 : _[d] : null, p = c == null ? void 0 : c.floor_id;
+      const l = (h = this.hass.entities) == null ? void 0 : h[r.entity_id], d = l == null ? void 0 : l.area_id, c = d ? (_ = this.hass.areas) == null ? void 0 : _[d] : null, p = c == null ? void 0 : c.floor_id;
       if (p && ((m = this.hass.floors) != null && m[p])) {
         const y = this.hass.floors[p];
         t[p] || (t[p] = {
@@ -1721,7 +1729,7 @@ const we = class we extends w {
       } else
         i.push(r);
     });
-    const o = Object.values(t).sort((r, n) => r.level !== null && n.level !== null ? n.level - r.level : r.floorName.localeCompare(n.floorName)).map((r) => ({
+    const o = Object.values(t).sort((r, l) => r.level !== null && l.level !== null ? l.level - r.level : r.floorName.localeCompare(l.floorName)).map((r) => ({
       floorName: r.floorName,
       floorIcon: r.floorIcon,
       zones: r.zones
@@ -1737,7 +1745,7 @@ const we = class we extends w {
     let i = "mdi:thermostat", s = "";
     e.attributes.safety_mode ? (i = "mdi:alert-circle", s = "var(--error-color, #db4437)") : e.attributes.using_fallback_sensor ? (i = "mdi:thermometer-alert", s = "var(--warning-color, #ffa726)") : t === "heating" ? (i = "mdi:fire", s = "var(--deep-orange-color, #ff5722)") : t === "cooling" ? (i = "mdi:snowflake", s = "var(--blue-color, #2196f3)") : e.state === "heat" ? (i = "mdi:fire", s = "var(--primary-text-color)") : e.state === "auto" && (i = "mdi:calendar-clock");
     const o = e.attributes.current_temperature;
-    return l`
+    return n`
       <div class="card" @click=${() => this._openDetails(e.entity_id)}>
         <button
           class="settings-btn"
@@ -1756,7 +1764,7 @@ const we = class we extends w {
           ${o != null ? `${o}°` : "--"}
         </div>
         <div class="state">
-          ${t ? l`${t}` : l`${e.state}`}
+          ${t ? n`${t}` : n`${e.state}`}
         </div>
 
         ${this._renderStatus(e)}
@@ -1791,36 +1799,36 @@ const we = class we extends w {
     else if (this.isAwayMode)
       e.attributes.target_temp_low != null && e.attributes.target_temp_high != null ? r = `Away ${e.attributes.target_temp_low}°/${e.attributes.target_temp_high}°` : r = `Away ${e.attributes.temperature}°`;
     else if (i) {
-      const n = new Date(i).toLocaleTimeString([], {
+      const l = new Date(i).toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit"
       });
-      s === "duration" ? r = `Timer until ${n}` : r = `Until ${n}`;
+      s === "duration" ? r = `Timer until ${l}` : r = `Until ${l}`;
     } else if (o === "auto" && t) {
-      const n = new Date(t).toLocaleTimeString([], {
+      const l = new Date(t).toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit"
       }), d = e.attributes.next_scheduled_temp_heat, c = e.attributes.next_scheduled_temp_cool, p = e.attributes.hvac_modes || [], h = p.includes("heat"), _ = p.includes("cool");
-      let m = l``;
-      if (h && _ && d != null && c != null ? m = l`<span class="heat">${d}°</span>/<span class="cool"
+      let m = n``;
+      if (h && _ && d != null && c != null ? m = n`<span class="heat">${d}°</span>/<span class="cool"
             >${c}°</span
-          >` : h && d != null ? m = l`<span class="heat">${d}°</span>` : _ && c != null && (m = l`<span class="cool">${c}°</span>`), h && d != null || _ && c != null)
-        return l`
+          >` : h && d != null ? m = n`<span class="heat">${d}°</span>` : _ && c != null && (m = n`<span class="cool">${c}°</span>`), h && d != null || _ && c != null)
+        return n`
           <div
             style="font-size: 0.75rem; color: var(--secondary-text-color); margin-top: 4px;"
           >
-            ${n} -> ${m}
+            ${l} -> ${m}
           </div>
         `;
-      r = `${n}`;
+      r = `${l}`;
     }
-    return r ? l`
+    return r ? n`
       <div
         style="font-size: 0.75rem; color: var(--secondary-text-color); margin-top: 4px;"
       >
         ${r}
       </div>
-    ` : l``;
+    ` : n``;
   }
   async _setMode(e, t, i) {
     e.stopPropagation(), await this.hass.callService("climate", "set_hvac_mode", {
@@ -1988,7 +1996,7 @@ const Ae = class Ae extends w {
     await this._loadConfig();
   }
   async _loadConfig() {
-    var r, n, d;
+    var r, l, d;
     if (!this.hass || !this.zoneId) return;
     this._loading = !0, console.log("Loading config for zoneId:", this.zoneId), this._zoneAreaId = null, this._zoneAreaName = null, this._filterByArea = !1;
     const e = this.hass.states[this.zoneId];
@@ -2008,7 +2016,7 @@ const Ae = class Ae extends w {
       } catch (c) {
         console.warn("Could not fetch registry entry:", c);
       }
-    if (this._uniqueId && !this._zoneAreaId && ((n = (r = this.hass.entities) == null ? void 0 : r[this.zoneId]) != null && n.area_id) && (this._zoneAreaId = this.hass.entities[this.zoneId].area_id, this._filterByArea = !0), this._zoneAreaId && ((d = this.hass.areas) != null && d[this._zoneAreaId]) && (this._zoneAreaName = this.hass.areas[this._zoneAreaId].name), !this._uniqueId) {
+    if (this._uniqueId && !this._zoneAreaId && ((l = (r = this.hass.entities) == null ? void 0 : r[this.zoneId]) != null && l.area_id) && (this._zoneAreaId = this.hass.entities[this.zoneId].area_id, this._filterByArea = !0), this._zoneAreaId && ((d = this.hass.areas) != null && d[this._zoneAreaId]) && (this._zoneAreaName = this.hass.areas[this._zoneAreaId].name), !this._uniqueId) {
       this._error = "Could not determine Unique ID", this._loading = !1;
       return;
     }
@@ -2070,19 +2078,19 @@ const Ae = class Ae extends w {
     this.dispatchEvent(new CustomEvent("close"));
   }
   render() {
-    if (this._loading) return l`<div class="card">Loading...</div>`;
-    if (this._error) return l`<div class="card">Error: ${this._error}</div>`;
+    if (this._loading) return n`<div class="card">Loading...</div>`;
+    if (this._error) return n`<div class="card">Error: ${this._error}</div>`;
     const e = this._getEntityList(["climate", "switch"]), t = this._getEntityList(["climate"]), i = this._getEntityList(["binary_sensor"]);
     let s = this.allEntities.filter(
       (o) => o.domain === "sensor" && o.device_class === "temperature" || o.domain === "climate"
     );
     return this._filterByArea && this._zoneAreaId && (s = s.filter(
       (o) => o.area_id === this._zoneAreaId
-    )), l`
+    )), n`
       <div class="card">
         <h2>
           Edit Zone: ${this._name}
-          ${this._zoneAreaId ? l`
+          ${this._zoneAreaId ? n`
                 <label
                   style="font-size: 0.9rem; display: flex; align-items: center; gap: 6px; color: var(--primary-color);"
                 >
@@ -2112,7 +2120,7 @@ const Ae = class Ae extends w {
           >
             <option value="">Select Sensor</option>
             ${s.map(
-      (o) => l`
+      (o) => n`
                 <option
                   value="${o.entity_id}"
                   ?selected=${this._temperatureSensor === o.entity_id}
@@ -2128,7 +2136,7 @@ const Ae = class Ae extends w {
           <label>Heaters</label>
           <div class="checkbox-list">
             ${e.map(
-      (o) => l`
+      (o) => n`
                 <div class="checkbox-item">
                   <input
                     type="checkbox"
@@ -2146,7 +2154,7 @@ const Ae = class Ae extends w {
           <label>Coolers</label>
           <div class="checkbox-list">
             ${t.map(
-      (o) => l`
+      (o) => n`
                 <div class="checkbox-item">
                   <input
                     type="checkbox"
@@ -2164,7 +2172,7 @@ const Ae = class Ae extends w {
           <label>Window Sensors</label>
           <div class="checkbox-list">
             ${i.map(
-      (o) => l`
+      (o) => n`
                 <div class="checkbox-item">
                   <input
                     type="checkbox"
@@ -2472,12 +2480,12 @@ const vt = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], ke = class ke exte
     }
   }
   render() {
-    return this._loading ? l`<div>Loading...</div>` : l`
+    return this._loading ? n`<div>Loading...</div>` : n`
       <div class="card">
         <h2>Schedule: ${this._config.name}</h2>
         <div class="block-list">
           ${this._schedule.map(
-      (e, t) => l`
+      (e, t) => n`
               <div class="block-item">
                 <div class="block-header">
                   <span>Block ${t + 1}</span>
@@ -2506,7 +2514,7 @@ const vt = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], ke = class ke exte
                       @input=${(i) => this._updateBlock(t, "start_time", i.target.value)}
                     />
                   </div>
-                  ${this._config.heaters.length > 0 ? l`
+                  ${this._config.heaters.length > 0 ? n`
                         <div class="field">
                           <label>Heat To (°C)</label>
                           <input
@@ -2521,7 +2529,7 @@ const vt = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], ke = class ke exte
                           />
                         </div>
                       ` : ""}
-                  ${this._config.coolers.length > 0 ? l`
+                  ${this._config.coolers.length > 0 ? n`
                         <div class="field">
                           <label>Cool To (°C)</label>
                           <input
@@ -2543,7 +2551,7 @@ const vt = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], ke = class ke exte
                     <label>Days</label>
                     <div class="days-selector">
                       ${vt.map(
-        (i) => l`
+        (i) => n`
                           <button
                             class="day-btn ${e.days.includes(i) ? "active" : ""}"
                             @click=${() => this._toggleDay(t, i)}
@@ -2769,106 +2777,125 @@ const Se = class Se extends w {
     });
   }
   render() {
-    return l`
-      <div class="header">
-        ${this._view !== "zones" ? l`
-              <button
-                class="icon-btn"
-                @click=${() => {
-      this._view === "schedule" ? (this._view = "timeline", this._editingZoneId = null) : (this._view = "zones", this._editingZoneId = null);
-    }}
-              >
-                <ha-icon icon="mdi:arrow-left"></ha-icon>
-              </button>
-            ` : l`
-              <ha-menu-button
-                .hass=${this.hass}
-                .narrow=${this.narrow}
-              ></ha-menu-button>
-            `}
-        
-        <div class="title">Climate</div>
+    try {
+      return this.hass ? n`
+        <div class="header">
+          ${this._view !== "zones" ? n`
+                <button
+                  class="icon-btn"
+                  @click=${() => {
+        this._view === "schedule" ? (this._view = "timeline", this._editingZoneId = null) : (this._view = "zones", this._editingZoneId = null);
+      }}
+                >
+                  <ha-icon icon="mdi:arrow-left"></ha-icon>
+                </button>
+              ` : n`
+                <ha-menu-button
+                  .hass=${this.hass}
+                  .narrow=${this.narrow}
+                ></ha-menu-button>
+              `}
 
-        <div class="actions">
-          <!-- Timeline Toggle -->
-          <button
-            class="icon-btn ${this._view === "timeline" ? "active" : ""}"
-            @click=${() => this._view = "timeline"}
-          >
-            <ha-icon icon="mdi:chart-timeline"></ha-icon>
-          </button>
+          <div class="title">Climate</div>
 
-          <!-- Setup Toggle (Badge) -->
-          <button
-            class="icon-btn ${this._view === "setup" ? "active" : ""}"
-            @click=${() => this._view = "setup"}
-          >
-            <ha-icon icon="mdi:cog"></ha-icon>
-            ${this._unmanagedCount > 0 ? l`<span class="badge">${this._unmanagedCount}</span>` : ""}
-          </button>
+          <div class="actions">
+            <!-- Timeline Toggle -->
+            <button
+              class="icon-btn ${this._view === "timeline" ? "active" : ""}"
+              @click=${() => this._view = "timeline"}
+            >
+              <ha-icon icon="mdi:chart-timeline"></ha-icon>
+            </button>
+
+            <!-- Setup Toggle (Badge) -->
+            <button
+              class="icon-btn ${this._view === "setup" ? "active" : ""}"
+              @click=${() => this._view = "setup"}
+            >
+              <ha-icon icon="mdi:cog"></ha-icon>
+              ${this._unmanagedCount > 0 ? n`<span class="badge">${this._unmanagedCount}</span>` : ""}
+            </button>
+          </div>
         </div>
-      </div>
 
-      <div class="content">
-        <!-- Global Mode Toggles (Only show in main views) -->
-        ${this._view === "zones" || this._view === "timeline" ? l`
-            <div class="center-toggle">
-                <button 
+        <div class="content">
+          <!-- Global Mode Toggles (Only show in main views) -->
+          ${this._view === "zones" || this._view === "timeline" ? n`
+                <div class="center-toggle">
+                  <button
                     class="toggle-option home ${this._isAwayMode ? "" : "active"}"
                     @click=${() => this._setAwayMode(!1)}
-                >
+                  >
                     <ha-icon icon="mdi:home"></ha-icon>
                     <span>Home</span>
-                </button>
-                <button 
+                  </button>
+                  <button
                     class="toggle-option away ${this._isAwayMode ? "active" : ""}"
                     @click=${() => this._setAwayMode(!0)}
-                >
+                  >
                     <ha-icon icon="mdi:walk"></ha-icon>
                     <span>Away</span>
-                </button>
-            </div>
-          ` : ""}
-
-        ${this._view === "zones" ? l`<zones-view
-              .hass=${this.hass}
-              .isAwayMode=${this._isAwayMode}
-              @zone-settings=${(e) => {
-      this._editingZoneId = e.detail.entityId, this._view = "editor";
-    }}
-              @zone-details=${(e) => {
-      this._editingZoneId = e.detail.entityId, this._view = "timeline";
-    }}
-            ></zones-view>` : ""}
-        ${this._view === "setup" ? l`<setup-view .hass=${this.hass}></setup-view>` : ""}
-        ${this._view === "timeline" ? l` <timeline-view
-              .hass=${this.hass}
-              .focusZoneId=${this._editingZoneId}
-              @schedule-selected=${(e) => {
-      this._editingZoneId = e.detail.entityId, this._view = "schedule";
-    }}
-            ></timeline-view>` : ""}
-        ${this._view === "editor" && this._editingZoneId ? l`
-              <zone-editor
+                  </button>
+                </div>
+              ` : ""}
+          ${this._view === "zones" ? n`<zones-view
                 .hass=${this.hass}
-                .zoneId=${this._editingZoneId}
-                .allEntities=${this._getEditorCandidates()}
-                @close=${() => {
-      this._view = "zones", this._editingZoneId = null;
-    }}
-              ></zone-editor>
-            ` : ""}
-        ${this._view === "schedule" && this._editingZoneId ? l`
-              <schedule-editor
+                .isAwayMode=${this._isAwayMode}
+                @zone-settings=${(e) => {
+        this._editingZoneId = e.detail.entityId, this._view = "editor";
+      }}
+                @zone-details=${(e) => {
+        this._editingZoneId = e.detail.entityId, this._view = "timeline";
+      }}
+              ></zones-view>` : ""}
+          ${this._view === "setup" ? n`<setup-view .hass=${this.hass}></setup-view>` : ""}
+          ${this._view === "timeline" ? n` <timeline-view
                 .hass=${this.hass}
-                .zoneId=${this._editingZoneId}
-                @close=${() => {
-      this._view = "timeline", this._editingZoneId = null;
-    }}
-              ></schedule-editor>
-            ` : ""}
-      </div>
-    `;
+                .focusZoneId=${this._editingZoneId}
+                @schedule-selected=${(e) => {
+        this._editingZoneId = e.detail.entityId, this._view = "schedule";
+      }}
+              ></timeline-view>` : ""}
+          ${this._view === "editor" && this._editingZoneId ? n`
+                <zone-editor
+                  .hass=${this.hass}
+                  .zoneId=${this._editingZoneId}
+                  .allEntities=${this._getEditorCandidates()}
+                  @close=${() => {
+        this._view = "zones", this._editingZoneId = null;
+      }}
+                ></zone-editor>
+              ` : ""}
+          ${this._view === "schedule" && this._editingZoneId ? n`
+                <schedule-editor
+                  .hass=${this.hass}
+                  .zoneId=${this._editingZoneId}
+                  @close=${() => {
+        this._view = "timeline", this._editingZoneId = null;
+      }}
+                ></schedule-editor>
+              ` : ""}
+        </div>
+      ` : n`<div class="loading">Loading Home Assistant...</div>`;
+    } catch (e) {
+      return console.error("Critical Error rendering Climate Dashboard:", e), n`
+        <div
+          style="padding: 24px; text-align: center; color: var(--error-color);"
+        >
+          <h2>Dashboard Error</h2>
+          <p>Something went wrong rendering the dashboard.</p>
+          <pre style="text-align: left; background: #eee; padding: 16px;">
+${e instanceof Error ? e.message : String(e)}</pre
+          >
+          <button
+            @click=${() => window.location.reload()}
+            style="margin-top: 16px; padding: 8px 16px;"
+          >
+            Reload Page
+          </button>
+        </div>
+      `;
+    }
   }
   async _setAwayMode(e) {
     if (this._isAwayMode === e) return;
@@ -2931,41 +2958,41 @@ Se.styles = O`
       background: rgba(255, 255, 255, 0.2);
     }
     .center-toggle {
-        display: flex;
-        background: var(--card-background-color, white);
-        border-radius: 24px;
-        padding: 4px;
-        gap: 4px;
-        margin: 16px auto 0 auto;
-        width: fit-content;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      display: flex;
+      background: var(--card-background-color, white);
+      border-radius: 24px;
+      padding: 4px;
+      gap: 4px;
+      margin: 16px auto 0 auto;
+      width: fit-content;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
     .toggle-option {
-        padding: 8px 20px;
-        border-radius: 20px;
-        font-size: 0.95rem;
-        font-weight: 500;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        color: var(--secondary-text-color, #757575);
-        transition: all 0.2s;
-        border: none;
-        background: none;
-        line-height: normal;
+      padding: 8px 20px;
+      border-radius: 20px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--secondary-text-color, #757575);
+      transition: all 0.2s;
+      border: none;
+      background: none;
+      line-height: normal;
     }
     .toggle-option.active {
-        background: var(--primary-color, #03a9f4);
-        color: white;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      background: var(--primary-color, #03a9f4);
+      color: white;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
     /* Specific Colors for Active States - actually, let's just use primary color for active bg */
     .toggle-option.home.active {
-        background: var(--primary-color, #03a9f4);
+      background: var(--primary-color, #03a9f4);
     }
     .toggle-option.away.active {
-        background: var(--warning-color, #ff9800);
+      background: var(--warning-color, #ff9800);
     }
     .badge {
       position: absolute;

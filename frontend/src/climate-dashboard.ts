@@ -180,135 +180,162 @@ export class ClimateDashboard extends LitElement {
   }
 
   protected render(): TemplateResult {
-    return html`
-      <div class="header">
-        ${this._view !== "zones"
-          ? html`
-              <button
-                class="icon-btn"
-                @click=${() => {
-                  if (this._view === "schedule") {
-                    this._view = "timeline";
-                    this._editingZoneId = null;
-                  } else {
+    try {
+      if (!this.hass) {
+        return html`<div class="loading">Loading Home Assistant...</div>`;
+      }
+
+      return html`
+        <div class="header">
+          ${this._view !== "zones"
+            ? html`
+                <button
+                  class="icon-btn"
+                  @click=${() => {
+                    if (this._view === "schedule") {
+                      this._view = "timeline";
+                      this._editingZoneId = null;
+                    } else {
+                      this._view = "zones";
+                      this._editingZoneId = null;
+                    }
+                  }}
+                >
+                  <ha-icon icon="mdi:arrow-left"></ha-icon>
+                </button>
+              `
+            : html`
+                <ha-menu-button
+                  .hass=${this.hass}
+                  .narrow=${this.narrow}
+                ></ha-menu-button>
+              `}
+
+          <div class="title">Climate</div>
+
+          <div class="actions">
+            <!-- Timeline Toggle -->
+            <button
+              class="icon-btn ${this._view === "timeline" ? "active" : ""}"
+              @click=${() => (this._view = "timeline")}
+            >
+              <ha-icon icon="mdi:chart-timeline"></ha-icon>
+            </button>
+
+            <!-- Setup Toggle (Badge) -->
+            <button
+              class="icon-btn ${this._view === "setup" ? "active" : ""}"
+              @click=${() => (this._view = "setup")}
+            >
+              <ha-icon icon="mdi:cog"></ha-icon>
+              ${this._unmanagedCount > 0
+                ? html`<span class="badge">${this._unmanagedCount}</span>`
+                : ""}
+            </button>
+          </div>
+        </div>
+
+        <div class="content">
+          <!-- Global Mode Toggles (Only show in main views) -->
+          ${this._view === "zones" || this._view === "timeline"
+            ? html`
+                <div class="center-toggle">
+                  <button
+                    class="toggle-option home ${!this._isAwayMode
+                      ? "active"
+                      : ""}"
+                    @click=${() => this._setAwayMode(false)}
+                  >
+                    <ha-icon icon="mdi:home"></ha-icon>
+                    <span>Home</span>
+                  </button>
+                  <button
+                    class="toggle-option away ${this._isAwayMode
+                      ? "active"
+                      : ""}"
+                    @click=${() => this._setAwayMode(true)}
+                  >
+                    <ha-icon icon="mdi:walk"></ha-icon>
+                    <span>Away</span>
+                  </button>
+                </div>
+              `
+            : ""}
+          ${this._view === "zones"
+            ? html`<zones-view
+                .hass=${this.hass}
+                .isAwayMode=${this._isAwayMode}
+                @zone-settings=${(e: CustomEvent) => {
+                  this._editingZoneId = e.detail.entityId;
+                  this._view = "editor";
+                }}
+                @zone-details=${(e: CustomEvent) => {
+                  // TODO: Pass focusZoneId to timeline
+                  this._editingZoneId = e.detail.entityId;
+                  this._view = "timeline";
+                }}
+              ></zones-view>`
+            : ""}
+          ${this._view === "setup"
+            ? html`<setup-view .hass=${this.hass}></setup-view>`
+            : ""}
+          ${this._view === "timeline"
+            ? html` <timeline-view
+                .hass=${this.hass}
+                .focusZoneId=${this._editingZoneId}
+                @schedule-selected=${(e: CustomEvent) => {
+                  this._editingZoneId = e.detail.entityId;
+                  this._view = "schedule";
+                }}
+              ></timeline-view>`
+            : ""}
+          ${this._view === "editor" && this._editingZoneId
+            ? html`
+                <zone-editor
+                  .hass=${this.hass}
+                  .zoneId=${this._editingZoneId}
+                  .allEntities=${this._getEditorCandidates()}
+                  @close=${() => {
                     this._view = "zones";
                     this._editingZoneId = null;
-                  }
-                }}
-              >
-                <ha-icon icon="mdi:arrow-left"></ha-icon>
-              </button>
-            `
-          : html`
-              <ha-menu-button
-                .hass=${this.hass}
-                .narrow=${this.narrow}
-              ></ha-menu-button>
-            `}
-
-        <div class="title">Climate</div>
-
-        <div class="actions">
-          <!-- Timeline Toggle -->
-          <button
-            class="icon-btn ${this._view === "timeline" ? "active" : ""}"
-            @click=${() => (this._view = "timeline")}
+                  }}
+                ></zone-editor>
+              `
+            : ""}
+          ${this._view === "schedule" && this._editingZoneId
+            ? html`
+                <schedule-editor
+                  .hass=${this.hass}
+                  .zoneId=${this._editingZoneId}
+                  @close=${() => {
+                    this._view = "timeline";
+                    this._editingZoneId = null;
+                  }}
+                ></schedule-editor>
+              `
+            : ""}
+        </div>
+      `;
+    } catch (e) {
+      console.error("Critical Error rendering Climate Dashboard:", e);
+      return html`
+        <div
+          style="padding: 24px; text-align: center; color: var(--error-color);"
+        >
+          <h2>Dashboard Error</h2>
+          <p>Something went wrong rendering the dashboard.</p>
+          <pre style="text-align: left; background: #eee; padding: 16px;">
+${e instanceof Error ? e.message : String(e)}</pre
           >
-            <ha-icon icon="mdi:chart-timeline"></ha-icon>
-          </button>
-
-          <!-- Setup Toggle (Badge) -->
           <button
-            class="icon-btn ${this._view === "setup" ? "active" : ""}"
-            @click=${() => (this._view = "setup")}
+            @click=${() => window.location.reload()}
+            style="margin-top: 16px; padding: 8px 16px;"
           >
-            <ha-icon icon="mdi:cog"></ha-icon>
-            ${this._unmanagedCount > 0
-              ? html`<span class="badge">${this._unmanagedCount}</span>`
-              : ""}
+            Reload Page
           </button>
         </div>
-      </div>
-
-      <div class="content">
-        <!-- Global Mode Toggles (Only show in main views) -->
-        ${this._view === "zones" || this._view === "timeline"
-          ? html`
-              <div class="center-toggle">
-                <button
-                  class="toggle-option home ${!this._isAwayMode
-                    ? "active"
-                    : ""}"
-                  @click=${() => this._setAwayMode(false)}
-                >
-                  <ha-icon icon="mdi:home"></ha-icon>
-                  <span>Home</span>
-                </button>
-                <button
-                  class="toggle-option away ${this._isAwayMode ? "active" : ""}"
-                  @click=${() => this._setAwayMode(true)}
-                >
-                  <ha-icon icon="mdi:walk"></ha-icon>
-                  <span>Away</span>
-                </button>
-              </div>
-            `
-          : ""}
-        ${this._view === "zones"
-          ? html`<zones-view
-              .hass=${this.hass}
-              .isAwayMode=${this._isAwayMode}
-              @zone-settings=${(e: CustomEvent) => {
-                this._editingZoneId = e.detail.entityId;
-                this._view = "editor";
-              }}
-              @zone-details=${(e: CustomEvent) => {
-                // TODO: Pass focusZoneId to timeline
-                this._editingZoneId = e.detail.entityId;
-                this._view = "timeline";
-              }}
-            ></zones-view>`
-          : ""}
-        ${this._view === "setup"
-          ? html`<setup-view .hass=${this.hass}></setup-view>`
-          : ""}
-        ${this._view === "timeline"
-          ? html` <timeline-view
-              .hass=${this.hass}
-              .focusZoneId=${this._editingZoneId}
-              @schedule-selected=${(e: CustomEvent) => {
-                this._editingZoneId = e.detail.entityId;
-                this._view = "schedule";
-              }}
-            ></timeline-view>`
-          : ""}
-        ${this._view === "editor" && this._editingZoneId
-          ? html`
-              <zone-editor
-                .hass=${this.hass}
-                .zoneId=${this._editingZoneId}
-                .allEntities=${this._getEditorCandidates()}
-                @close=${() => {
-                  this._view = "zones";
-                  this._editingZoneId = null;
-                }}
-              ></zone-editor>
-            `
-          : ""}
-        ${this._view === "schedule" && this._editingZoneId
-          ? html`
-              <schedule-editor
-                .hass=${this.hass}
-                .zoneId=${this._editingZoneId}
-                @close=${() => {
-                  this._view = "timeline";
-                  this._editingZoneId = null;
-                }}
-              ></schedule-editor>
-            `
-          : ""}
-      </div>
-    `;
+      `;
+    }
   }
 
   private async _setAwayMode(enabled: boolean) {

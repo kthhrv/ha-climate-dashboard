@@ -220,80 +220,85 @@ export class TimelineView extends LitElement {
   `;
 
   protected render(): TemplateResult {
-    if (!this.hass) return html``;
+    try {
+      if (!this.hass) return html``;
 
-    const groupedZones = this._getGroupedZones();
+      const groupedZones = this._getGroupedZones();
 
-    const days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
-    const todayStr = new Date()
-      .toLocaleDateString("en-US", { weekday: "short" })
-      .toLowerCase();
+      const days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+      const todayStr = new Date()
+        .toLocaleDateString("en-US", { weekday: "short" })
+        .toLowerCase();
 
-    return html`
-      <div class="card">
-        <h2>Timeline</h2>
+      return html`
+        <div class="card">
+          <h2>Timeline</h2>
 
-        <div class="day-selector">
-          ${days.map(
-            (day) => html`
-              <button
-                class="day-tab ${this._selectedDay === day ? "active" : ""}"
-                @click=${() => (this._selectedDay = day)}
-              >
-                ${day.toUpperCase()}
-              </button>
-            `,
-          )}
-        </div>
+          <div class="day-selector">
+            ${days.map(
+              (day) => html`
+                <button
+                  class="day-tab ${this._selectedDay === day ? "active" : ""}"
+                  @click=${() => (this._selectedDay = day)}
+                >
+                  ${day.toUpperCase()}
+                </button>
+              `,
+            )}
+          </div>
 
-        ${groupedZones.length === 0
-          ? html`<p>No zones adopted yet.</p>`
-          : html`
-              <div class="timeline-container">
-                <!-- Time Axis -->
-                <div class="time-axis">
-                  <div class="time-axis-spacer"></div>
-                  <div class="time-axis-track">
-                    ${[0, 4, 8, 12, 16, 20, 24].map(
-                      (hour) => html`
-                        <div
-                          class="time-marker"
-                          style="left: ${(hour / 24) * 100}%"
-                        >
-                          ${hour.toString().padStart(2, "0")}:00
-                        </div>
-                      `,
-                    )}
-                  </div>
-                </div>
-
-                <!-- Zones -->
-                ${groupedZones.map((group) => {
-                  return html`
-                    ${group.floorName
-                      ? html`
-                          <div class="floor-header">
-                            <ha-icon
-                              icon="${group.floorIcon || "mdi:home-floor-1"}"
-                            ></ha-icon>
-                            ${group.floorName}
+          ${groupedZones.length === 0
+            ? html`<p>No zones adopted yet.</p>`
+            : html`
+                <div class="timeline-container">
+                  <!-- Time Axis -->
+                  <div class="time-axis">
+                    <div class="time-axis-spacer"></div>
+                    <div class="time-axis-track">
+                      ${[0, 4, 8, 12, 16, 20, 24].map(
+                        (hour) => html`
+                          <div
+                            class="time-marker"
+                            style="left: ${(hour / 24) * 100}%"
+                          >
+                            ${hour.toString().padStart(2, "0")}:00
                           </div>
-                        `
-                      : html``}
-                    ${group.zones.map((zone: any) =>
-                      this._renderZoneRow(zone, this._selectedDay),
-                    )}
-                  `;
-                })}
+                        `,
+                      )}
+                    </div>
+                  </div>
 
-                <!-- Current Time Indicator (Only show if viewing today) -->
-                ${this._selectedDay === todayStr
-                  ? this._renderCurrentTimeLine()
-                  : ""}
-              </div>
-            `}
-      </div>
-    `;
+                  <!-- Zones -->
+                  ${groupedZones.map((group) => {
+                    return html`
+                      ${group.floorName
+                        ? html`
+                            <div class="floor-header">
+                              <ha-icon
+                                icon="${group.floorIcon || "mdi:home-floor-1"}"
+                              ></ha-icon>
+                              ${group.floorName}
+                            </div>
+                          `
+                        : html``}
+                      ${group.zones.map((zone: any) =>
+                        this._renderZoneRow(zone, this._selectedDay),
+                      )}
+                    `;
+                  })}
+
+                  <!-- Current Time Indicator (Only show if viewing today) -->
+                  ${this._selectedDay === todayStr
+                    ? this._renderCurrentTimeLine()
+                    : ""}
+                </div>
+              `}
+        </div>
+      `;
+    } catch (e) {
+      console.error("Error rendering TimelineView:", e);
+      return html`<div class="error">Error loading timeline</div>`;
+    }
   }
 
   private _getGroupedZones(): {

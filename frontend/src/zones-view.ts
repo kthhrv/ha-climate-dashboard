@@ -133,38 +133,43 @@ export class ZonesView extends LitElement {
   `;
 
   protected render(): TemplateResult {
-    const groupedZones = this._getGroupedZones();
+    try {
+      const groupedZones = this._getGroupedZones();
 
-    if (groupedZones.length === 0) {
+      if (groupedZones.length === 0) {
+        return html`
+          <div class="empty">
+            <p>No zones configured yet.</p>
+            <p>Use the Setup button above to adopt devices.</p>
+          </div>
+        `;
+      }
+
       return html`
-        <div class="empty">
-          <p>No zones configured yet.</p>
-          <p>Use the Setup button above to adopt devices.</p>
+        <div class="grid">
+          ${groupedZones.map((group) => {
+            return html`
+              ${group.floorName
+                ? html`
+                    <div class="floor-header">
+                      <ha-icon
+                        icon="${group.floorIcon || "mdi:home-floor-1"}"
+                      ></ha-icon>
+                      ${group.floorName}
+                    </div>
+                  `
+                : html`<div class="floor-header">
+                    <ha-icon icon="mdi:devices"></ha-icon>Other Devices
+                  </div>`}
+              ${group.zones.map((zone) => this._renderZoneCard(zone))}
+            `;
+          })}
         </div>
       `;
+    } catch (e) {
+      console.error("Error rendering ZonesView:", e);
+      return html`<div class="error">Error loading zones</div>`;
     }
-
-    return html`
-      <div class="grid">
-        ${groupedZones.map((group) => {
-          return html`
-            ${group.floorName
-              ? html`
-                  <div class="floor-header">
-                    <ha-icon
-                      icon="${group.floorIcon || "mdi:home-floor-1"}"
-                    ></ha-icon>
-                    ${group.floorName}
-                  </div>
-                `
-              : html`<div class="floor-header">
-                  <ha-icon icon="mdi:devices"></ha-icon>Other Devices
-                </div>`}
-            ${group.zones.map((zone) => this._renderZoneCard(zone))}
-          `;
-        })}
-      </div>
-    `;
   }
 
   private _getGroupedZones(): {
