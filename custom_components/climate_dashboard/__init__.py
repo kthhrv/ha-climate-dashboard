@@ -36,6 +36,18 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     # Register WebSocket API
     async_register_api(hass)
 
+    # Init Circuits
+    from .circuit import HeatingCircuit
+
+    circuits: list[HeatingCircuit] = []
+
+    for circuit_conf in storage.circuits:
+        c = HeatingCircuit(hass, storage, circuit_conf)
+        await c.async_initialize()
+        circuits.append(c)
+
+    hass.data[DOMAIN]["circuits"] = circuits
+
     # Use async_forward_entry_setup is for config entries, but we are using async_setup for MVP
     # We need to load platform manually for now as we don't have a config entry yet?
     # Actually, custom components usually use config entries or discovery.
@@ -47,8 +59,10 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     hass.async_create_task(async_load_platform(hass, "climate", DOMAIN, {}, config))
 
     async def _async_shutdown(event: Any) -> None:
-        """Shutdown the coordinator."""
+        """Shutdown the coordinator and circuits."""
         coordinator.shutdown()
+        for c in circuits:
+            await c.async_shutdown()
 
     from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 

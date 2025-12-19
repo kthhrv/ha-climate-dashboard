@@ -265,7 +265,7 @@ GENERIC_THERMOSTATS = [
 # Defines Template Entries to be created via Config Entries (Helpers)
 # Note: The data structure for template helpers in config entries is complex.
 # We will use valid config entry data for "template" domain.
-TEMPLATE_ENTRIES = [
+TEMPLATE_ENTRIES: list[dict[str, Any]] = [
     # Binary Sensors
     {
         "name": "Kitchen Door",
@@ -297,6 +297,15 @@ TEMPLATE_ENTRIES = [
         "state": "{{ states('input_number.bedroom_2_standalone_temp_source') }}",
         "unit_of_measurement": "°C",
         "device_class": "temperature",
+    },
+    # Switches
+    {
+        "name": "Boiler",
+        "unique_id": "switch_boiler",
+        "type": "switch",
+        "state": "",  # Empty state for optimistic mode? Or remove key? Let's pass empty string and handle in loop
+        "turn_on": [],
+        "turn_off": [],
     },
 ]
 
@@ -611,6 +620,34 @@ def wipe_dashboard_storage() -> None:
                 print(f"Error wiping storage {path}: {e}")
 
 
+def seed_dashboard_storage() -> None:
+    """Seed the climate dashboard storage with a test circuit."""
+    data = {
+        "zones": [],
+        "circuits": [
+            {
+                "id": "circuit_central_heating",
+                "name": "Central Heating",
+                "heaters": ["switch.boiler"],
+                "member_zones": [],  # Will need to add zone IDs manualy or update later
+            }
+        ],
+        "settings": {
+            "default_override_type": "next_block",
+            "default_timer_minutes": 60,
+            "window_open_delay_seconds": 30,
+            "home_away_entity_id": None,
+            "away_delay_minutes": 10,
+            "away_temperature": 16.0,
+            "away_temperature_cool": 30.0,
+            "is_away_mode_on": False,
+        },
+    }
+    full_data = {"version": 1, "minor_version": 1, "key": "climate_dashboard", "data": data}
+    save_json(CLIMATE_DASHBOARD_PATH, full_data)
+    print("Seeded Climate Dashboard Storage with 'Central Heating' circuit")
+
+
 def seed_restore_state() -> None:
     """Seed the restore_state file with desired default values (19.0)."""
     data: dict[str, Any] = {"version": 1, "minor_version": 1, "key": "core.restore_state", "data": []}
@@ -751,9 +788,20 @@ def setup_config_entries() -> dict[str, str]:
                 "state": tmpl["state"],
                 "unit_of_measurement": tmpl["unit_of_measurement"],
                 "device_class": tmpl["device_class"],
-                "state_class": "measurement",
                 "template_type": "sensor",
             }
+        elif tmpl["type"] == "switch":
+            config_data = {
+                "name": tmpl["name"],
+                "turn_on": tmpl["turn_on"],
+                "turn_off": tmpl["turn_off"],
+                "template_type": "switch",
+            }
+            if tmpl.get("device_class"):
+                config_data["device_class"] = tmpl["device_class"]
+            # Only add value_template if provided (non-optimistic)
+            if tmpl.get("state"):
+                config_data["value_template"] = tmpl["state"]
 
         new_entry = {
             "entry_id": entry_id,
@@ -830,6 +878,7 @@ def clean_configuration_yaml() -> None:
 
 if __name__ == "__main__":
     wipe_dashboard_storage()  # Factory Reset first
+    seed_dashboard_storage()  # Seed Dashboard with Circuit
     setup_floors()  # Create Floors
     setup_areas()  # Create Areas (linked to floors)
     setup_input_helpers()

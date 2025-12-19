@@ -13,6 +13,7 @@ from homeassistant.core import HomeAssistant, callback
 
 from .const import DOMAIN
 from .schedules import get_default_schedule
+from .storage import CircuitConfig
 
 SCAN_COMMAND = "climate_dashboard/scan"
 _LOGGER = logging.getLogger(__name__)
@@ -120,6 +121,9 @@ async def _async_adopt_zone(hass: HomeAssistant, connection: ActiveConnection, m
 
     await storage.async_add_zone(zone_config)
 
+    if "circuit_ids" in msg:
+        await storage.async_update_zone_circuits(unique_id, msg["circuit_ids"])
+
     connection.send_result(msg["id"], {"unique_id": unique_id})
 
 
@@ -175,6 +179,9 @@ async def _async_update_zone(hass: HomeAssistant, connection: ActiveConnection, 
 
     # Save
     await storage.async_update_zone(updated_config)
+
+    if "circuit_ids" in msg:
+        await storage.async_update_zone_circuits(unique_id, msg["circuit_ids"])
 
     connection.send_result(msg["id"], {"unique_id": unique_id})
 
@@ -263,6 +270,114 @@ async def _async_update_settings(hass: HomeAssistant, connection: ActiveConnecti
 
 
 @callback
+def websocket_create_circuit(
+    hass: HomeAssistant,
+    connection: ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Handle create circuit command."""
+    hass.async_create_task(_async_create_circuit(hass, connection, msg))
+
+
+async def _async_create_circuit(hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]) -> None:
+    """Async create circuit."""
+    if DOMAIN not in hass.data:
+        connection.send_error(msg["id"], "internal_error", "Integration not initialized")
+        return
+
+    storage = hass.data[DOMAIN]["storage"]
+
+    unique_id = f"circuit_{uuid.uuid4().hex[:8]}"
+    circuit: CircuitConfig = {
+        "id": unique_id,
+        "name": msg["name"],
+        "heaters": msg.get("heaters", []),
+        "member_zones": msg.get("member_zones", []),
+    }
+
+    await storage.async_add_circuit(circuit)
+    connection.send_result(msg["id"], circuit)
+
+
+@callback
+def websocket_update_circuit(
+    hass: HomeAssistant,
+    connection: ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Handle update circuit command."""
+    hass.async_create_task(_async_update_circuit(hass, connection, msg))
+
+
+async def _async_update_circuit(hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]) -> None:
+    """Async update circuit."""
+    if DOMAIN not in hass.data:
+        connection.send_error(msg["id"], "internal_error", "Integration not initialized")
+        return
+
+    storage = hass.data[DOMAIN]["storage"]
+    circuit_id = msg["id"]
+
+    existing = next((c for c in storage.circuits if c["id"] == circuit_id), None)
+    if not existing:
+        connection.send_error(msg["id"], "not_found", "Circuit not found")
+        return
+
+    updates = existing.copy()
+    if "name" in msg:
+        updates["name"] = msg["name"]
+    if "heaters" in msg:
+        updates["heaters"] = msg["heaters"]
+    if "member_zones" in msg:
+        updates["member_zones"] = msg["member_zones"]
+
+    try:
+        await storage.async_update_circuit(updates)
+        connection.send_result(msg["id"], updates)
+    except ValueError as e:
+        connection.send_error(msg["id"], "update_failed", str(e))
+
+
+@callback
+def websocket_delete_circuit(
+    hass: HomeAssistant,
+    connection: ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Handle delete circuit command."""
+    hass.async_create_task(_async_delete_circuit(hass, connection, msg))
+
+
+async def _async_delete_circuit(hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]) -> None:
+    """Async delete circuit."""
+    if DOMAIN not in hass.data:
+        connection.send_error(msg["id"], "internal_error", "Integration not initialized")
+        return
+
+    storage = hass.data[DOMAIN]["storage"]
+    try:
+        await storage.async_delete_circuit(msg["circuit_id"])
+        connection.send_result(msg["id"], {"success": True})
+    except ValueError as e:
+        connection.send_error(msg["id"], "not_found", str(e))
+
+
+@callback
+def websocket_list_circuits(
+    hass: HomeAssistant,
+    connection: ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Handle list circuits command."""
+    if DOMAIN not in hass.data:
+        connection.send_error(msg["id"], "internal_error", "Integration not initialized")
+        return
+
+    storage = hass.data[DOMAIN]["storage"]
+    connection.send_result(msg["id"], storage.circuits)
+
+
+@callback
 def async_register_api(hass: HomeAssistant) -> None:
     """Register the Climate Dashboard WebSocket API."""
     async_register_command(hass, ws_scan_unmanaged)
@@ -280,6 +395,7 @@ def async_register_api(hass: HomeAssistant) -> None:
                 vol.Optional("window_sensors", default=[]): [str],
                 vol.Optional("restore_delay_minutes", default=0): int,
                 vol.Optional("room_type", default="generic"): str,
+                vol.Optional("circuit_ids", default=[]): [str],
             }
         ),
     )
@@ -298,6 +414,7 @@ def async_register_api(hass: HomeAssistant) -> None:
                 vol.Optional("window_sensors", default=[]): [str],
                 vol.Optional("schedule"): list,
                 vol.Optional("restore_delay_minutes"): int,
+                vol.Optional("circuit_ids"): [str],
             }
         ),
     )
@@ -309,6 +426,16 @@ def async_register_api(hass: HomeAssistant) -> None:
             {
                 vol.Required("type"): "climate_dashboard/delete",
                 vol.Required("unique_id"): str,
+            }
+        ),
+    )
+    async_register_command(
+        hass,
+        "climate_dashboard/circuit/list",
+        websocket_list_circuits,
+        schema=websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
+            {
+                vol.Required("type"): "climate_dashboard/circuit/list",
             }
         ),
     )
@@ -337,6 +464,44 @@ def async_register_api(hass: HomeAssistant) -> None:
                 vol.Optional("away_temperature"): vol.Coerce(float),
                 vol.Optional("away_temperature_cool"): vol.Coerce(float),
                 vol.Optional("is_away_mode_on"): bool,
+            }
+        ),
+    )
+    async_register_command(
+        hass,
+        "climate_dashboard/circuit/create",
+        websocket_create_circuit,
+        schema=websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
+            {
+                vol.Required("type"): "climate_dashboard/circuit/create",
+                vol.Required("name"): str,
+                vol.Optional("heaters", default=[]): [str],
+                vol.Optional("member_zones", default=[]): [str],
+            }
+        ),
+    )
+    async_register_command(
+        hass,
+        "climate_dashboard/circuit/update",
+        websocket_update_circuit,
+        schema=websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
+            {
+                vol.Required("type"): "climate_dashboard/circuit/update",
+                vol.Required("id"): str,
+                vol.Optional("name"): str,
+                vol.Optional("heaters"): [str],
+                vol.Optional("member_zones"): [str],
+            }
+        ),
+    )
+    async_register_command(
+        hass,
+        "climate_dashboard/circuit/delete",
+        websocket_delete_circuit,
+        schema=websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
+            {
+                vol.Required("type"): "climate_dashboard/circuit/delete",
+                vol.Required("circuit_id"): str,
             }
         ),
     )

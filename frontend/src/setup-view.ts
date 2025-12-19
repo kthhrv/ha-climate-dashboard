@@ -23,6 +23,13 @@ interface GlobalSettings {
   is_away_mode_on: boolean;
 }
 
+interface CircuitConfig {
+  id: string;
+  name: string;
+  heaters: string[];
+  member_zones: string[];
+}
+
 export class SetupView extends LitElement {
   @property({ attribute: false }) public hass!: any;
 
@@ -38,6 +45,13 @@ export class SetupView extends LitElement {
     away_temperature_cool: 30.0,
     is_away_mode_on: false,
   };
+  @state() private _circuits: CircuitConfig[] = [];
+
+  // Circuit Dialog
+  @state() private _circuitDialogOpen = false;
+  @state() private _editingCircuit: CircuitConfig | null = null;
+  @state() private _tempCircuitName = "";
+  @state() private _tempCircuitHeaters: string[] = [];
 
   // Dialog State
   @state() private _dialogOpen = false;
@@ -105,6 +119,18 @@ export class SetupView extends LitElement {
     .adopt-btn:hover {
       background-color: var(--primary-color-dark, #0288d1);
     }
+    .circuit-item {
+      border: 1px solid var(--divider-color);
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .circuit-actions ha-icon-button {
+      color: var(--secondary-text-color);
+    }
     .settings-row {
       display: flex;
       align-items: center;
@@ -125,6 +151,69 @@ export class SetupView extends LitElement {
   protected firstUpdated(): void {
     this._fetchDevices();
     this._fetchSettings();
+    this._fetchCircuits();
+  }
+
+  private async _fetchCircuits() {
+    if (!this.hass) return;
+    try {
+      this._circuits = await this.hass.callWS({
+        type: "climate_dashboard/circuit/list",
+      });
+    } catch (e) {
+      console.error("Failed to fetch circuits", e);
+    }
+  }
+
+  private async _deleteCircuit(id: string) {
+    if (!confirm("Delete this circuit?")) return;
+    try {
+      await this.hass.callWS({
+        type: "climate_dashboard/circuit/delete",
+        circuit_id: id,
+      });
+      this._fetchCircuits();
+    } catch (e) {
+      alert("Failed to delete: " + e);
+    }
+  }
+
+  private _openCircuitDialog(circuit?: CircuitConfig) {
+    if (circuit) {
+      this._editingCircuit = circuit;
+      this._tempCircuitName = circuit.name;
+      this._tempCircuitHeaters = [...circuit.heaters];
+    } else {
+      this._editingCircuit = null;
+      this._tempCircuitName = "";
+      this._tempCircuitHeaters = [];
+    }
+    this._circuitDialogOpen = true;
+  }
+
+  private async _saveCircuit() {
+    if (!this._tempCircuitName) return alert("Name required");
+
+    const payload: any = {
+      name: this._tempCircuitName,
+      heaters: this._tempCircuitHeaters,
+    };
+
+    try {
+      if (this._editingCircuit) {
+        payload.type = "climate_dashboard/circuit/update";
+        payload.id = this._editingCircuit.id;
+        // Preserver members? Not editing members here yet
+      } else {
+        payload.type = "climate_dashboard/circuit/create";
+      }
+
+      await this.hass.callWS(payload);
+      this._circuitDialogOpen = false;
+      this._fetchCircuits();
+    } catch (e) {
+      alert("Error: " + e);
+    }
   }
 
   private async _fetchSettings() {
@@ -273,6 +362,51 @@ export class SetupView extends LitElement {
       </div>
 
       <div class="card">
+        <div
+          style="display:flex; justify-content:space-between; align-items:center"
+        >
+          <h2>Heating Circuits</h2>
+          <button class="adopt-btn" @click=${() => this._openCircuitDialog()}>
+            + Create
+          </button>
+        </div>
+        ${this._circuits.length === 0
+          ? html`<div class="empty">No circuits defined.</div>`
+          : html`<div class="list">
+              ${this._circuits.map(
+                (c) => html`
+                  <div class="circuit-item">
+                    <div>
+                      <strong>${c.name}</strong>
+                      <div
+                        style="font-size:0.8em; color:var(--secondary-text-color)"
+                      >
+                        Heaters: ${c.heaters.join(", ") || "None"}
+                      </div>
+                    </div>
+                    <div class="circuit-actions">
+                      <button
+                        style="background:none; border:none; color:blue; cursor:pointer"
+                        @click=${() => this._openCircuitDialog(c)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        style="background:none; border:none; color:red; cursor:pointer"
+                        @click=${() => this._deleteCircuit(c.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                `,
+              )}
+            </div>`}
+      </div>
+
+      ${this._renderCircuitDialog()}
+
+      <div class="card">
         <h2>Unmanaged Devices</h2>
         ${this._loading ? html`<p>Scanning...</p>` : this._renderList()}
       </div>
@@ -365,6 +499,85 @@ export class SetupView extends LitElement {
       // Revert on error?
       this._fetchSettings();
     }
+  }
+
+  private _renderCircuitDialog() {
+    if (!this._circuitDialogOpen) return html``;
+
+    // Filter potential heaters (switches/climates)
+    const potentialHeaters = this._devices.filter((d) =>
+      ["switch", "climate"].includes(d.domain),
+    );
+
+    return html`
+      <div
+        style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:100; display:flex; justify-content:center; align-items:center"
+      >
+        <div
+          style="background:var(--card-background-color, white); padding:20px; border-radius:12px; width: 400px; max-width:90%"
+        >
+          <h2>${this._editingCircuit ? "Edit Circuit" : "Create Circuit"}</h2>
+
+          <div style="margin-bottom:16px">
+            <label style="display:block; margin-bottom:4px">Name</label>
+            <input
+              type="text"
+              style="width:100%"
+              .value=${this._tempCircuitName}
+              @input=${(e: any) => (this._tempCircuitName = e.target.value)}
+            />
+          </div>
+
+          <div style="margin-bottom:16px">
+            <label style="display:block; margin-bottom:4px"
+              >Shared Heaters (Boilers/Pumps)</label
+            >
+            <div
+              style="max-height:150px; overflow-y:auto; border:1px solid #ccc; padding:8px; border-radius:4px"
+            >
+              ${potentialHeaters.map(
+                (h) => html`
+                  <div
+                    style="display:flex; align-items:center; gap:8px; margin-bottom:4px"
+                  >
+                    <input
+                      type="checkbox"
+                      .checked=${this._tempCircuitHeaters.includes(h.entity_id)}
+                      @change=${(e: any) => {
+                        if (e.target.checked)
+                          this._tempCircuitHeaters = [
+                            ...this._tempCircuitHeaters,
+                            h.entity_id,
+                          ];
+                        else
+                          this._tempCircuitHeaters =
+                            this._tempCircuitHeaters.filter(
+                              (id) => id !== h.entity_id,
+                            );
+                      }}
+                    />
+                    <span>${h.name || h.entity_id}</span>
+                  </div>
+                `,
+              )}
+            </div>
+          </div>
+
+          <div
+            style="display:flex; justify-content:flex-end; gap:8px; margin-top:20px"
+          >
+            <button
+              class="adopt-btn"
+              style="background:#ccc; color:black"
+              @click=${() => (this._circuitDialogOpen = false)}
+            >
+              Cancel
+            </button>
+            <button class="adopt-btn" @click=${this._saveCircuit}>Save</button>
+          </div>
+        </div>
+      </div>
+    `;
   }
 }
 

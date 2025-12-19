@@ -958,32 +958,6 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
             self.async_write_ha_state()
 
-    def _async_is_actuator_active_elsewhere(self, actuator_entity_id: str, action: HVACAction) -> bool:
-        """Check if any other zone is currently using this actuator in the given mode."""
-        if not self._storage:
-            return False
-
-        for zone_config in self._storage.zones:
-            # Skip self
-            if zone_config["unique_id"] == self.unique_id:
-                continue
-
-            # Check if this zone uses the actuator
-            relevant_entities: list[str] = []
-            if action == HVACAction.HEATING:
-                relevant_entities = zone_config.get("heaters", [])
-            elif action == HVACAction.COOLING:
-                relevant_entities = zone_config.get("coolers", [])
-
-            if actuator_entity_id in relevant_entities:
-                # Check status
-                entity_id = f"climate.zone_{slugify(zone_config['name'])}"
-                state = self.hass.states.get(entity_id)
-                # We check for the specific action (HEATING or COOLING)
-                if state and state.attributes.get("hvac_action") == action:
-                    return True
-        return False
-
     async def _async_turn_off_all(self, force_off: bool = True) -> None:
         """Turn off all actuators."""
         await self._async_set_heaters(False, force_off=force_off)
@@ -999,9 +973,8 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                     is_on = enable and not force_off
 
                     if not is_on:
-                        if self._async_is_actuator_active_elsewhere(entity_id, HVACAction.HEATING):
-                            _LOGGER.debug("Not turning off %s because it is needed by another zone", entity_id)
-                            continue
+                        pass
+                        # Legacy Busy Check Removed - Handled by HeatingCircuit
 
                     service = "turn_on" if is_on else "turn_off"
                     await self.hass.services.async_call("switch", service, {"entity_id": entity_id})
@@ -1128,12 +1101,9 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                 # 2. Set Mode
                 if force_off:
                     if state.state != HVACMode.OFF:
-                        if self._async_is_actuator_active_elsewhere(entity_id, HVACAction.COOLING):
-                            _LOGGER.debug("Not turning off %s because it is needed by another zone", entity_id)
-                        else:
-                            await self.hass.services.async_call(
-                                "climate", "set_hvac_mode", {"entity_id": entity_id, "hvac_mode": HVACMode.OFF}
-                            )
+                        await self.hass.services.async_call(
+                            "climate", "set_hvac_mode", {"entity_id": entity_id, "hvac_mode": HVACMode.OFF}
+                        )
                 else:
                     # Active or Idle -> Keep COOL mode
                     if state.state != target_mode:

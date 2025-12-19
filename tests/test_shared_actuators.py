@@ -1,85 +1,111 @@
-"""Test shared actuator logic."""
+"""Test Heating Circuit logic."""
 
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from homeassistant.components.climate import HVACAction, HVACMode
+from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_OFF, SERVICE_TURN_ON
 from homeassistant.core import HomeAssistant
+from homeassistant.util import slugify
 
-from custom_components.climate_dashboard.climate_zone import ClimateZone
-from custom_components.climate_dashboard.storage import OverrideType
+from custom_components.climate_dashboard.circuit import HeatingCircuit
+from custom_components.climate_dashboard.storage import CircuitConfig
 
-SWITCH_ID = "switch.boiler"
-SENSOR_A = "sensor.temp_a"
-SENSOR_B = "sensor.temp_b"
-
-
-@pytest.fixture(autouse=True)
-def auto_mock_services(hass: HomeAssistant) -> None:
-    """Automatically mock services for all tests."""
-    hass.services.async_register("climate", "set_hvac_mode", AsyncMock())
-    hass.services.async_register("climate", "set_temperature", AsyncMock())
-    hass.services.async_register("switch", "turn_off", AsyncMock())
-    hass.services.async_register("switch", "turn_on", AsyncMock())
+CIRCUIT_NAME = "Upstairs"
+BOILER_ID = "switch.boiler"
+ZONE_A_NAME = "Bedroom"
+ZONE_B_NAME = "Office"
+ZONE_A_ID = "zone_bedroom"
+ZONE_B_ID = "zone_office"
 
 
-async def test_shared_actuator_stay_on(hass: HomeAssistant) -> None:
-    """Test that actuator stays ON if another zone needs it."""
-    # Setup Storage Mock with 2 zones configuration
-    mock_storage = MagicMock()
-    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
-    mock_storage.zones = [
-        {
-            "unique_id": "zone_a",
-            "name": "Zone A",
-            "heaters": [SWITCH_ID],
-            "coolers": [],
-            "temperature_sensor": SENSOR_A,
-            "window_sensors": [],
-            "schedule": [],
-        },
-        {
-            "unique_id": "zone_b",
-            "name": "Zone B",
-            "heaters": [SWITCH_ID],
-            "coolers": [],
-            "temperature_sensor": SENSOR_B,
-            "window_sensors": [],
-            "schedule": [],
-        },
+@pytest.fixture
+def mock_storage() -> MagicMock:
+    """Mock storage."""
+    storage = MagicMock()
+    # Mock Zones configuration
+    storage.zones = [
+        {"unique_id": ZONE_A_ID, "name": ZONE_A_NAME},
+        {"unique_id": ZONE_B_ID, "name": ZONE_B_NAME},
     ]
+    return storage
 
-    # Create Zone A Instance
-    zone_a = ClimateZone(
-        hass, mock_storage, "zone_a", "Zone A", SENSOR_A, heaters=[SWITCH_ID], coolers=[], window_sensors=[]
-    )
 
-    # Mock Initial States
-    hass.states.async_set(SWITCH_ID, "on")  # Boiler on
-    hass.states.async_set(SENSOR_A, "19.0")  # Cold
-    hass.states.async_set(SENSOR_B, "19.0")  # Cold
+async def test_circuit_demand_logic(hass: HomeAssistant, mock_storage: MagicMock) -> None:
+    """Test that circuit aggregates demand correctly."""
 
-    # Mock Zone B as ACTIVE/HEATING in HA State Machine
-    # This simulates Zone B effectively "owning" the boiler too
-    hass.states.async_set("climate.zone_zone_b", HVACMode.HEAT, {"hvac_action": HVACAction.HEATING})
+    # Setup Mocks for generic turn_on/turn_off
+    mock_turn_on = AsyncMock()
+    mock_turn_off = AsyncMock()
+    hass.services.async_register("homeassistant", SERVICE_TURN_ON, mock_turn_on)
+    hass.services.async_register("homeassistant", SERVICE_TURN_OFF, mock_turn_off)
 
-    # Zone A: Set to HEAT and Request Off (Satisfied)
-    zone_a._attr_hvac_mode = HVACMode.HEAT
-    zone_a._attr_target_temperature = 18.0  # Target reached (19 > 18)
-    zone_a._attr_current_temperature = 19.0
+    # 1. Setup Circuit
+    config: CircuitConfig = {
+        "id": "circuit_1",
+        "name": CIRCUIT_NAME,
+        "heaters": [BOILER_ID],
+        "member_zones": [ZONE_A_ID, ZONE_B_ID],
+    }
+    circuit = HeatingCircuit(hass, mock_storage, config)
+    # Mock listeners since we don't have real entities
+    circuit._async_setup_listeners = AsyncMock()  # type: ignore[method-assign]
 
-    # Register mock service to capture call
-    turn_off_mock = AsyncMock()
-    hass.services.async_register("switch", "turn_off", turn_off_mock)
+    await circuit.async_initialize()
 
-    # Trigger Control
-    await zone_a._async_control_actuator()
+    # Stub state checking inside the class is hard without real entities in HA state machine.
+    # We should populate HA states.
 
-    # ASSERTION:
-    # Current behavior: Zone A turns it OFF (incorrect)
-    # Desired behavior: Zone A sees Zone B is heating, keeps it ON.
+    # Helper to set zone state
+    def set_zone_state(name: str, hvac_action: str) -> None:
+        entity_id = f"climate.zone_{slugify(name)}"
+        hass.states.async_set(entity_id, "heat", {"hvac_action": hvac_action})
 
-    # Since we haven't implemented the fix yet, verify that it currently FAILS (i.e., it turns off)
-    # OR assert the Desired Behavior and see it fail.
-    # Let's assert Desired Behavior: It should NOT be turned off.
-    assert not turn_off_mock.called, "Actuator turned off despite being needed by Zone B!"
+    # SCENARIO 1: Both Idle -> Boiler OFF
+    set_zone_state(ZONE_A_NAME, "idle")
+    set_zone_state(ZONE_B_NAME, "idle")
+
+    await circuit._async_check_demand()
+
+    # Verify OFF call
+    # Logic optimization: It won't call OFF if it wasn't active before
+    assert not mock_turn_off.called
+
+    mock_turn_off.reset_mock()
+    mock_turn_on.reset_mock()
+
+    # SCENARIO 2: Zone A Heating -> Boiler ON
+    set_zone_state(ZONE_A_NAME, "heating")
+    # Zone B still idle
+
+    await circuit._async_check_demand()
+
+    # Verify ON call
+    assert mock_turn_on.called
+    # call_args[0][0] is the ServiceCall object
+    service_call = mock_turn_on.call_args[0][0]
+    assert service_call.data[ATTR_ENTITY_ID] == BOILER_ID
+
+    mock_turn_on.reset_mock()
+
+    # SCENARIO 3: Zone B enters Heating (Both Heating) -> Boiler Stays ON
+    # Circuit checks _is_active, so no new call expected.
+
+    set_zone_state(ZONE_B_NAME, "heating")
+    await circuit._async_check_demand()
+
+    assert not mock_turn_on.called, "Should not call ON again if already active"
+
+    # SCENARIO 4: Zone A finishes (Idle), Zone B still Heating -> Boiler Stays ON
+    set_zone_state(ZONE_A_NAME, "idle")
+    await circuit._async_check_demand()
+
+    assert not mock_turn_on.called, "Should stay active as Zone B is heating"
+    assert not mock_turn_off.called
+
+    # SCENARIO 5: Zone B finishes (All Idle) -> Boiler Turn OFF
+    set_zone_state(ZONE_B_NAME, "idle")
+    await circuit._async_check_demand()
+
+    assert mock_turn_off.called
+    service_call = mock_turn_off.call_args[0][0]
+    assert service_call.data[ATTR_ENTITY_ID] == BOILER_ID

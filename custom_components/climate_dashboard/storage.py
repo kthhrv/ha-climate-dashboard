@@ -63,10 +63,21 @@ class ClimateZoneConfig(TypedDict):
 
 
 @dataclass
+class CircuitConfig(TypedDict):
+    """Typed dictionary for circuit configuration."""
+
+    id: str  # id (uuid)
+    name: str
+    heaters: list[str]  # e.g., ["switch.boiler", "switch.pump"]
+    member_zones: list[str]  # list of zone unique_ids
+
+
+@dataclass
 class ClimateDashboardData:
     """Data structure for storage."""
 
     zones: list[ClimateZoneConfig]
+    circuits: list[CircuitConfig]
     settings: GlobalSettings
 
 
@@ -88,6 +99,7 @@ class ClimateDashboardStorage:
         """Load data from storage."""
         data = await self._store.async_load()
         zones: list[ClimateZoneConfig] = []
+        circuits: list[CircuitConfig] = []
         settings: GlobalSettings = {
             "default_override_type": OverrideType.NEXT_BLOCK,
             "default_timer_minutes": 60,
@@ -102,11 +114,13 @@ class ClimateDashboardStorage:
         if data:
             if "zones" in data:
                 zones = data["zones"]
+            if "circuits" in data:
+                circuits = data["circuits"]
             # Handle migration or missing settings
             if "settings" in data:
                 settings.update(data["settings"])
 
-        return ClimateDashboardData(zones=zones, settings=settings)
+        return ClimateDashboardData(zones=zones, circuits=circuits, settings=settings)
 
     async def _async_save_data(self) -> None:
         """Save data to storage."""
@@ -117,6 +131,7 @@ class ClimateDashboardStorage:
         await self._store.async_save(
             {
                 "zones": self._data.zones,
+                "circuits": self._data.circuits,
                 "settings": self._data.settings,
             }
         )
@@ -132,6 +147,13 @@ class ClimateDashboardStorage:
         if self._data is None:
             return []
         return self._data.zones
+
+    @property
+    def circuits(self) -> list[CircuitConfig]:
+        """Return list of circuits."""
+        if self._data is None:
+            return []
+        return self._data.circuits
 
     @property
     def settings(self) -> GlobalSettings:
@@ -155,6 +177,7 @@ class ClimateDashboardStorage:
         if self._data is None:
             self._data = ClimateDashboardData(
                 zones=[],
+                circuits=[],
                 settings={
                     "default_override_type": OverrideType.NEXT_BLOCK,
                     "default_timer_minutes": 60,
@@ -216,6 +239,7 @@ class ClimateDashboardStorage:
         if self._data is None:
             self._data = ClimateDashboardData(
                 zones=[],
+                circuits=[],
                 settings={
                     "default_override_type": OverrideType.NEXT_BLOCK,
                     "default_timer_minutes": 60,
@@ -231,6 +255,97 @@ class ClimateDashboardStorage:
         self._data.settings.update(settings)
         await self._async_save_data()
         self._async_fire_callbacks()
+
+    async def async_update_circuits(self, circuits: list[CircuitConfig]) -> None:
+        """Update circuits list."""
+        if self._data is None:
+            self._data = ClimateDashboardData(
+                zones=[],
+                circuits=[],
+                settings={
+                    "default_override_type": OverrideType.NEXT_BLOCK,
+                    "default_timer_minutes": 60,
+                    "window_open_delay_seconds": 30,
+                    "home_away_entity_id": None,
+                    "away_delay_minutes": 10,
+                    "away_temperature": 16.0,
+                    "away_temperature_cool": 30.0,
+                    "is_away_mode_on": False,
+                },
+            )
+
+        self._data.circuits = circuits
+        await self._async_save_data()
+        self._async_fire_callbacks()
+
+    async def async_add_circuit(self, circuit: CircuitConfig) -> None:
+        """Add a new circuit."""
+        if self._data is None:
+            # Should be initialized by load
+            return
+
+        self._data.circuits.append(circuit)
+        await self._async_save_data()
+        self._async_fire_callbacks()
+
+    async def async_update_circuit(self, circuit_config: CircuitConfig) -> None:
+        """Update an existing circuit."""
+        if self._data is None:
+            return
+
+        circuits = self._data.circuits
+        for i, circuit in enumerate(circuits):
+            if circuit["id"] == circuit_config["id"]:
+                circuits[i] = circuit_config
+                await self._async_save_data()
+                self._async_fire_callbacks()
+                return
+
+        raise ValueError(f"Circuit {circuit_config['id']} not found")
+
+    async def async_delete_circuit(self, circuit_id: str) -> None:
+        """Delete a circuit."""
+        if self._data is None:
+            return
+
+        circuits = self._data.circuits
+        for i, circuit in enumerate(circuits):
+            if circuit["id"] == circuit_id:
+                circuits.pop(i)
+                await self._async_save_data()
+                self._async_fire_callbacks()
+                return
+
+        raise ValueError(f"Circuit {circuit_id} not found")
+
+    async def async_update_zone_circuits(self, zone_id: str, circuit_ids: list[str]) -> None:
+        """Update circuit membership for a zone.
+
+        Ensures the zone is ONLY in the provided circuit_ids.
+        Removes it from all others.
+        """
+        if self._data is None:
+            return
+
+        changed = False
+        target_ids = set(circuit_ids)
+
+        for circuit in self._data.circuits:
+            c_id = circuit["id"]
+            if c_id in target_ids:
+                # Ensure joined
+                if zone_id not in circuit["member_zones"]:
+                    circuit["member_zones"].append(zone_id)
+                    changed = True
+            else:
+                # Ensure removed
+                if zone_id in circuit["member_zones"]:
+                    circuit["member_zones"].remove(zone_id)
+                    changed = True
+
+        if changed:
+            await self._async_save_data()
+            self._async_fire_callbacks()
 
     def async_add_listener(self, callback: Callable[[], None]) -> Callable[[], None]:
         """Add a listener for data changes."""

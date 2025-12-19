@@ -1,5 +1,16 @@
 import { LitElement, html, css } from "lit";
 import { property, state } from "lit/decorators.js";
+// import { CircuitConfig } from "./setup-view"; // Removed invalid import
+// To avoid circular dependency or import issues, I'll define a local interface or type if needed,
+// but CircuitConfig is in setup-view. Let's see if I can import it.
+// Actually, `setup-view.ts` does NOT export it. I should probably move it to a types file or redefine it.
+// For now, I'll redefine it locally to match `setup-view.ts` for safety/speed.
+interface CircuitConfig {
+  id: string;
+  name: string;
+  heaters: string[];
+  member_zones: string[];
+}
 // import { fireEvent } from "./fire-event";
 // import "@material/mwc-button";
 
@@ -21,6 +32,10 @@ export class ZoneEditor extends LitElement {
   @state() private _filterByArea = true;
   @state() private _zoneAreaId: string | null = null;
   @state() private _zoneAreaName: string | null = null;
+
+  // Circuit State
+  @state() private _circuits: CircuitConfig[] = [];
+  @state() private _selectedCircuitId: string = "";
 
   // UI State
   @state() private _loading = false;
@@ -224,7 +239,25 @@ export class ZoneEditor extends LitElement {
       restore: this._restoreDelayMinutes,
     });
 
+    // 4. Load Circuits
+    await this._fetchCircuits();
+    // Determine current circuit
+    const currentCircuit = this._circuits.find((c) =>
+      c.member_zones.includes(this._uniqueId),
+    );
+    this._selectedCircuitId = currentCircuit ? currentCircuit.id : "";
+
     this._loading = false;
+  }
+
+  private async _fetchCircuits() {
+    try {
+      this._circuits = await this.hass.callWS({
+        type: "climate_dashboard/circuit/list",
+      });
+    } catch (e) {
+      console.error("Failed to fetch circuits", e);
+    }
   }
 
   private _toggleSet(set: Set<string>, value: string) {
@@ -260,6 +293,7 @@ export class ZoneEditor extends LitElement {
         coolers: Array.from(this._coolers),
         window_sensors: Array.from(this._windowSensors),
         restore_delay_minutes: Number(this._restoreDelayMinutes),
+        circuit_ids: this._selectedCircuitId ? [this._selectedCircuitId] : [],
       });
       this._goBack();
     } catch (e: any) {
@@ -335,6 +369,31 @@ export class ZoneEditor extends LitElement {
             .value=${this._name}
             @input=${(e: any) => (this._name = e.target.value)}
           />
+        </div>
+
+        <div class="field">
+          <label>Heating Circuit</label>
+          <div
+            style="font-size: 0.8em; color: var(--secondary-text-color); margin-bottom: 4px;"
+          >
+            Assign this zone to a circuit (e.g., Boiler, Pump) to demand heat.
+          </div>
+          <select
+            .value=${this._selectedCircuitId}
+            @change=${(e: any) => (this._selectedCircuitId = e.target.value)}
+          >
+            <option value="">None (Standalone)</option>
+            ${this._circuits.map(
+              (c) => html`
+                <option
+                  value="${c.id}"
+                  ?selected=${this._selectedCircuitId === c.id}
+                >
+                  ${c.name}
+                </option>
+              `,
+            )}
+          </select>
         </div>
 
         <div class="field">
