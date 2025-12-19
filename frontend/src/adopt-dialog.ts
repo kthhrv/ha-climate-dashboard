@@ -18,6 +18,9 @@ export class AdoptDialog extends LitElement {
   @state() private _targetAreaId: string | null = null;
   @state() private _targetAreaName: string | null = null;
 
+  @state() private _circuits: any[] = [];
+  @state() private _selectedCircuit: string = "";
+
   static styles = css`
     :host {
       display: none;
@@ -163,6 +166,20 @@ export class AdoptDialog extends LitElement {
           // Need to find a temp sensor...
         }
 
+        // Fetch circuits
+        this.hass
+          .callWS({ type: "climate_dashboard/circuit/list" })
+          .then((circuits: any[]) => {
+            this._circuits = circuits;
+            // Clean up selection if it's no longer valid? Or just keep default empty
+            if (
+              this._selectedCircuit &&
+              !circuits.find((c) => c.id === this._selectedCircuit)
+            ) {
+              this._selectedCircuit = "";
+            }
+          });
+
         this.requestUpdate();
       }
     }
@@ -213,6 +230,7 @@ export class AdoptDialog extends LitElement {
       coolers: Array.from(this._coolers),
       window_sensors: Array.from(this._windowSensors),
       room_type: this._roomType,
+      circuit_ids: this._selectedCircuit ? [this._selectedCircuit] : [],
     });
     this.dispatchEvent(new CustomEvent("close"));
   }
@@ -261,6 +279,19 @@ export class AdoptDialog extends LitElement {
             <option value="bedroom">Bedroom (Cool sleep)</option>
             <option value="living_room">Living Room (Comfort evenings)</option>
             <option value="office">Home Office (Comfort workdays)</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Heating Circuit</label>
+          <select
+            .value=${this._selectedCircuit}
+            @change=${(e: any) => (this._selectedCircuit = e.target.value)}
+          >
+            <option value="">None (Independent)</option>
+            ${this._circuits.map(
+              (c) => html`<option value="${c.id}">${c.name}</option>`,
+            )}
           </select>
         </div>
 
