@@ -1702,15 +1702,15 @@ const we = class we extends w {
       r = "Sensor Unavailable: Safety Mode active";
     else if (e.attributes.using_fallback_sensor)
       r = "Warning: Using Area Fallback Sensor";
+    else if (e.attributes.open_window_sensor)
+      r = `${e.attributes.open_window_sensor} open`;
     else if (i) {
       const n = new Date(i).toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit"
       });
       s === "duration" ? r = `Timer until ${n}` : r = `Until ${n}`;
-    } else if (e.attributes.open_window_sensor)
-      r = `${e.attributes.open_window_sensor} open`;
-    else if (o === "auto" && t) {
+    } else if (o === "auto" && t) {
       const n = new Date(t).toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit"

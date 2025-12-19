@@ -341,6 +341,8 @@ export class ZonesView extends LitElement {
       message = "Sensor Unavailable: Safety Mode active";
     } else if (zone.attributes.using_fallback_sensor) {
       message = "Warning: Using Area Fallback Sensor";
+    } else if (zone.attributes.open_window_sensor) {
+      message = `${zone.attributes.open_window_sensor} open`;
     } else if (overrideEnd) {
       const time = new Date(overrideEnd).toLocaleTimeString([], {
         hour: "2-digit",
@@ -351,8 +353,6 @@ export class ZonesView extends LitElement {
       } else {
         message = `Until ${time}`;
       }
-    } else if (zone.attributes.open_window_sensor) {
-      message = `${zone.attributes.open_window_sensor} open`;
     } else if (mode === "auto" && nextChange) {
       const time = new Date(nextChange).toLocaleTimeString([], {
         hour: "2-digit",
