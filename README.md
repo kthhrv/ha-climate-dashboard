@@ -76,16 +76,22 @@ All configuration is done via the Dashboard UI.
 
 How does **Climate Dashboard** compare to other popular heating solutions?
 
-| Feature | **Climate Dashboard** (This Project) | **Versatile Thermostat** (VTherm) | **Better Thermostat** (BT) | **Scheduler Component** | **Schedy** | **Node-RED** (Ultimate Flow) |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Primary Goal** | **Complete OS** (UI + Logic) | **Logic Integration** | **Device Wrapper** | **Time Automation** | **Scripted Rules** | **Visual Coding** |
-| **Interface** | **Custom Sidebar App** | Standard Cards | Standard Cards | Lovelace Card | None (YAML) | Node-RED Dashboard |
-| **Scheduling** | **Native Timeline** (Gantt) | Presets Only | External Only | Visual Card | YAML / Python | Custom Flows |
-| **Setup Style** | **"Adoption" Workflow** | Integration Config | Integration Config | Add to Dashboard | Text Config | Drag & Drop |
-| **Hardware** | **Abstracts Everything** (creates new entities) | Wraps existing entities | Wraps TRVs | Controls existing | Controls existing | Controls existing |
-| **Cooling** | **Yes** (Dedicated + Dual Mode) | Yes | No | Generic | Generic | Manual Logic |
-| **Circuits** | **Yes** (Boiler/Pump logic) | Power Shedding | No | No | Manual Logic | Manual Logic |
-| **Ideal For** | **Users wanting a "Nest/Wiser" experience** | Power users needing specific algorithms | Fixing buggy TRVs | Simple schedules | Coders/Scripters | Visual Programmers |
+| Feature | **Climate Dashboard** | **VTherm** | **BT** | **TPro** | **Scheduler** | **AHC** | **Schedy** | **Node-RED** |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Type** | **Full OS** | Integration | Integration | **Card** | Card | Blueprint | AppDaemon | Add-on |
+| **Interface** | **Sidebar App** | Standard | Standard | **Custom Card** | Custom Card | Standard | None | Dashboard |
+| **Scheduling** | **Native Timeline** | Presets | External | **Timeline** | Visual | Simple | Script | Flows |
+| **Adoption** | **Yes (Inbox)** | No | No | **No** | No | No | No | No |
+| **Hardware** | **Native** | Wrapper | Wrapper | **Existing** | Existing | Existing | Existing | Existing |
+| **Circuits** | **Yes** | Partial | No | **No** | No | No | Manual | Manual |
+
+*   **VTherm**: [Versatile Thermostat](https://github.com/jmcollin78/versatile_thermostat)
+*   **BT**: [Better Thermostat](https://github.com/KartoffelToby/better_thermostat)
+*   **TPro**: [Thermostat Pro Timeline](https://github.com/qlerup/lovelace-thermostat-pro-timeline)
+*   **Scheduler**: [Scheduler Component](https://github.com/nielsfaber/scheduler-component)
+*   **AHC**: [Advanced Heating Control](https://community.home-assistant.io/t/advanced-heating-control/469873) (Blueprint)
+*   **Schedy**: [Schedy](https://hass-apps.readthedocs.io/en/stable/apps/schedy/) (AppDaemon)
+*   **Node-RED**: [Ultimate Thermostat Flow](https://community.home-assistant.io/t/the-ultimate-node-red-thermostat-for-home-assistant/144036)
 
 ## 📄 License
 MIT License
