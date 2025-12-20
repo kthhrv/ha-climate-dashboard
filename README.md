@@ -72,5 +72,20 @@ All configuration is done via the Dashboard UI.
 - **Window Sensors:** Add window sensors to a Zone to automatically turn off heating when the window opens.
 - **Away Mode:** Enable global overrides to instantly set all zones to energy-saving temperatures when you leave the house.
 
+## 🆚 Comparison
+
+How does **Climate Dashboard** compare to other popular heating solutions?
+
+| Feature | **Climate Dashboard** (This Project) | **Versatile Thermostat** (VTherm) | **Better Thermostat** (BT) | **Scheduler Component** | **Schedy** | **Node-RED** (Ultimate Flow) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Primary Goal** | **Complete OS** (UI + Logic) | **Logic Integration** | **Device Wrapper** | **Time Automation** | **Scripted Rules** | **Visual Coding** |
+| **Interface** | **Custom Sidebar App** | Standard Cards | Standard Cards | Lovelace Card | None (YAML) | Node-RED Dashboard |
+| **Scheduling** | **Native Timeline** (Gantt) | Presets Only | External Only | Visual Card | YAML / Python | Custom Flows |
+| **Setup Style** | **"Adoption" Workflow** | Integration Config | Integration Config | Add to Dashboard | Text Config | Drag & Drop |
+| **Hardware** | **Abstracts Everything** (creates new entities) | Wraps existing entities | Wraps TRVs | Controls existing | Controls existing | Controls existing |
+| **Cooling** | **Yes** (Dedicated + Dual Mode) | Yes | No | Generic | Generic | Manual Logic |
+| **Circuits** | **Yes** (Boiler/Pump logic) | Power Shedding | No | No | Manual Logic | Manual Logic |
+| **Ideal For** | **Users wanting a "Nest/Wiser" experience** | Power users needing specific algorithms | Fixing buggy TRVs | Simple schedules | Coders/Scripters | Visual Programmers |
+
 ## 📄 License
 MIT License
