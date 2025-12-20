@@ -4,7 +4,8 @@
 
 Climate Dashboard is a custom integration and sidebar panel that acts as an "Operating System" for your home's heating and cooling. It replaces the fragmented experience of managing individual thermostat cards with a unified, timeline-based management interface.
 
-![Dashboard Preview](https://github.com/user-attachments/assets/placeholder-image)
+<img width="900" height="989" alt="Dashboard Preview" src="https://github.com/user-attachments/assets/68a2d9fd-6a89-40fe-a1e4-070fec80d01b" />
+
 
 ## 🌟 Why Climate Dashboard?
 
