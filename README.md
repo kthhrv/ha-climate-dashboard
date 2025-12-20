@@ -72,26 +72,25 @@ All configuration is done via the Dashboard UI.
 - **Window Sensors:** Add window sensors to a Zone to automatically turn off heating when the window opens.
 - **Away Mode:** Enable global overrides to instantly set all zones to energy-saving temperatures when you leave the house.
 
-## 🆚 Comparison
+## 🆚 Comparison with Other Solutions
 
-How does **Climate Dashboard** compare to other popular heating solutions?
+Home Assistant has a rich ecosystem of climate tools. Here is how **Climate Dashboard** fits in:
 
-| Feature | **Climate Dashboard** | **VTherm** | **BT** | **TPro** | **Scheduler** | **AHC** | **Schedy** | **Node-RED** |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Type** | **Full OS** | Integration | Integration | **Card** | Card | Blueprint | AppDaemon | Add-on |
-| **Interface** | **Sidebar App** | Standard | Standard | **Custom Card** | Custom Card | Standard | None | Dashboard |
-| **Scheduling** | **Native Timeline** | Presets | External | **Timeline** | Visual | Simple | Script | Flows |
-| **Adoption** | **Yes (Inbox)** | No | No | **No** | No | No | No | No |
-| **Hardware** | **Native** | Wrapper | Wrapper | **Existing** | Existing | Existing | Existing | Existing |
-| **Circuits** | **Yes** | Partial | No | **No** | No | No | Manual | Manual |
+*   **vs. Versatile Thermostat / Better Thermostat:**
+    These are powerful *Integrations* that excel at the "Physics" of heating (PID controllers, TPI algorithms, TRV calibration). They are perfect for users who want to fine-tune the engineering of a specific room.
+    **Climate Dashboard** focuses on the **Management Layer**. We abstract the physics into "Smart Defaults" and focus on organizing your whole house, schedules, and boilers in one unified interface.
 
-*   **VTherm**: [Versatile Thermostat](https://github.com/jmcollin78/versatile_thermostat)
-*   **BT**: [Better Thermostat](https://github.com/KartoffelToby/better_thermostat)
-*   **TPro**: [Thermostat Pro Timeline](https://github.com/qlerup/lovelace-thermostat-pro-timeline)
-*   **Scheduler**: [Scheduler Component](https://github.com/nielsfaber/scheduler-component)
-*   **AHC**: [Advanced Heating Control](https://community.home-assistant.io/t/advanced-heating-control/469873) (Blueprint)
-*   **Schedy**: [Schedy](https://hass-apps.readthedocs.io/en/stable/apps/schedy/) (AppDaemon)
-*   **Node-RED**: [Ultimate Thermostat Flow](https://community.home-assistant.io/t/the-ultimate-node-red-thermostat-for-home-assistant/144036)
+*   **vs. Scheduler Component / Schedy:**
+    These are *Utilities* that trigger changes at specific times. They are great for general automation.
+    **Climate Dashboard** creates a **Native Thermostat** experience. Our scheduler is not just a timer; it's deeply integrated with the climate logic, allowing for features like "Smart Recovery" (pre-heating) and visual drag-and-drop planning that feels like a commercial product (e.g., Nest, Wiser).
+
+*   **vs. Thermostat Cards (e.g., Thermostat Pro):**
+    These are *UI Layers* that control existing entities. They require you to set up the logic elsewhere.
+    **Climate Dashboard** is a **Full System**. It provides the UI *and* the backend logic, creating its own entities so you don't have to manage the underlying wiring.
+
+**Summary:**
+If you want to build your own custom stack using separate tools for logic, UI, and scheduling, the existing ecosystem is fantastic.
+**Climate Dashboard** is for users who want a cohesive, "Apple-like" experience where the UI, Logic, and Hardware are vertically integrated into a single "Operating System" for their home's climate.
 
 ## 📄 License
 MIT License
