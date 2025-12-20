@@ -16,14 +16,26 @@ Climate Dashboard is a custom integration and sidebar panel that acts as an "Ope
 ## ✨ Key Features
 
 ### 📅 Timeline Scheduler
-Visualize your heating schedule like a calendar. See exactly when your home will warm up or cool down.
+Visualize your heating and cooling schedule like a calendar. See exactly when your home will warm up or cool down.
 - **Smart Transitions:** The dashboard calculates the perfect time to start heating to hit your target by the scheduled time.
+- **Dual-Mode Blocks:** Schedule both a Heat and Cool target for the same time block, and the system will automatically maintain the comfort zone.
+
+### ❄️ Cooling & Dual-Mode
+Full support for Air Conditioning and Heat Pumps.
+- **Dedicated Coolers:** Assign AC units or fans as "Coolers" for a zone.
+- **Auto-Deadband Logic:** In `AUTO` mode, the zone maintains a temperature range (e.g., 20°C - 24°C), switching between heating and cooling as needed.
+- **Away Cool:** Protect your home from overheating while you're away with a global "Away Cool" override.
+
+### 🔗 Heating Circuits (Actuator Groups)
+Manage shared hardware like boilers, heat pumps, or manifold pumps.
+- **Demand-Based Control:** Create a "Circuit" that groups multiple Zones. The shared boiler only turns on if at least one zone actually needs heat.
+- **Efficiency:** Prevents "short cycling" and ensures the heat source is only active when there is real demand.
 
 ### 🏠 Zone Management (Adoption)
 Stop dealing with entity IDs.
 - **Scan & Adopt:** The dashboard finds your unmanaged devices.
 - **Smart Zones:** Group a TRV, a Window Sensor, and a Room Sensor into a single logical "Zone".
-- **Safety First:** If a sensor goes offline, the Zone automatically enters **Safety Mode**, setting trvs to a safe 5°C or turning off switches to prevent overheating.
+- **Safety First:** If a sensor goes offline, the Zone automatically enters **Safety Mode**, setting TRVs to a safe 5°C or turning off switches to prevent overheating.
 
 ### 🛡️ Robust Failsafes
 Your heating is critical. The dashboard treats it that way.
@@ -57,7 +69,7 @@ All configuration is done via the Dashboard UI.
 
 **Tips:**
 - **Window Sensors:** Add window sensors to a Zone to automatically turn off heating when the window opens.
-- **Away Mode:** (Coming Soon) Global overrides for when you leave the house.
+- **Away Mode:** Enable global overrides to instantly set all zones to energy-saving temperatures when you leave the house.
 
 ## 📄 License
 MIT License
