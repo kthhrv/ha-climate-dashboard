@@ -84,20 +84,26 @@ export class ScheduleEditor extends LitElement {
       box-sizing: border-box;
     }
     .days-selector {
-      display: flex;
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
       gap: 4px;
-      flex-wrap: wrap;
+    }
+    @media (max-width: 600px) {
+      .days-selector {
+        grid-template-columns: repeat(4, 1fr);
+      }
     }
     .day-btn {
-      padding: 6px 10px;
+      padding: 6px 4px;
       border: 1px solid var(--divider-color);
       border-radius: 4px;
       cursor: pointer;
       font-size: 0.8em;
       background: transparent;
-      flex: 1;
-      min-width: 40px;
       text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .day-btn.active {
       background: var(--primary-color, #03a9f4);
