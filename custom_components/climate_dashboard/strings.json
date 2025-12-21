@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Setup Climate Dashboard",
+        "description": "Click Submit to setup the Climate Dashboard."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Only a single configuration of Climate Dashboard is allowed."
+    }
+  }
+}

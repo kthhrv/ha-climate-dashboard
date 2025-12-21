@@ -127,6 +127,64 @@ export class ClimateDashboard extends LitElement {
 
   // ... (omitted) ...
 
+  public connectedCallback() {
+    super.connectedCallback();
+    document.addEventListener("visibilitychange", this._handleVisibilityChange);
+  }
+
+  public disconnectedCallback() {
+    super.disconnectedCallback();
+    // NOTE: We intentionally DO NOT remove the visibility listener here.
+    // If the component is disconnected while the tab is hidden, we need this listener
+    // to fire when the tab becomes visible again to detect the "zombie" state
+    // and force a reload.
+  }
+
+  private _handleVisibilityChange = () => {
+    // Only proceed if the tab is visible
+    if (document.visibilityState === "visible") {
+      const isDashboardActive =
+        window.location.pathname.includes("climate-dashboard");
+
+      if (!this.isConnected && isDashboardActive) {
+        console.warn(
+          "[ClimateDashboard] Zombie state detected (Tab visible but component detached). Forcing reload.",
+        );
+        window.location.reload();
+        return;
+      }
+
+      // Normal recovery: If connected, force a re-render
+      if (this.isConnected) {
+        this.requestUpdate();
+
+        // Force update of the child view
+        const activeView = this.shadowRoot?.querySelector(
+          this._view === "zones"
+            ? "zones-view"
+            : this._view === "timeline"
+              ? "timeline-view"
+              : this._view === "setup"
+                ? "setup-view"
+                : this._view === "editor"
+                  ? "zone-editor"
+                  : this._view === "schedule"
+                    ? "schedule-editor"
+                    : "unknown",
+        ) as LitElement;
+        if (activeView) {
+          activeView.requestUpdate();
+        }
+      }
+    }
+  };
+
+  protected updated(
+    changedProps: Map<string | number | symbol, unknown>,
+  ): void {
+    super.updated(changedProps);
+  }
+
   protected firstUpdated(): void {
     this._scanForBadge();
     this._fetchGlobalSettings();
