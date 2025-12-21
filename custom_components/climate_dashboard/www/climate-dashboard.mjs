@@ -2985,12 +2985,16 @@ const Ce = class Ce extends A {
       if (document.visibilityState === "visible") {
         const t = window.location.pathname.includes("climate-dashboard");
         if (!this.isConnected && t) {
-          console.warn("[ClimateDashboard] Zombie state detected (Tab visible but component detached). Forcing reload."), window.location.reload();
+          console.warn(
+            "[ClimateDashboard] Zombie state detected (Tab visible but component detached). Forcing reload."
+          ), window.location.reload();
           return;
         }
         if (this.isConnected) {
           this.requestUpdate();
-          const i = (e = this.shadowRoot) == null ? void 0 : e.querySelector(this._view === "zones" ? "zones-view" : this._view === "timeline" ? "timeline-view" : this._view === "setup" ? "setup-view" : this._view === "editor" ? "zone-editor" : this._view === "schedule" ? "schedule-editor" : "unknown");
+          const i = (e = this.shadowRoot) == null ? void 0 : e.querySelector(
+            this._view === "zones" ? "zones-view" : this._view === "timeline" ? "timeline-view" : this._view === "setup" ? "setup-view" : this._view === "editor" ? "zone-editor" : this._view === "schedule" ? "schedule-editor" : "unknown"
+          );
           i && i.requestUpdate();
         }
       }

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -14,11 +14,10 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_platform(
+async def async_setup_entry(
     hass: HomeAssistant,
-    config: Any,
+    entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
-    discovery_info: Any = None,
 ) -> None:
     """Set up the Climate Dashboard platform."""
     if DOMAIN not in hass.data:
