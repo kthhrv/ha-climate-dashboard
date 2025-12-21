@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13, <3.14"
 dependencies = [
     "homeassistant",
+    "paho-mqtt>=2.1.0",
 ]
 
 [dependency-groups]

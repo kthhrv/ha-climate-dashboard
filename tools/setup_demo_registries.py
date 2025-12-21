@@ -8,6 +8,7 @@ CONFIG_DIR = "/home/keith/ws/ha-climate-dashboard/config"
 STORAGE_DIR = os.path.join(CONFIG_DIR, ".storage")
 
 AREA_REGISTRY_PATH = os.path.join(STORAGE_DIR, "core.area_registry")
+DEVICE_REGISTRY_PATH = os.path.join(STORAGE_DIR, "core.device_registry")  # Added
 ENTITY_REGISTRY_PATH = os.path.join(STORAGE_DIR, "core.entity_registry")
 FLOOR_REGISTRY_PATH = os.path.join(STORAGE_DIR, "core.floor_registry")
 CLIMATE_DASHBOARD_PATH = os.path.join(STORAGE_DIR, "climate_dashboard")
@@ -30,6 +31,7 @@ AREAS = [
     {"name": "Bedroom 3", "id": "bedroom_3", "floor_id": "first_floor"},
     {"name": "Office", "id": "office", "floor_id": "ground_floor"},
     {"name": "Bathroom", "id": "bathroom", "floor_id": "first_floor"},
+    {"name": "Guest Room", "id": "guest_room", "floor_id": "ground_floor"},  # Added Area
 ]
 
 # Define Entity links (unique_id -> area_id)
@@ -43,6 +45,7 @@ ENTITY_AREA_MAP = {
     "climate_office": "office",
     "climate_office_ac": "office",
     "climate_bathroom": "bathroom",
+    # "climate_guest_room_trv": None, # Removed for MQTT migration
     # Binary Sensors (Templates)
     "binary_sensor_kitchen_door": "kitchen",
     "binary_sensor_master_bedroom_window": "master_bedroom",
@@ -65,6 +68,7 @@ INPUT_BOOLEANS: dict[str, dict[str, str]] = {
     "heater_bedroom_3": {"name": "Bedroom 3 Heater", "icon": "mdi:radiator", "area_id": "bedroom_3"},
     "heater_office": {"name": "Office Heater", "icon": "mdi:radiator", "area_id": "office"},
     "heater_bathroom": {"name": "Bathroom Heater", "icon": "mdi:radiator", "area_id": "bathroom"},
+    "heater_guest_room": {"name": "Guest Room Heater", "icon": "mdi:radiator", "area_id": "guest_room"},  # Added Helper
     "ac_office": {"name": "Office AC", "icon": "mdi:air-conditioner", "area_id": "office"},
     # We create input_booleans for these, but we map the BINARY_SENSOR wrapper to the area below
     "door_kitchen": {
@@ -155,6 +159,16 @@ INPUT_NUMBERS: dict[str, dict[str, Any]] = {
         "icon": "mdi:thermometer",
         "initial": 19.0,
         "area_id": "bathroom",
+    },
+    "temp_guest_room": {
+        "name": "Guest Room Temp",
+        "min": 10,
+        "max": 40,
+        "step": 0.1,
+        "unit": "°C",
+        "icon": "mdi:thermometer",
+        "initial": 19.0,
+        "area_id": "guest_room",
     },
     # Standalone Sensors (Input Numbers acting as the hardware)
     "temp_living_room_standalone": {
@@ -466,6 +480,7 @@ def setup_entities(config_entry_map: dict[str, str] | None = None) -> None:
     current_entities = data["data"]["entities"]
 
     for logical_unique_id, area_id in ENTITY_AREA_MAP.items():
+        domain = None
         # Resolve Config Entry ID if available
         entry_id = config_entry_map.get(logical_unique_id)
 
@@ -502,7 +517,7 @@ def setup_entities(config_entry_map: dict[str, str] | None = None) -> None:
                 entity_id = "sensor." + logical_unique_id[7:]
                 platform = "template"
 
-            if len(logical_unique_id) == 36:  # UUID length check for Helpers
+            if len(logical_unique_id) == 36:
                 # Guess Entity ID from INPUT_BOOLEANS / NUMBERS reverse lookup?
                 # Or just iterate our dicts to find the matching UUID
 
@@ -552,6 +567,15 @@ def setup_entities(config_entry_map: dict[str, str] | None = None) -> None:
                     entity_id = f"{domain}.{sanitized_name}"
                     platform = domain  # sort of
 
+            # Determine Device ID if this is our Guest Room TRV
+            device_id = None
+            if logical_unique_id == "climate_guest_room_trv":
+                device_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, "device_guest_room_trv"))
+                # Also link config entry
+                dash_entry = config_entry_map.get("climate_dashboard_main")
+                if dash_entry:
+                    entry_id = dash_entry
+
             # Common Registry creation
             new_ent: dict[str, Any] = {
                 "aliases": [],
@@ -563,7 +587,7 @@ def setup_entities(config_entry_map: dict[str, str] | None = None) -> None:
                 "created_at": default_time,
                 "modified_at": default_time,
                 "device_class": None,
-                "device_id": None,
+                "device_id": device_id,
                 "disabled_by": None,
                 "entity_category": None,
                 "entity_id": entity_id,
@@ -583,10 +607,7 @@ def setup_entities(config_entry_map: dict[str, str] | None = None) -> None:
                 "unique_id": unique_id,
                 "unit_of_measurement": None,
             }
-            if len(unique_id) == 36:
-                # Helpers don't have "platform", they are domain-based or helper-based?
-                # Actually registry uses "domain" for platform sometimes?
-                # entry.platform is the integration. For input_boolean it IS input_boolean.
+            if len(unique_id) == 36 and domain:
                 new_ent["platform"] = domain
 
             current_entities.append(new_ent)
@@ -604,7 +625,9 @@ def wipe_dashboard_storage() -> None:
         CLIMATE_DASHBOARD_PATH,
         RESTORE_STATE_PATH,
         FLOOR_REGISTRY_PATH,
+        FLOOR_REGISTRY_PATH,
         ENTITY_REGISTRY_PATH,
+        DEVICE_REGISTRY_PATH,  # Added
         AREA_REGISTRY_PATH,
         INPUT_BOOLEAN_PATH,
         INPUT_NUMBER_PATH,
@@ -709,6 +732,38 @@ def seed_restore_state() -> None:
     print(f"Seeded {RESTORE_STATE_PATH} with default values (19.0)")
 
 
+def inject_dashboard_config_entry(entries: list[dict[str, Any]]) -> str:
+    """Ensure a climate_dashboard config entry exists and return its ID."""
+    # check existing
+    for e in entries:
+        if e["domain"] == "climate_dashboard":
+            return cast(str, e["entry_id"])
+
+    # Create new
+    entry_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, "climate_dashboard_main"))
+    new_entry = {
+        "entry_id": entry_id,
+        "version": 1,
+        "minor_version": 1,
+        "domain": "climate_dashboard",
+        "title": "Climate Dashboard",
+        "data": {},
+        "options": {},
+        "source": "user",
+        "pref_disable_new_entities": False,
+        "pref_disable_polling": False,
+        "unique_id": entry_id,
+        "disabled_by": None,
+        "created_at": "2023-01-01T00:00:00+00:00",
+        "modified_at": "2023-01-01T00:00:00+00:00",
+        "discovery_keys": {},
+        "subentries": [],
+    }
+    entries.append(new_entry)
+    print("Created Config Entry: Climate Dashboard (Device Owner)")
+    return entry_id
+
+
 def setup_config_entries() -> dict[str, str]:
     """Inject generic_thermostat and template config entries."""
     if not os.path.exists(CONFIG_ENTRIES_PATH):
@@ -718,7 +773,11 @@ def setup_config_entries() -> dict[str, str]:
 
     current_entries = data["data"]["entries"]
 
+    # Inject Dashboard Entry for Device Ownership
+    dashboard_entry_id = inject_dashboard_config_entry(current_entries)
+
     id_map: dict[str, str] = {}
+    id_map["climate_dashboard_main"] = dashboard_entry_id
 
     # --- Generic Thermostats ---
     # Purge ALL generic_thermostat entries to ensure clean slate
@@ -788,20 +847,22 @@ def setup_config_entries() -> dict[str, str]:
                 "state": tmpl["state"],
                 "unit_of_measurement": tmpl["unit_of_measurement"],
                 "device_class": tmpl["device_class"],
+                # "state_class": None, # Removed to avoid validation error
                 "template_type": "sensor",
             }
         elif tmpl["type"] == "switch":
             config_data = {
                 "name": tmpl["name"],
-                "turn_on": tmpl["turn_on"],
-                "turn_off": tmpl["turn_off"],
+                "state": tmpl["state"],
+                "turn_on": tmpl["turn_on"],  # Correct key is turn_on
+                "turn_off": tmpl["turn_off"],  # Correct key is turn_off
                 "template_type": "switch",
             }
             if tmpl.get("device_class"):
                 config_data["device_class"] = tmpl["device_class"]
             # Only add value_template if provided (non-optimistic)
-            if tmpl.get("state"):
-                config_data["value_template"] = tmpl["state"]
+            # if tmpl.get("state"): # This is now handled above
+            #     config_data["value_template"] = tmpl["state"]
 
         new_entry = {
             "entry_id": entry_id,
@@ -826,9 +887,51 @@ def setup_config_entries() -> dict[str, str]:
         id_map[cast(str, tmpl["unique_id"])] = entry_id
         print(f"Created Config Entry: {tmpl['name']} (Template: {tmpl['type']})")
 
+    # --- Inject MQTT Config Entry (Automated Setup) ---
+    # Purge existing MQTT entries to ensure clean slate
+    current_entries[:] = [e for e in current_entries if e["domain"] != "mqtt"]
+
+    mqtt_entry_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, "mqtt_main"))
+    mqtt_entry = {
+        "entry_id": mqtt_entry_id,
+        "version": 1,
+        "minor_version": 1,
+        "domain": "mqtt",
+        "title": "MQTT",
+        "data": {
+            "broker": "localhost",
+            "port": 1883,
+        },
+        "options": {},
+        "source": "user",
+        "pref_disable_new_entities": False,
+        "pref_disable_polling": False,
+        "unique_id": mqtt_entry_id,
+        "disabled_by": None,
+        "created_at": "2023-01-01T00:00:00+00:00",
+        "modified_at": "2023-01-01T00:00:00+00:00",
+        "discovery_keys": {},
+        "subentries": [],
+    }
+    current_entries.append(mqtt_entry)
+    print("Created Config Entry: MQTT (Localhost)")
+
+    # ==========================================
+    # Guest Room TRV is now handled via YAML + Manual Registry Linking
+    # to avoid Generic Thermostat stripping the device link.
+    # ==========================================
+
     save_json(CONFIG_ENTRIES_PATH, data)
 
     return id_map
+
+
+def setup_devices(config_entry_map: dict[str, str]) -> None:
+    """Create a fake device and link it to the Guest Room area."""
+    pass
+
+    # Note: Link Entity to Device is handled in setup_entities logic IF we implement it there.
+    # Currently setup_entities does NOT link device_id. We need to update setup_entities to handle this special case.
 
 
 def clean_configuration_yaml() -> None:
@@ -884,6 +987,7 @@ if __name__ == "__main__":
     setup_input_helpers()
     seed_restore_state()  # Seed history so they wake up at 19.0
     id_map = setup_config_entries()  # Inject Config Entries and get Map
+    setup_devices(id_map)  # Create Devices (Linked to Config Entries)
     setup_entities(id_map)  # Create Registry Entries with config_entry_id
     clean_configuration_yaml()  # Cleanup YAML
 
