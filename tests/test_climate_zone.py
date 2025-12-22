@@ -246,7 +246,7 @@ async def test_climate_actuator_heat(hass: HomeAssistant) -> None:
             found_mode = True
         elif sc.service == "set_temperature":
             assert sc.data["entity_id"] == CLIMATE_HEATER_ID
-            assert sc.data["temperature"] == 22.0
+            assert sc.data["temperature"] == 30  # Forced Max
             found_temp = True
 
     assert found_mode
@@ -307,7 +307,7 @@ async def test_cooling_logic(hass: HomeAssistant) -> None:
             found_mode = True
         elif sc.service == "set_temperature":
             assert sc.data["entity_id"] == CLIMATE_COOLER_ID
-            assert sc.data["temperature"] == 22.0
+            assert sc.data["temperature"] == 16  # Forced Min Cool
             found_temp = True
 
     assert found_mode
@@ -1066,8 +1066,8 @@ async def test_ecobee_range_mismatch(hass: HomeAssistant) -> None:
     # HEAT_COOL implies Range support if feature bit is set (which it is)
 
     assert has_range, "Code should send Range args for HEAT_COOL mode"
-    assert data["target_temp_low"] == 25.0
-    assert data["target_temp_high"] == 30.0  # 25 + 5 gap
+    assert data["target_temp_low"] == 30  # Forced Max
+    assert data["target_temp_high"] == 35.0  # 30 + 5 gap
 
 
 async def test_supported_features_dynamic(hass: HomeAssistant) -> None:

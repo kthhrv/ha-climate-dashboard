@@ -91,7 +91,7 @@ INPUT_BOOLEANS: dict[str, dict[str, str]] = {
 INPUT_NUMBERS: dict[str, dict[str, Any]] = {
     "temp_living_room": {
         "name": "Living Room Temp",
-        "min": 10,
+        "min": 0,
         "max": 40,
         "step": 0.1,
         "unit": "°C",
@@ -102,7 +102,7 @@ INPUT_NUMBERS: dict[str, dict[str, Any]] = {
     # ... (other entries implicitly typed)
     "temp_kitchen": {
         "name": "Kitchen Temp",
-        "min": 10,
+        "min": 0,
         "max": 40,
         "step": 0.1,
         "unit": "°C",
@@ -112,7 +112,7 @@ INPUT_NUMBERS: dict[str, dict[str, Any]] = {
     },
     "temp_master_bedroom": {
         "name": "Master Bedroom Temp",
-        "min": 10,
+        "min": 0,
         "max": 40,
         "step": 0.1,
         "unit": "°C",
@@ -122,7 +122,7 @@ INPUT_NUMBERS: dict[str, dict[str, Any]] = {
     },
     "temp_bedroom_2": {
         "name": "Bedroom 2 Temp",
-        "min": 10,
+        "min": 0,
         "max": 40,
         "step": 0.1,
         "unit": "°C",
@@ -132,7 +132,7 @@ INPUT_NUMBERS: dict[str, dict[str, Any]] = {
     },
     "temp_bedroom_3": {
         "name": "Bedroom 3 Temp",
-        "min": 10,
+        "min": 0,
         "max": 40,
         "step": 0.1,
         "unit": "°C",
@@ -142,7 +142,7 @@ INPUT_NUMBERS: dict[str, dict[str, Any]] = {
     },
     "temp_office": {
         "name": "Office Temp",
-        "min": 10,
+        "min": 0,
         "max": 40,
         "step": 0.1,
         "unit": "°C",
@@ -152,7 +152,7 @@ INPUT_NUMBERS: dict[str, dict[str, Any]] = {
     },
     "temp_bathroom": {
         "name": "Bathroom Temp",
-        "min": 10,
+        "min": 0,
         "max": 40,
         "step": 0.1,
         "unit": "°C",
@@ -162,7 +162,7 @@ INPUT_NUMBERS: dict[str, dict[str, Any]] = {
     },
     "temp_guest_room": {
         "name": "Guest Room Temp",
-        "min": 10,
+        "min": 0,
         "max": 40,
         "step": 0.1,
         "unit": "°C",
@@ -173,7 +173,7 @@ INPUT_NUMBERS: dict[str, dict[str, Any]] = {
     # Standalone Sensors (Input Numbers acting as the hardware)
     "temp_living_room_standalone": {
         "name": "Living Room Standalone Temp Source",
-        "min": 10,
+        "min": 0,
         "max": 40,
         "step": 0.1,
         "unit": "°C",
@@ -183,7 +183,7 @@ INPUT_NUMBERS: dict[str, dict[str, Any]] = {
     },
     "temp_bedroom_2_standalone": {
         "name": "Bedroom 2 Standalone Temp Source",
-        "min": 10,
+        "min": 0,
         "max": 40,
         "step": 0.1,
         "unit": "°C",
@@ -199,7 +199,7 @@ GENERIC_THERMOSTATS = [
         "unique_id": "trv_living_room",
         "heater": "input_boolean.living_room_heater",
         "target_sensor": "input_number.living_room_temp",
-        "min_temp": 10,
+        "min_temp": 5,
         "max_temp": 30,
         "ac_mode": False,
         "target_temp": 21,
@@ -209,7 +209,7 @@ GENERIC_THERMOSTATS = [
         "unique_id": "climate_kitchen",
         "heater": "input_boolean.kitchen_heater",
         "target_sensor": "input_number.kitchen_temp",
-        "min_temp": 10,
+        "min_temp": 5,
         "max_temp": 30,
         "ac_mode": False,
         "target_temp": 21,
@@ -219,7 +219,7 @@ GENERIC_THERMOSTATS = [
         "unique_id": "climate_master_bedroom",
         "heater": "input_boolean.master_bedroom_heater",
         "target_sensor": "input_number.master_bedroom_temp",
-        "min_temp": 10,
+        "min_temp": 5,
         "max_temp": 30,
         "ac_mode": False,
         "target_temp": 19,
@@ -229,7 +229,7 @@ GENERIC_THERMOSTATS = [
         "unique_id": "climate_bedroom_2",
         "heater": "input_boolean.bedroom_2_heater",
         "target_sensor": "input_number.bedroom_2_temp",
-        "min_temp": 10,
+        "min_temp": 5,
         "max_temp": 30,
         "ac_mode": False,
         "target_temp": 20,
@@ -239,7 +239,7 @@ GENERIC_THERMOSTATS = [
         "unique_id": "climate_bedroom_3",
         "heater": "input_boolean.bedroom_3_heater",
         "target_sensor": "input_number.bedroom_3_temp",
-        "min_temp": 10,
+        "min_temp": 5,
         "max_temp": 30,
         "ac_mode": False,
         "target_temp": 20,
@@ -249,7 +249,7 @@ GENERIC_THERMOSTATS = [
         "unique_id": "climate_office",
         "heater": "input_boolean.office_heater",
         "target_sensor": "input_number.office_temp",
-        "min_temp": 10,
+        "min_temp": 5,
         "max_temp": 30,
         "ac_mode": False,
         "target_temp": 21,
@@ -269,7 +269,7 @@ GENERIC_THERMOSTATS = [
         "unique_id": "climate_bathroom",
         "heater": "input_boolean.bathroom_heater",
         "target_sensor": "input_number.bathroom_temp",
-        "min_temp": 10,
+        "min_temp": 5,
         "max_temp": 30,
         "ac_mode": False,
         "target_temp": 22,

@@ -973,8 +973,6 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                 service_data: dict[str, Any] = {"entity_id": entity_id}
 
                 # Resolve Target Mode (Active)
-                # We want to know the active mode to send with set_temperature,
-                # even if we are Idle (enable=False) or forcing off.
                 valid_modes = state.attributes.get("hvac_modes", [])
                 target_mode = None
 
@@ -985,21 +983,46 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                 elif HVACMode.AUTO in valid_modes:
                     target_mode = HVACMode.AUTO
 
-                # Resolve Target Temp
-                target = self._attr_target_temperature
-                if target is None:
-                    target = self._attr_target_temperature_low
+                # --- TARGET TEMP LOGIC ---
+                # Check if this actuator IS the temperature sensor for the zone
+                # (or if we are just using its internal sensor implicitly)
+                is_internal_sensor = entity_id == self._temperature_sensor
+
+                target = None
+                low = None
+                high = None
+
+                if is_internal_sensor:
+                    # NORMAL LOGIC: Send the Zone's Target
+                    target = self._attr_target_temperature
+                    if target is None:
+                        # Maybe range?
+                        low = self._attr_target_temperature_low
+                        high = self._attr_target_temperature_high
+                        # If still None (e.g. single setpoint mode but target is None?), fallback to low?
+                        if low is None and self._attr_target_temperature_low is not None:
+                            target = self._attr_target_temperature_low  # Fallback
+                else:
+                    # EXTERNAL SENSOR LOGIC: Force Min/Max based on Demand
+                    if force_off:
+                        # Force Minimum (Frost Protection)
+                        target = 7  # todo: constant
+                    elif enable:
+                        # Demand -> Force Maximum (Open Valve)
+                        target = 30  # todo: constant
+                    else:
+                        # No Demand -> Force Minimum (Close Valve)
+                        target = 7  # todo: constant
 
                 if features & ClimateEntityFeature.TARGET_TEMPERATURE and target is not None:
                     service_data["temperature"] = target
                 elif features & ClimateEntityFeature.TARGET_TEMPERATURE_RANGE:
-                    low = self._attr_target_temperature_low
-                    high = self._attr_target_temperature_high
-
                     if low is not None and high is not None:
                         service_data["target_temp_low"] = low
                         service_data["target_temp_high"] = high
                     elif target is not None:
+                        # Determine range for ACTUATOR based on single target
+                        # For Heating: low=target, high=target+gap
                         service_data["target_temp_low"] = target
                         service_data["target_temp_high"] = target + 5
 
@@ -1051,17 +1074,36 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                     elif HVACMode.AUTO in valid_modes:
                         target_mode = HVACMode.AUTO
 
-                # Resolve Target for Cooling (HIGH setpoint)
-                target = self._attr_target_temperature
-                if target is None:
-                    target = self._attr_target_temperature_high
+                # --- TARGET TEMP LOGIC ---
+                is_internal_sensor = entity_id == self._temperature_sensor
+
+                target = None
+                low = None
+                high = None
+
+                if is_internal_sensor:
+                    target = self._attr_target_temperature
+                    if target is None:
+                        # Range logic
+                        low = self._attr_target_temperature_low
+                        high = self._attr_target_temperature_high
+                        if target is None and high is not None:
+                            target = high
+                else:
+                    # EXTERNAL SENSOR LOGIC
+                    if force_off:
+                        # Off -> Max Temp (Stop Cooling) or simply OFF mode
+                        target = 30
+                    elif enable:
+                        # Demand -> Min Temp (Force Cool)
+                        target = 16
+                    else:
+                        # No Demand -> Max Temp (Stop Cooling)
+                        target = 30
 
                 if features & ClimateEntityFeature.TARGET_TEMPERATURE and target is not None:
                     service_data["temperature"] = target
                 elif features & ClimateEntityFeature.TARGET_TEMPERATURE_RANGE:
-                    low = self._attr_target_temperature_low
-                    high = self._attr_target_temperature_high
-
                     if low is not None and high is not None:
                         service_data["target_temp_low"] = low
                         service_data["target_temp_high"] = high

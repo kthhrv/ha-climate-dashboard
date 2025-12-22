@@ -2422,8 +2422,6 @@ const ke = class ke extends k {
           </div>
         </div>
 
-
-
         <div class="actions">
           <button
             class="delete"
