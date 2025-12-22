@@ -56,6 +56,7 @@ export class SetupView extends LitElement {
   // Dialog State
   @state() private _dialogOpen = false;
   @state() private _selectedEntity: string | null = null;
+  @state() private _filterText = "";
 
   static styles = css`
     :host {
@@ -145,6 +146,14 @@ export class SetupView extends LitElement {
       padding: 8px;
       border-radius: 4px;
       border: 1px solid var(--divider-color);
+    }
+    .search-input {
+      width: 100%;
+      margin-bottom: 12px;
+      padding: 10px;
+      border: 1px solid var(--divider-color);
+      border-radius: 4px;
+      box-sizing: border-box;
     }
   `;
 
@@ -408,6 +417,14 @@ export class SetupView extends LitElement {
 
       <div class="card">
         <h2>Unmanaged Devices</h2>
+        <input
+          type="text"
+          class="search-input"
+          placeholder="Filter devices by name, id or area..."
+          .value=${this._filterText}
+          @input=${(e: Event) =>
+            (this._filterText = (e.target as HTMLInputElement).value)}
+        />
         ${this._loading ? html`<p>Scanning...</p>` : this._renderList()}
       </div>
 
@@ -425,9 +442,16 @@ export class SetupView extends LitElement {
     // Only show "primary" candidates in the list (heaters/coolers)
     // Hide pure sensors/windows from the main "Adopt" list to avoid clutter?
     // Or just show everything? Let's show actuators as primary.
-    const candidates = this._devices.filter((d) =>
-      ["climate", "switch"].includes(d.domain),
-    );
+    const lowerFilter = this._filterText.toLowerCase();
+    const candidates = this._devices.filter((d) => {
+      const basicMatch = ["climate", "switch"].includes(d.domain);
+      const textMatch =
+        !this._filterText ||
+        d.name.toLowerCase().includes(lowerFilter) ||
+        d.entity_id.toLowerCase().includes(lowerFilter) ||
+        (d.area_name && d.area_name.toLowerCase().includes(lowerFilter));
+      return basicMatch && textMatch;
+    });
 
     if (candidates.length === 0) {
       return html`<div class="empty">No unmanaged actuators found.</div>`;
