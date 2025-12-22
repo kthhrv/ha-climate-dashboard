@@ -176,13 +176,6 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             schedule: New schedule list (optional).
         """
         self._attr_name = name
-        self.entity_id = f"climate.zone_{slugify(name)}"
-
-        self._temperature_sensor = temperature_sensor
-        self._heaters = heaters
-        self._coolers = coolers
-        self._window_sensors = window_sensors
-        self._schedule = schedule or []
 
         # Handle Entity ID Change (Rename)
         new_entity_id = f"climate.zone_{slugify(name)}"
@@ -205,6 +198,12 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
             # 2. Update Self
             self.entity_id = new_entity_id
+
+        self._temperature_sensor = temperature_sensor
+        self._heaters = heaters
+        self._coolers = coolers
+        self._window_sensors = window_sensors
+        self._schedule = schedule or []
 
         # Re-apply schedule if auto
         if self._attr_hvac_mode == HVACMode.AUTO:
