@@ -24,7 +24,12 @@ async def setup_integration(hass: HomeAssistant) -> None:
     hass.services.async_register("climate", "set_temperature", async_mock_service)
     hass.services.async_register("climate", "set_hvac_mode", async_mock_service)
 
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    entry = MockConfigEntry(domain="climate_dashboard")
+    entry.add_to_hass(hass)
     assert await async_setup_component(hass, "climate_dashboard", {})
+    await hass.async_block_till_done()
 
 
 async def test_scan_finds_entities(hass: HomeAssistant, hass_ws_client: Any) -> None:

@@ -26,7 +26,6 @@ export class ZoneEditor extends LitElement {
   @state() private _heaters: Set<string> = new Set();
   @state() private _coolers: Set<string> = new Set();
   @state() private _windowSensors: Set<string> = new Set();
-  @state() private _restoreDelayMinutes = 0;
 
   // Filter State
   @state() private _filterByArea = true;
@@ -228,15 +227,11 @@ export class ZoneEditor extends LitElement {
     const windows = attrs.window_sensors || [];
     this._windowSensors = new Set(windows);
 
-    // Restore Delay
-    this._restoreDelayMinutes = attrs.restore_delay_minutes || 0;
-
     console.log("Loaded Config:", {
       name: this._name,
       temp: this._temperatureSensor,
       heaters: this._heaters,
       coolers: this._coolers,
-      restore: this._restoreDelayMinutes,
     });
 
     // 4. Load Circuits
@@ -292,7 +287,6 @@ export class ZoneEditor extends LitElement {
         heaters: Array.from(this._heaters),
         coolers: Array.from(this._coolers),
         window_sensors: Array.from(this._windowSensors),
-        restore_delay_minutes: Number(this._restoreDelayMinutes),
         circuit_ids: this._selectedCircuitId ? [this._selectedCircuitId] : [],
       });
       this._goBack();
@@ -468,22 +462,6 @@ export class ZoneEditor extends LitElement {
               `,
             )}
           </div>
-        </div>
-
-        <div class="field">
-          <label>Auto-Restore Delay (Minutes)</label>
-          <div
-            style="font-size: 0.8em; color: var(--secondary-text-color); margin-bottom: 4px;"
-          >
-            Automatically revert to Auto/Schedule after this many minutes. Set
-            to 0 to disable.
-          </div>
-          <input
-            type="number"
-            min="0"
-            .value=${this._restoreDelayMinutes}
-            @input=${(e: any) => (this._restoreDelayMinutes = e.target.value)}
-          />
         </div>
 
         <div class="actions">

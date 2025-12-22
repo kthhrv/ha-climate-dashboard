@@ -69,7 +69,7 @@ async def test_initial_state(mock_climate_zone: ClimateZone, hass: HomeAssistant
     # Add to hass to trigger async_added_to_hass (if we were doing full entity setup)
     # For unit test of the class logic, we can just check attributes
     assert mock_climate_zone.name == ZONE_NAME
-    assert mock_climate_zone.hvac_mode == HVACMode.OFF
+    assert mock_climate_zone.hvac_mode == HVACMode.AUTO
     assert mock_climate_zone.target_temperature is None  # Default is now None until mode set
 
 
@@ -631,7 +631,7 @@ async def test_last_mile_coverage(hass: HomeAssistant) -> None:
     await zone.async_added_to_hass()
     hass.states.async_set(SENSOR_ID, "20.0")
     await zone.async_added_to_hass()
-    assert zone.hvac_mode == HVACMode.OFF
+    assert zone.hvac_mode == HVACMode.AUTO
 
     # 2. Async Set Temp missing arg (Line 194)
     await zone.async_set_temperature()  # No args
@@ -706,28 +706,12 @@ async def test_next_schedule_and_override(hass: HomeAssistant) -> None:
         },
     ]
 
-    # 1. Test Manual Override End
-    # Set restore delay
-    zone._restore_delay_minutes = 60
+    # 1. Test Manual Override End (Removed - Feature Deprecated)
+    # zone._restore_delay_minutes = 60
+    # ... logic removed ...
 
     # Mock Time: Monday 10:00
     mock_now = datetime(2023, 1, 2, 10, 0, 0, tzinfo=dt_util.UTC)  # Jan 2 2023 is Monday
-
-    with patch("custom_components.climate_dashboard.climate_zone.dt_util.now", return_value=mock_now):
-        # Set Manual Heat
-        await zone.async_set_hvac_mode(HVACMode.HEAT)
-
-        # Check override end
-        expected_end = mock_now + timedelta(minutes=60)
-        # assert zone.extra_state_attributes["manual_override_end"] == expected_end.isoformat()
-        assert zone.extra_state_attributes["override_end"] == expected_end.isoformat()
-        assert zone.extra_state_attributes["override_type"] == OverrideType.DURATION
-
-        # Restore to Auto clears it
-        await zone.async_set_hvac_mode(HVACMode.AUTO)
-        # assert zone.extra_state_attributes["manual_override_end"] is None
-        assert zone.extra_state_attributes["override_end"] is None
-
     # 2. Test Next Change (Same Day Loop)
     # Time: Monday 10:00. Next block is 18:00
     with patch("custom_components.climate_dashboard.climate_zone.dt_util.now", return_value=mock_now):
@@ -1103,7 +1087,7 @@ async def test_supported_features_dynamic(hass: HomeAssistant) -> None:
         coolers=["climate.ac"],
         window_sensors=[],
     )
-    assert zone_dual.hvac_mode == HVACMode.OFF  # Default is now OFF
+    assert zone_dual.hvac_mode == HVACMode.AUTO  # Default is now AUTO
     assert zone_dual.preset_mode is None
     # Assert features: TARGET_TEMP_RANGE (2) | TARGET_TEMP (1) | TURN_OFF (128) | TURN_ON (256)
     assert (

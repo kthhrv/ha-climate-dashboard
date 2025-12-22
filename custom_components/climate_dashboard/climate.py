@@ -66,7 +66,6 @@ async def async_setup_entry(
                         coolers=zone_config["coolers"],
                         window_sensors=zone_config["window_sensors"],
                         schedule=zone_config.get("schedule"),
-                        restore_delay_minutes=zone_config.get("restore_delay_minutes", 0),
                     )
                 )
             else:
@@ -81,7 +80,6 @@ async def async_setup_entry(
                     coolers=zone_config["coolers"],
                     window_sensors=zone_config["window_sensors"],
                     schedule=zone_config.get("schedule"),
-                    restore_delay_minutes=zone_config.get("restore_delay_minutes", 0),
                 )
                 loaded_entities[uid] = entity
                 new_entities.append(entity)

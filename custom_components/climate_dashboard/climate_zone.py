@@ -75,7 +75,6 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         coolers: list[str],
         window_sensors: list[str],
         schedule: list[ScheduleBlock] | None = None,
-        restore_delay_minutes: int = 0,
     ) -> None:
         """Initialize the climate zone.
 
@@ -89,7 +88,6 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             coolers: List of cooler entity IDs (climate).
             window_sensors: List of window binary_sensor entity IDs.
             schedule: List of schedule blocks.
-            restore_delay_minutes: Minutes to wait before restoring AUTO mode.
         """
         self.hass = hass
         self._storage = storage
@@ -129,7 +127,6 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self._coolers = coolers
         self._window_sensors = window_sensors
         self._schedule = schedule or []
-        self._restore_delay_minutes = restore_delay_minutes
         # self._restore_timer: Callable[[], None] | None = None
         self._attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT, HVACMode.AUTO]
         if self._coolers:
@@ -167,7 +164,6 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         coolers: list[str],
         window_sensors: list[str],
         schedule: list[ScheduleBlock] | None = None,
-        restore_delay_minutes: int | None = None,
     ) -> None:
         """Update configuration dynamically.
 
@@ -178,7 +174,6 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             coolers: New list of coolers.
             window_sensors: New list of window sensors.
             schedule: New schedule list (optional).
-            restore_delay_minutes: New restore delay (optional).
         """
         self._attr_name = name
         self.entity_id = f"climate.zone_{slugify(name)}"
@@ -188,9 +183,6 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self._coolers = coolers
         self._window_sensors = window_sensors
         self._schedule = schedule or []
-
-        if restore_delay_minutes is not None:
-            self._restore_delay_minutes = restore_delay_minutes
 
         # Handle Entity ID Change (Rename)
         new_entity_id = f"climate.zone_{slugify(name)}"
@@ -256,7 +248,6 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             "heaters": self._heaters,
             "coolers": self._coolers,
             "window_sensors": self._window_sensors,
-            "restore_delay_minutes": self._restore_delay_minutes,
             "next_scheduled_change": self._attr_next_scheduled_change,
             "next_scheduled_temp_heat": self._attr_next_scheduled_temp_heat,
             "next_scheduled_temp_cool": self._attr_next_scheduled_temp_cool,
@@ -623,12 +614,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         if hvac_mode == HVACMode.AUTO:
             self._apply_schedule()
         elif hvac_mode in (HVACMode.HEAT, HVACMode.COOL):
-            # If manual mode and delay is set, create DURATION override
-            if self._restore_delay_minutes > 0:
-                _LOGGER.info("Scheduling manual mode with auto-restore in %s minutes", self._restore_delay_minutes)
-                end_time = dt_util.now() + timedelta(minutes=self._restore_delay_minutes)
-
-                self._active_override = ZoneOverride(type=OverrideType.DURATION, end_time=end_time, hvac_mode=hvac_mode)
+            pass
 
         await self._async_control_actuator()
         self.async_write_ha_state()

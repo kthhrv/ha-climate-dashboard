@@ -20,7 +20,12 @@ _LOGGER = logging.getLogger(__name__)
 @pytest.fixture(autouse=True)
 async def setup_integration(hass: HomeAssistant) -> None:
     """Set up the integration."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    entry = MockConfigEntry(domain="climate_dashboard")
+    entry.add_to_hass(hass)
     assert await async_setup_component(hass, "climate_dashboard", {})
+    await hass.async_block_till_done()
 
 
 async def test_zone_heating_cycle(hass: HomeAssistant, hass_ws_client: Any) -> None:
@@ -68,7 +73,7 @@ async def test_zone_heating_cycle(hass: HomeAssistant, hass_ws_client: Any) -> N
     zone_entity_id = "climate.zone_living_room"
     state = hass.states.get(zone_entity_id)
     assert state is not None
-    assert state.state == HVACMode.OFF  # Default is OFF
+    assert state.state == HVACMode.AUTO  # Default is AUTO
 
     # 3. Turn On Heat (Goal: 22C, Current: 18C)
     await hass.services.async_call(
