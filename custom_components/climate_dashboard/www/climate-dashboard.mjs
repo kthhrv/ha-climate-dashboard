@@ -3043,13 +3043,13 @@ const Ce = class Ce extends A {
     return Object.values(this.hass.states).filter(
       (t) => e.includes(t.entity_id.split(".")[0]) && !t.attributes.is_climate_dashboard_zone && !t.entity_id.startsWith("climate.zone_")
     ).map((t) => {
-      var i, s;
+      var i, s, o, r, l, c;
       return {
         entity_id: t.entity_id,
         domain: t.entity_id.split(".")[0],
         name: t.attributes.friendly_name || t.entity_id,
         device_class: t.attributes.device_class,
-        area_id: (s = (i = this.hass.entities) == null ? void 0 : i[t.entity_id]) == null ? void 0 : s.area_id
+        area_id: ((s = (i = this.hass.entities) == null ? void 0 : i[t.entity_id]) == null ? void 0 : s.area_id) || ((c = (l = this.hass.devices) == null ? void 0 : l[(r = (o = this.hass.entities) == null ? void 0 : o[t.entity_id]) == null ? void 0 : r.device_id]) == null ? void 0 : c.area_id)
       };
     });
   }
