@@ -46,14 +46,43 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Init Circuits
     from .circuit import HeatingCircuit
 
-    circuits: list[HeatingCircuit] = []
+    async def _reconcile_circuits() -> None:
+        """Reconcile active circuits with storage."""
+        # Get current circuits from config
+        config_circuits = storage.circuits
+        config_ids = {c["id"] for c in config_circuits}
 
-    for circuit_conf in storage.circuits:
-        c = HeatingCircuit(hass, storage, circuit_conf)
-        await c.async_initialize()
-        circuits.append(c)
+        # Get active circuits
+        if "circuits" not in hass.data[DOMAIN]:
+            hass.data[DOMAIN]["circuits"] = []
 
-    hass.data[DOMAIN]["circuits"] = circuits
+        active_circuits: list[HeatingCircuit] = hass.data[DOMAIN]["circuits"]
+        active_ids = {c.id for c in active_circuits}
+
+        # 1. Create New
+        for conf in config_circuits:
+            if conf["id"] not in active_ids:
+                c = HeatingCircuit(hass, storage, conf)
+                await c.async_initialize()
+                active_circuits.append(c)
+
+        # 2. Remove Deleted
+        # Iterate copy to allow removal
+        for c in list(active_circuits):
+            if c.id not in config_ids:
+                await c.async_shutdown()
+                active_circuits.remove(c)
+
+    # Initial Load
+    await _reconcile_circuits()
+
+    # Listen for updates
+    # Ensure result is void/awaitable handled by storage? Storage expects (Callable[[], None])
+    # But we have an async func. We need to wrap it.
+    def _reconcile_wrapper() -> None:
+        hass.async_create_task(_reconcile_circuits())
+
+    storage.async_add_listener(_reconcile_wrapper)
 
     # Forward setup to platform (Climate entities)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -61,7 +90,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def _async_shutdown(event: Any) -> None:
         """Shutdown the coordinator and circuits."""
         coordinator.shutdown()
-        for c in circuits:
+        active_circuits: list[HeatingCircuit] = hass.data[DOMAIN].get("circuits", [])
+        for c in active_circuits:
             await c.async_shutdown()
 
     # We should probably register this on unload, but for now global stop is ok.

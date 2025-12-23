@@ -137,8 +137,8 @@ class HeatingCircuit:
                     from homeassistant.util import slugify
 
                     eid_guess = f"climate.zone_{slugify(zone_conf['name'])}"
-                    if self.hass.states.get(eid_guess):
-                        entity_ids.append(eid_guess)
+                    # Allow listening even if entity doesn't exist yet (Race Condition Fix)
+                    entity_ids.append(eid_guess)
 
         if not entity_ids:
             return

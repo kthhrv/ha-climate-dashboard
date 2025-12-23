@@ -86,6 +86,11 @@ INPUT_BOOLEANS: dict[str, dict[str, str]] = {
         "icon": "mdi:home-account",
         "area_id": "__SKIP__",
     },
+    "boiler": {
+        "name": "Boiler",
+        "icon": "mdi:fire",
+        "area_id": "__SKIP__",
+    },
 }
 
 INPUT_NUMBERS: dict[str, dict[str, Any]] = {
@@ -317,9 +322,10 @@ TEMPLATE_ENTRIES: list[dict[str, Any]] = [
         "name": "Boiler",
         "unique_id": "switch_boiler",
         "type": "switch",
-        "state": "",  # Empty state for optimistic mode? Or remove key? Let's pass empty string and handle in loop
-        "turn_on": [],
-        "turn_off": [],
+        "state": "{{ states('input_boolean.boiler') }}",
+        "turn_on": [{"service": "input_boolean.turn_on", "target": {"entity_id": "input_boolean.boiler"}}],
+        "turn_off": [{"service": "input_boolean.turn_off", "target": {"entity_id": "input_boolean.boiler"}}],
+        # "device_class": "switch", # Template Switch does not support device_class
     },
 ]
 
@@ -853,13 +859,13 @@ def setup_config_entries() -> dict[str, str]:
         elif tmpl["type"] == "switch":
             config_data = {
                 "name": tmpl["name"],
-                "state": tmpl["state"],
-                "turn_on": tmpl["turn_on"],  # Correct key is turn_on
-                "turn_off": tmpl["turn_off"],  # Correct key is turn_off
+                "value_template": tmpl["state"],  # Current HA Template Switch logic uses value_template
+                "turn_on": tmpl["turn_on"],
+                "turn_off": tmpl["turn_off"],
                 "template_type": "switch",
             }
-            if tmpl.get("device_class"):
-                config_data["device_class"] = tmpl["device_class"]
+            # if tmpl.get("device_class"):
+            #    config_data["device_class"] = tmpl["device_class"]
             # Only add value_template if provided (non-optimistic)
             # if tmpl.get("state"): # This is now handled above
             #     config_data["value_template"] = tmpl["state"]
