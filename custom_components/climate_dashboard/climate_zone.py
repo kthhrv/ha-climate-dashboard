@@ -976,12 +976,12 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                 valid_modes = state.attributes.get("hvac_modes", [])
                 target_mode = None
 
-                if HVACMode.HEAT_COOL in valid_modes:
+                if HVACMode.AUTO in valid_modes:
+                    target_mode = HVACMode.AUTO
+                elif HVACMode.HEAT_COOL in valid_modes:
                     target_mode = HVACMode.HEAT_COOL
                 elif HVACMode.HEAT in valid_modes:
                     target_mode = HVACMode.HEAT
-                elif HVACMode.AUTO in valid_modes:
-                    target_mode = HVACMode.AUTO
 
                 # --- TARGET TEMP LOGIC ---
                 # Check if this actuator IS the temperature sensor for the zone
@@ -1014,9 +1014,13 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                         # No Demand -> Force Minimum (Close Valve)
                         target = 7  # todo: constant
 
+                # --- TARGET TEMP LOGIC ---
+                # ... (previous code)
+
                 if features & ClimateEntityFeature.TARGET_TEMPERATURE and target is not None:
                     service_data["temperature"] = target
                 elif features & ClimateEntityFeature.TARGET_TEMPERATURE_RANGE:
+                    # ... range logic ...
                     if low is not None and high is not None:
                         service_data["target_temp_low"] = low
                         service_data["target_temp_high"] = high
