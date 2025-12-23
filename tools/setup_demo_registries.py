@@ -45,7 +45,7 @@ ENTITY_AREA_MAP = {
     "climate_office": "office",
     "climate_office_ac": "office",
     "climate_bathroom": "bathroom",
-    # "climate_guest_room_trv": None, # Removed for MQTT migration
+    "climate_dial_heat": "guest_room",
     # Binary Sensors (Templates)
     "binary_sensor_kitchen_door": "kitchen",
     "binary_sensor_master_bedroom_window": "master_bedroom",
@@ -279,6 +279,16 @@ GENERIC_THERMOSTATS = [
         "ac_mode": False,
         "target_temp": 22,
     },
+    {
+        "name": "Dial Heat",
+        "unique_id": "climate_dial_heat",
+        "heater": "input_boolean.guest_room_heater",
+        "target_sensor": "input_number.guest_room_temp",
+        "min_temp": 5,
+        "max_temp": 30,
+        "ac_mode": False,
+        "target_temp": 21,
+    },
 ]
 
 # Defines Template Entries to be created via Config Entries (Helpers)
@@ -325,7 +335,6 @@ TEMPLATE_ENTRIES: list[dict[str, Any]] = [
         "state": "{{ states('input_boolean.boiler') }}",
         "turn_on": [{"service": "input_boolean.turn_on", "target": {"entity_id": "input_boolean.boiler"}}],
         "turn_off": [{"service": "input_boolean.turn_off", "target": {"entity_id": "input_boolean.boiler"}}],
-        # "device_class": "switch", # Template Switch does not support device_class
     },
 ]
 

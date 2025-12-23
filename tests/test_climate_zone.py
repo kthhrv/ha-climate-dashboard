@@ -1217,7 +1217,15 @@ async def test_safety_mode_actuator_behavior(hass: HomeAssistant) -> None:
     hass.services.async_register("climate", "set_temperature", climate_mock)
 
     # TRV Entity
-    hass.states.async_set("climate.trv", "20", {"min_temp": 7, "hvac_modes": ["heat"]})
+    hass.states.async_set(
+        "climate.trv",
+        "20",
+        {
+            "min_temp": 7,
+            "hvac_modes": ["heat"],
+            "supported_features": ClimateEntityFeature.TARGET_TEMPERATURE,
+        },
+    )
     # Switch Entity
     hass.states.async_set(SWITCH_ID, "on")
 

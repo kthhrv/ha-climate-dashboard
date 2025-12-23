@@ -19,3 +19,20 @@ repos:
       - id: prettier
         types_or: [javascript, jsx, ts, tsx, json, yaml, html, css, scss]
         exclude: ^custom_components/climate_dashboard/www/
+
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: pytest
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: true
+
+      - id: frontend-tests
+        name: frontend-tests
+        entry: bash -c "cd frontend && npm run test -- --run"
+        language: system
+        files: ^frontend/
+        pass_filenames: false

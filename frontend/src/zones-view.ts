@@ -1,5 +1,6 @@
 import { LitElement, html, css, TemplateResult } from "lit";
 import { property } from "lit/decorators.js";
+import { DataEngine } from "./data-engine";
 
 interface HassEntity {
   entity_id: string;
@@ -122,19 +123,23 @@ export class ZonesView extends LitElement {
     .floor-header:first-child {
       margin-top: 0;
     }
-    .heat {
-      color: var(--state-climate-heat-color, #ff9800);
-      font-weight: 500;
+    .status-msg {
+      font-size: 0.75rem;
+      color: var(--secondary-text-color);
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      justify-content: center;
     }
-    .cool {
-      color: var(--state-climate-cool-color, #2196f3);
-      font-weight: 500;
+    .status-msg ha-icon {
+      --mdc-icon-size: 14px;
     }
   `;
 
   protected render(): TemplateResult {
     try {
-      const groupedZones = this._getGroupedZones();
+      const groupedZones = DataEngine.getGroupedZones(this.hass);
 
       if (groupedZones.length === 0) {
         return html`
@@ -172,125 +177,41 @@ export class ZonesView extends LitElement {
     }
   }
 
-  private _getGroupedZones(): {
-    floorName: string | null;
-    floorIcon: string | null;
-    zones: HassEntity[];
-  }[] {
-    if (!this.hass) return [];
-
-    const zones = Object.values(this.hass.states).filter((e: any) =>
-      e.entity_id.startsWith("climate.zone_"),
-    ) as HassEntity[];
-
-    // If no floors defined, return flat list as "Other"
-    // Note: hass.floors is a dictionary { floor_id: FloorObject }
-    if (!this.hass.floors || Object.keys(this.hass.floors).length === 0) {
-      if (zones.length === 0) return [];
-      return [{ floorName: null, floorIcon: null, zones }];
-    }
-
-    // Map: Floor ID -> Zones
-    const floorMap: Record<
-      string,
-      {
-        floorName: string;
-        floorIcon: string | null;
-        level: number | null;
-        zones: HassEntity[];
-      }
-    > = {};
-
-    const unassignedZones: HassEntity[] = [];
-
-    zones.forEach((zone) => {
-      // Find area of this zone entity
-      // Registry lookups are typically separate, but we can try to find the area via entity registry
-      // or assume we have hass.entities.
-      // Since 'hass' is the huge main object, it usually has .entities, .areas, .floors if user is admin.
-      // But standard 'hass' object in standard cards might not expose full registry.
-      // We rely on what is passed. LitElement property `hass` usually has everything.
-
-      // We need to find the entity registry entry for this zone
-      const entityReg = this.hass.entities?.[zone.entity_id];
-      const areaId = entityReg?.area_id;
-      const area = areaId ? this.hass.areas?.[areaId] : null;
-      const floorId = area?.floor_id;
-
-      if (floorId && this.hass.floors?.[floorId]) {
-        const floor = this.hass.floors[floorId];
-        if (!floorMap[floorId]) {
-          floorMap[floorId] = {
-            floorName: floor.name,
-            floorIcon: floor.icon,
-            level: floor.level,
-            zones: [],
-          };
-        }
-        floorMap[floorId].zones.push(zone);
-      } else {
-        unassignedZones.push(zone);
-      }
-    });
-
-    // Sort floors by level (if available) or name
-    const sortedFloors = Object.values(floorMap).sort((a, b) => {
-      if (a.level !== null && b.level !== null) return b.level - a.level;
-      return a.floorName.localeCompare(b.floorName);
-    });
-
-    // Build final result
-    const result: {
-      floorName: string | null;
-      floorIcon: string | null;
-      zones: HassEntity[];
-    }[] = sortedFloors.map((f) => ({
-      floorName: f.floorName,
-      floorIcon: f.floorIcon,
-      zones: f.zones,
-    }));
-
-    if (unassignedZones.length > 0) {
-      result.push({
-        floorName: null,
-        floorIcon: null,
-        zones: unassignedZones,
-      });
-    }
-
-    return result;
-  }
-
   private _renderZoneCard(zone: HassEntity): TemplateResult {
-    // We check hvac_action if available for the icon color logic,
-    // but the buttons control hvac_mode.
     const hvacAction = zone.attributes.hvac_action;
-
-    let icon = "mdi:thermostat";
-    let iconColor = "";
-
-    // Status coloring based on Action (what it's doing) or State (what it's set to)
-    if (zone.attributes.safety_mode) {
-      icon = "mdi:alert-circle";
-      iconColor = "var(--error-color, #db4437)";
-    } else if (zone.attributes.using_fallback_sensor) {
-      icon = "mdi:thermometer-alert";
-      iconColor = "var(--warning-color, #ffa726)";
-    } else if (hvacAction === "heating") {
-      icon = "mdi:fire";
-      iconColor = "var(--deep-orange-color, #ff5722)";
-    } else if (hvacAction === "cooling") {
-      icon = "mdi:snowflake";
-      iconColor = "var(--blue-color, #2196f3)";
-    } else if (zone.state === "heat") {
-      icon = "mdi:fire";
-      // Idle heat
-      iconColor = "var(--primary-text-color)";
-    } else if (zone.state === "auto") {
-      icon = "mdi:calendar-clock";
-    }
-
     const currentTemp = zone.attributes.current_temperature;
+
+    // Status Logic via DataEngine
+    const status = DataEngine.getZoneStatus(zone, this.isAwayMode);
+
+    // Icon logic
+    // We prefer the Status Icon if it's high priority (Safety, Window, Away)
+    // Otherwise we use the state icon
+    let mainIcon = status.icon;
+    let mainIconColor = status.color;
+
+    // Override icon for normal operation to show action
+    if (
+      status.text === "Following Schedule" ||
+      status.text === "Unknown State"
+    ) {
+      if (hvacAction === "heating") {
+        mainIcon = "mdi:fire";
+        mainIconColor = "var(--deep-orange-color, #ff5722)";
+      } else if (hvacAction === "cooling") {
+        mainIcon = "mdi:snowflake";
+        mainIconColor = "var(--blue-color, #2196f3)";
+      } else if (zone.state === "heat") {
+        mainIcon = "mdi:fire";
+        mainIconColor = "var(--primary-text-color)"; // Idle
+      } else if (zone.state === "cool") {
+        mainIcon = "mdi:snowflake";
+        mainIconColor = "var(--primary-text-color)";
+      } else if (zone.state === "off") {
+        mainIcon = "mdi:power-off";
+        mainIconColor = "var(--disabled-text-color)";
+      }
+    }
 
     return html`
       <div class="card" @click=${() => this._openDetails(zone.entity_id)}>
@@ -301,8 +222,8 @@ export class ZonesView extends LitElement {
           <ha-icon icon="mdi:cog"></ha-icon>
         </button>
 
-        <div class="icon" style="color: ${iconColor || "inherit"}">
-          <ha-icon icon="${icon}"></ha-icon>
+        <div class="icon" style="color: ${mainIconColor || "inherit"}">
+          <ha-icon icon="${mainIcon}"></ha-icon>
         </div>
         <div class="name">
           ${zone.attributes.friendly_name || zone.entity_id}
@@ -310,11 +231,17 @@ export class ZonesView extends LitElement {
         <div class="temp">
           ${currentTemp != null ? `${currentTemp}°` : "--"}
         </div>
-        <div class="state">
-          ${hvacAction ? html`${hvacAction}` : html`${zone.state}`}
-        </div>
 
-        ${this._renderStatus(zone)}
+        <!-- Status Message -->
+        <div class="status-msg">${status.text}</div>
+        ${status.subtext
+          ? html`<div
+              class="status-msg"
+              style="font-size: 0.7em; opacity: 0.8;"
+            >
+              ${status.subtext}
+            </div>`
+          : ""}
 
         <div class="actions">
           <button
@@ -331,101 +258,6 @@ export class ZonesView extends LitElement {
             Auto
           </button>
         </div>
-      </div>
-    `;
-  }
-
-  private _renderStatus(zone: HassEntity): TemplateResult {
-    const nextChange = zone.attributes.next_scheduled_change;
-    const overrideEnd = zone.attributes.override_end;
-    const overrideType = zone.attributes.override_type;
-    const mode = zone.state;
-
-    let message = "";
-
-    // Global Away Mode takes precedence over schedule but maybe not safety?
-    // Safety usually overrides everything.
-    if (zone.attributes.safety_mode) {
-      message = "Sensor Unavailable: Safety Mode active";
-    } else if (zone.attributes.using_fallback_sensor) {
-      message = "Warning: Using Area Fallback Sensor";
-    } else if (zone.attributes.open_window_sensor) {
-      message = `${zone.attributes.open_window_sensor} open`;
-    } else if (this.isAwayMode) {
-      // In Away Mode
-      if (
-        zone.attributes.target_temp_low != null &&
-        zone.attributes.target_temp_high != null
-      ) {
-        message = `Away ${zone.attributes.target_temp_low}°/${zone.attributes.target_temp_high}°`;
-      } else {
-        message = `Away ${zone.attributes.temperature}°`;
-      }
-    } else if (overrideEnd) {
-      const time = new Date(overrideEnd).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      if (overrideType === "duration") {
-        message = `Timer until ${time}`;
-      } else {
-        message = `Until ${time}`;
-      }
-    } else if (mode === "auto" && nextChange) {
-      const time = new Date(nextChange).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      const nextHeat = zone.attributes.next_scheduled_temp_heat;
-      const nextCool = zone.attributes.next_scheduled_temp_cool;
-      const hvacModes = zone.attributes.hvac_modes || [];
-      const supportsHeat = hvacModes.includes("heat");
-      const supportsCool = hvacModes.includes("cool");
-
-      let tempStr = html``;
-      // Show both if supported and present
-      if (
-        supportsHeat &&
-        supportsCool &&
-        nextHeat != null &&
-        nextCool != null
-      ) {
-        tempStr = html`<span class="heat">${nextHeat}°</span>/<span class="cool"
-            >${nextCool}°</span
-          >`;
-      }
-      // Show Heat only if supported and present (and not already shown in dual)
-      else if (supportsHeat && nextHeat != null) {
-        tempStr = html`<span class="heat">${nextHeat}°</span>`;
-      }
-      // Show Cool only if supported and present
-      else if (supportsCool && nextCool != null) {
-        tempStr = html`<span class="cool">${nextCool}°</span>`;
-      }
-
-      if (
-        (supportsHeat && nextHeat != null) ||
-        (supportsCool && nextCool != null)
-      ) {
-        return html`
-          <div
-            style="font-size: 0.75rem; color: var(--secondary-text-color); margin-top: 4px;"
-          >
-            ${time} -> ${tempStr}
-          </div>
-        `;
-      } else {
-        message = `${time}`;
-      }
-    }
-
-    if (!message) return html``;
-
-    return html`
-      <div
-        style="font-size: 0.75rem; color: var(--secondary-text-color); margin-top: 4px;"
-      >
-        ${message}
       </div>
     `;
   }
