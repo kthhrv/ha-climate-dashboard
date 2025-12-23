@@ -38,18 +38,18 @@ payload = {
     "payload_not_available": "offline",
 }
 
-TOPIC_DUAL = "homeassistant/climate/dial_dual"
+TOPIC_DUAL = "homeassistant/climate/guest_room_dial"
 payload_dual = {
-    "name": "Dial Dual",
-    "default_entity_id": "climate.dial_dual",
-    "unique_id": "climate_dial_dual",
+    "name": "Guest Room Dial",
+    "default_entity_id": "climate.guest_room_dial",
+    "unique_id": "mqtt_guest_room_dial",
     "device": {
-        "identifiers": ["dial_dual_device_id"],
-        "name": "Dial Dual Device",
-        "model": "DualMode 3000",
+        "identifiers": ["guest_room_dial_device_id"],
+        "name": "Guest Room Dial",
+        "model": "Mode Dial 3000",
         "manufacturer": "ACME",
         "sw_version": "1.0",
-        "suggested_area": "Office",
+        "suggested_area": "Guest Room",
     },
     "temperature_command_topic": f"{TOPIC_DUAL}/target_temp/set",
     "temperature_state_topic": f"{TOPIC_DUAL}/target_temp/state",
@@ -59,40 +59,79 @@ payload_dual = {
     "min_temp": 10,
     "max_temp": 30,
     "temp_step": 0.5,
-    "modes": ["off", "heat", "cool"],
+    "modes": ["off", "heat", "cool", "auto"],
     "availability_topic": f"{TOPIC_DUAL}/availability",
-    "optimistic": True,  # Optimistic mode!
+    "optimistic": True,
     "payload_available": "online",
     "payload_not_available": "offline",
+}
+
+TOPIC_AC = "homeassistant/climate/guest_room_ac"
+payload_ac = {
+    "name": "Guest Room AC",
+    "default_entity_id": "climate.guest_room_ac",
+    "unique_id": "mqtt_guest_room_ac",
+    "device": {
+        "identifiers": ["guest_room_ac_device_id"],
+        "name": "Guest Room AC",
+        "model": "CoolCloud 9",
+        "manufacturer": "ACME",
+        "suggested_area": "Guest Room",
+    },
+    "temperature_command_topic": f"{TOPIC_AC}/target_temp/set",
+    "temperature_state_topic": f"{TOPIC_AC}/target_temp/state",
+    "mode_command_topic": f"{TOPIC_AC}/mode/set",
+    "mode_state_topic": f"{TOPIC_AC}/mode/state",
+    "current_temperature_topic": f"{TOPIC_AC}/current_temp/state",
+    "min_temp": 16,
+    "max_temp": 30,
+    "modes": ["off", "cool"],
+    "availability_topic": f"{TOPIC_AC}/availability",
+}
+
+TOPIC_WIN = "homeassistant/binary_sensor/guest_room_window"
+payload_win = {
+    "name": "Guest Room Window",
+    "unique_id": "mqtt_guest_room_window",
+    "device_class": "window",
+    "state_topic": f"{TOPIC_WIN}/state",
+    "availability_topic": f"{TOPIC_WIN}/availability",
+    "device": {
+        "identifiers": ["guest_room_window_device_id"],
+        "name": "Guest Room Window",
+        "suggested_area": "Guest Room",
+    },
 }
 
 
 def on_connect(client: mqtt.Client, userdata: Any, flags: dict[str, Any], rc: int) -> None:  # Cleaned up flags type
     print(f"Connected with result code {rc}")
     if rc == 0:
-        # Publish Discovery Config (TRV)
-        config_topic = f"{TOPIC_BASE}/config"
-        print(f"Publishing TRV Discovery to: {config_topic}")
-        client.publish(config_topic, json.dumps(payload), retain=True)
+        # Publish Discovery Configs
+        client.publish(f"{TOPIC_BASE}/config", json.dumps(payload), retain=True)
+        client.publish(f"{TOPIC_DUAL}/config", json.dumps(payload_dual), retain=True)
+        client.publish(f"{TOPIC_AC}/config", json.dumps(payload_ac), retain=True)
+        client.publish(f"{TOPIC_WIN}/config", json.dumps(payload_win), retain=True)
 
-        # Publish Discovery Config (Dual Dial)
-        config_topic_dual = f"{TOPIC_DUAL}/config"
-        print(f"Publishing Dual Dial Discovery to: {config_topic_dual}")
-        client.publish(config_topic_dual, json.dumps(payload_dual), retain=True)
-
-        # Publish Initial State (so it's not 'unknown')
+        # Publish Initial States
         print("Publishing Initial States...")
-        # TRV
         client.publish(payload["current_temperature_topic"], "21.5", retain=True)
         client.publish(payload["temperature_state_topic"], "22.0", retain=True)
         client.publish(payload["mode_state_topic"], "heat", retain=True)
         client.publish(payload["availability_topic"], "online", retain=True)
 
-        # Dual Dial
-        client.publish(payload_dual["current_temperature_topic"], "24.0", retain=True)
-        client.publish(payload_dual["temperature_state_topic"], "24.0", retain=True)
-        client.publish(payload_dual["mode_state_topic"], "heat", retain=True)
+        client.publish(payload_dual["current_temperature_topic"], "21.5", retain=True)
+        client.publish(payload_dual["temperature_state_topic"], "21.0", retain=True)
+        client.publish(payload_dual["mode_state_topic"], "auto", retain=True)
         client.publish(payload_dual["availability_topic"], "online", retain=True)
+
+        client.publish(payload_ac["current_temperature_topic"], "21.5", retain=True)
+        client.publish(payload_ac["temperature_state_topic"], "24.0", retain=True)
+        client.publish(payload_ac["mode_state_topic"], "off", retain=True)
+        client.publish(payload_ac["availability_topic"], "online", retain=True)
+
+        client.publish(payload_win["state_topic"], "OFF", retain=True)
+        client.publish(payload_win["availability_topic"], "online", retain=True)
 
         print("Done! Check HA.")
         client.disconnect()

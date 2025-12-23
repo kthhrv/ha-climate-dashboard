@@ -1620,13 +1620,19 @@ class ne {
         icon: "mdi:timer-sand",
         color: "var(--primary-color, #03a9f4)",
         text: "Temporary Hold",
-        subtext: `Until ${new Date(i.override_end).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+        subtext: `Until ${new Date(i.override_end).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit"
+        })}`
       };
     if (i.next_scheduled_change) {
-      const s = new Date(i.next_scheduled_change).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit"
-      });
+      const s = new Date(i.next_scheduled_change).toLocaleTimeString(
+        [],
+        {
+          hour: "2-digit",
+          minute: "2-digit"
+        }
+      );
       let r = "";
       return i.next_scheduled_temp_heat && i.next_scheduled_temp_cool ? r = `${i.next_scheduled_temp_heat}-${i.next_scheduled_temp_cool}°` : i.next_scheduled_temp_cool ? r = `${i.next_scheduled_temp_cool}°` : r = `${i.next_scheduled_temp_heat}°`, {
         icon: "mdi:calendar-clock",

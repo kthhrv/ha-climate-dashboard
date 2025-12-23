@@ -45,10 +45,21 @@ ENTITY_AREA_MAP = {
     "climate_office": "office",
     "climate_office_ac": "office",
     "climate_bathroom": "bathroom",
-    "climate_dial_heat": "guest_room",
+    "climate_guest_room_dial": "guest_room",  # Wall Thermostat
+    "climate_guest_room_ac": "guest_room",  # AC Unit
+    "climate_guest_room_trv": "guest_room",  # TRV
+    # Climate Dashboard Zones (Logical)
+    "zone_living_room": "living_room",
+    "zone_kitchen": "kitchen",
+    "zone_office_ac": "office",
+    "zone_office_dual": "office",
+    "zone_guest_room": "guest_room",
+    "zone_broken": "bedroom_2",
+    "zone_master_bedroom": "master_bedroom",
     # Binary Sensors (Templates)
     "binary_sensor_kitchen_door": "kitchen",
     "binary_sensor_master_bedroom_window": "master_bedroom",
+    "binary_sensor_guest_room_window": "guest_room",
     # Standalone Sensors (Templates)
     "sensor_living_room_standalone_temp": "living_room",
     "sensor_bedroom_2_standalone_temp": "bedroom_2",
@@ -69,12 +80,18 @@ INPUT_BOOLEANS: dict[str, dict[str, str]] = {
     "heater_office": {"name": "Office Heater", "icon": "mdi:radiator", "area_id": "office"},
     "heater_bathroom": {"name": "Bathroom Heater", "icon": "mdi:radiator", "area_id": "bathroom"},
     "heater_guest_room": {"name": "Guest Room Heater", "icon": "mdi:radiator", "area_id": "guest_room"},  # Added Helper
+    "ac_guest_room": {"name": "Guest Room AC", "icon": "mdi:air-conditioner", "area_id": "guest_room"},
     "ac_office": {"name": "Office AC", "icon": "mdi:air-conditioner", "area_id": "office"},
     # We create input_booleans for these, but we map the BINARY_SENSOR wrapper to the area below
     "door_kitchen": {
         "name": "Kitchen Door Boolean",
         "icon": "mdi:door",
         "area_id": "__SKIP__",  # Don't map boolean to area, map the template instead
+    },
+    "window_guest_room": {
+        "name": "Guest Room Window Boolean",
+        "icon": "mdi:window-closed",
+        "area_id": "__SKIP__",
     },
     "window_master_bedroom": {
         "name": "Master Bedroom Window Boolean",
@@ -279,15 +296,36 @@ GENERIC_THERMOSTATS = [
         "ac_mode": False,
         "target_temp": 22,
     },
+    # Triple Threat: Dial + TRV + AC
     {
-        "name": "Dial Heat",
-        "unique_id": "climate_dial_heat",
+        "name": "Guest Room Dial",
+        "unique_id": "climate_guest_room_dial",
+        "heater": "input_boolean.guest_room_heater",  # Dummy link, logic handled by Zone
+        "target_sensor": "input_number.guest_room_temp",
+        "min_temp": 10,
+        "max_temp": 30,
+        "ac_mode": False,  # Just a dial
+        "target_temp": 21,
+    },
+    {
+        "name": "Guest Room TRV",
+        "unique_id": "climate_guest_room_trv",
         "heater": "input_boolean.guest_room_heater",
         "target_sensor": "input_number.guest_room_temp",
         "min_temp": 5,
         "max_temp": 30,
         "ac_mode": False,
         "target_temp": 21,
+    },
+    {
+        "name": "Guest Room AC",
+        "unique_id": "climate_guest_room_ac",
+        "heater": "input_boolean.guest_room_ac",
+        "target_sensor": "input_number.guest_room_temp",
+        "min_temp": 16,
+        "max_temp": 30,
+        "ac_mode": True,
+        "target_temp": 24,
     },
 ]
 
@@ -308,6 +346,13 @@ TEMPLATE_ENTRIES: list[dict[str, Any]] = [
         "unique_id": "binary_sensor_master_bedroom_window",
         "type": "binary_sensor",
         "state": "{{ is_state('input_boolean.master_bedroom_window_boolean', 'on') }}",
+        "device_class": "window",
+    },
+    {
+        "name": "Guest Room Window",
+        "unique_id": "binary_sensor_guest_room_window",
+        "type": "binary_sensor",
+        "state": "{{ is_state('input_boolean.guest_room_window_boolean', 'on') }}",
         "device_class": "window",
     },
     # Sensors
@@ -527,6 +572,11 @@ def setup_entities(config_entry_map: dict[str, str] | None = None) -> None:
                 platform = "template"
             elif logical_unique_id.startswith("climate_"):
                 entity_id = "climate." + logical_unique_id[8:]
+            elif logical_unique_id.startswith("zone_"):
+                # Climate Dashboard Zone
+                # logical_id: zone_living_room -> entity: climate.zone_living_room
+                entity_id = "climate." + logical_unique_id
+                platform = "climate_dashboard"
             elif logical_unique_id.startswith("sensor_"):
                 # sensor_living_room_standalone_temp -> sensor.living_room_standalone_temp
                 entity_id = "sensor." + logical_unique_id[7:]
@@ -659,22 +709,136 @@ def wipe_dashboard_storage() -> None:
 
 
 def seed_dashboard_storage() -> None:
-    """Seed the climate dashboard storage with a test circuit."""
+    """Seed the climate dashboard storage with a test circuit and demo zones."""
+
+    # Common Schedule
+    default_schedule = [
+        {
+            "name": "Morning",
+            "days": ["mon", "tue", "wed", "thu", "fri"],
+            "start_time": "07:00",
+            "temp_heat": 21.0,
+            "temp_cool": 24.0,
+        },
+        {
+            "name": "Day",
+            "days": ["mon", "tue", "wed", "thu", "fri"],
+            "start_time": "09:00",
+            "temp_heat": 19.0,
+            "temp_cool": 26.0,
+        },
+        {
+            "name": "Evening",
+            "days": ["mon", "tue", "wed", "thu", "fri"],
+            "start_time": "17:00",
+            "temp_heat": 21.0,
+            "temp_cool": 24.0,
+        },
+        {
+            "name": "Night",
+            "days": ["mon", "tue", "wed", "thu", "fri"],
+            "start_time": "22:00",
+            "temp_heat": 18.0,
+            "temp_cool": 25.0,
+        },
+        {"name": "Weekend", "days": ["sat", "sun"], "start_time": "08:00", "temp_heat": 21.0, "temp_cool": 24.0},
+    ]
+
+    zones = [
+        # 1. Simple Heater (Switch)
+        {
+            "unique_id": "zone_living_room",
+            "name": "Living Room",
+            "temperature_sensor": "input_number.living_room_temp",
+            "heaters": ["input_boolean.living_room_heater"],  # Direct switch control
+            "thermostats": [],
+            "coolers": [],
+            "window_sensors": [],
+            "schedule": default_schedule,
+        },
+        # 2. Smart TRV (Climate)
+        {
+            "unique_id": "zone_kitchen",
+            "name": "Kitchen",
+            "temperature_sensor": "input_number.kitchen_temp",
+            "heaters": ["climate.kitchen"],  # TRV
+            "thermostats": [],
+            "coolers": [],
+            "window_sensors": ["binary_sensor.kitchen_door"],
+            "schedule": default_schedule,
+        },
+        # 3. AC Unit (Cool Only)
+        {
+            "unique_id": "zone_office_ac",
+            "name": "Office (Cool)",
+            "temperature_sensor": "input_number.office_temp",
+            "heaters": [],
+            "thermostats": [],
+            "coolers": ["climate.office_ac"],
+            "window_sensors": [],
+            "schedule": default_schedule,
+        },
+        # 4. Dual Mode (Heater + AC)
+        {
+            "unique_id": "zone_office_dual",
+            "name": "Office (Dual)",
+            "temperature_sensor": "input_number.office_temp",
+            "heaters": ["input_boolean.office_heater"],
+            "thermostats": [],
+            "coolers": ["climate.office_ac"],
+            "window_sensors": [],
+            "schedule": default_schedule,
+        },
+        # 5. Triple Threat (Dial + TRV + AC)
+        {
+            "unique_id": "zone_guest_room",
+            "name": "Guest Room",
+            "temperature_sensor": "climate.guest_room_dial",  # MQTT sensor
+            "heaters": ["climate.guest_room_trv"],  # MQTT TRV
+            "thermostats": ["climate.guest_room_dial"],  # MQTT Dial
+            "coolers": ["climate.guest_room_ac"],  # MQTT AC
+            "window_sensors": ["binary_sensor.guest_room_window"],  # MQTT Window
+            "schedule": default_schedule,
+        },
+        # 6. Safety Zone (Broken Sensor)
+        {
+            "unique_id": "zone_broken",
+            "name": "Broken Sensor Room",
+            "temperature_sensor": "sensor.non_existent",
+            "heaters": ["climate.bedroom_2"],
+            "thermostats": [],
+            "coolers": [],
+            "window_sensors": [],
+            "schedule": default_schedule,
+        },
+        # 7. Window Zone (Open)
+        {
+            "unique_id": "zone_master_bedroom",
+            "name": "Master Bedroom",
+            "temperature_sensor": "input_number.master_bedroom_temp",
+            "heaters": ["climate.master_bedroom"],
+            "thermostats": [],
+            "coolers": [],
+            "window_sensors": ["binary_sensor.master_bedroom_window"],
+            "schedule": default_schedule,
+        },
+    ]
+
     data = {
-        "zones": [],
+        "zones": zones,
         "circuits": [
             {
                 "id": "circuit_central_heating",
                 "name": "Central Heating",
-                "heaters": ["switch.boiler"],
-                "member_zones": [],  # Will need to add zone IDs manualy or update later
+                "heaters": ["input_boolean.boiler"],  # Fixed name
+                "member_zones": ["zone_living_room", "zone_kitchen", "zone_guest_room", "zone_master_bedroom"],
             }
         ],
         "settings": {
             "default_override_type": "next_block",
             "default_timer_minutes": 60,
             "window_open_delay_seconds": 30,
-            "home_away_entity_id": None,
+            "home_away_entity_id": "input_boolean.family_home",
             "away_delay_minutes": 10,
             "away_temperature": 16.0,
             "away_temperature_cool": 30.0,
@@ -683,7 +847,7 @@ def seed_dashboard_storage() -> None:
     }
     full_data = {"version": 1, "minor_version": 1, "key": "climate_dashboard", "data": data}
     save_json(CLIMATE_DASHBOARD_PATH, full_data)
-    print("Seeded Climate Dashboard Storage with 'Central Heating' circuit")
+    print("Seeded Climate Dashboard Storage with 7 Demo Zones and 'Central Heating' circuit")
 
 
 def seed_restore_state() -> None:
