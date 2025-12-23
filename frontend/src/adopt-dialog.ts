@@ -10,6 +10,7 @@ export class AdoptDialog extends LitElement {
   @state() private _name = "";
   @state() private _temperatureSensor = "";
   @state() private _heaters: Set<string> = new Set();
+  @state() private _thermostats: Set<string> = new Set();
   @state() private _coolers: Set<string> = new Set();
   @state() private _windowSensors: Set<string> = new Set();
   @state() private _roomType = "generic";
@@ -125,6 +126,7 @@ export class AdoptDialog extends LitElement {
       if (ent) {
         this._name = ent.area_name || ent.name || ent.entity_id.split(".")[1];
         this._heaters.clear();
+        this._thermostats.clear();
         this._coolers.clear();
         this._windowSensors.clear();
 
@@ -227,6 +229,7 @@ export class AdoptDialog extends LitElement {
       name: this._name,
       temperature_sensor: this._temperatureSensor,
       heaters: Array.from(this._heaters),
+      thermostats: Array.from(this._thermostats),
       coolers: Array.from(this._coolers),
       window_sensors: Array.from(this._windowSensors),
       room_type: this._roomType,
@@ -237,6 +240,7 @@ export class AdoptDialog extends LitElement {
 
   render() {
     const heaterCandidates = this._getEntityList(["climate", "switch"]);
+    const thermostatCandidates = this._getEntityList(["climate"]);
     const coolerCandidates = this._getEntityList(["climate"]);
     const windowCandidates = this._getEntityList(["binary_sensor"]);
     const sensorCandidates = this._getSensors();
@@ -312,6 +316,30 @@ export class AdoptDialog extends LitElement {
               `,
             )}
           </select>
+        </div>
+
+        <div class="field">
+          <label>Thermostats (Wall Dials)</label>
+          <div class="checkbox-list">
+            ${thermostatCandidates.map(
+              (e) => html`
+                <div class="checkbox-item">
+                  <input
+                    type="checkbox"
+                    ?checked=${this._thermostats.has(e.entity_id)}
+                    @change=${() =>
+                      this._toggleSet(this._thermostats, e.entity_id)}
+                  />
+                  <span>${e.name || e.entity_id}</span>
+                </div>
+              `,
+            )}
+            ${thermostatCandidates.length === 0
+              ? html`<div style="color:var(--secondary-text-color)">
+                  No thermostats found in this area
+                </div>`
+              : ""}
+          </div>
         </div>
 
         <div class="field">

@@ -59,6 +59,7 @@ def mock_climate_zone(hass: HomeAssistant, mock_storage: MagicMock) -> ClimateZo
         name=ZONE_NAME,
         temperature_sensor=SENSOR_ID,
         heaters=[SWITCH_ID],
+        thermostats=[],
         coolers=[],
         window_sensors=[],
     )
@@ -108,6 +109,7 @@ async def test_startup_cancellation(hass: HomeAssistant) -> None:
         "Cancel Zone",
         "sensor.missing",  # Sensor missing -> triggers wait loop
         heaters=[],
+        thermostats=[],
         coolers=[],
         window_sensors=[],
     )
@@ -202,6 +204,7 @@ async def test_climate_actuator_heat(hass: HomeAssistant) -> None:
         "Climate Zone",
         SENSOR_ID,
         heaters=[CLIMATE_HEATER_ID],
+        thermostats=[],
         coolers=[],
         window_sensors=[],
     )
@@ -265,6 +268,7 @@ async def test_cooling_logic(hass: HomeAssistant) -> None:
         "Cool Zone",
         SENSOR_ID,
         heaters=[],
+        thermostats=[],
         coolers=[CLIMATE_COOLER_ID],
         window_sensors=[],
     )
@@ -326,6 +330,7 @@ async def test_window_open_safety(hass: HomeAssistant) -> None:
         "Window Zone",
         SENSOR_ID,
         heaters=[SWITCH_ID],
+        thermostats=[],
         coolers=[],
         window_sensors=[WINDOW_ID],
     )
@@ -366,6 +371,7 @@ async def test_sensor_unavailable(hass: HomeAssistant) -> None:
         "Error Zone",
         SENSOR_ID,
         heaters=[SWITCH_ID],
+        thermostats=[],
         coolers=[],
         window_sensors=[],
     )
@@ -409,6 +415,7 @@ async def test_restore_state(hass: HomeAssistant) -> None:
         "Restore Zone",
         SENSOR_ID,
         heaters=[],
+        thermostats=[],
         coolers=[],
         window_sensors=[],
     )
@@ -441,6 +448,7 @@ async def test_callbacks_and_public_methods(hass: HomeAssistant) -> None:
         "Full Zone",
         SENSOR_ID,
         heaters=[CLIMATE_ID],
+        thermostats=[],
         coolers=[],
         window_sensors=[SWITCH_ID],  # Use switch as window just for triggering
     )
@@ -511,7 +519,7 @@ async def test_update_config_rename(hass: HomeAssistant) -> None:
     """Test updating config including zone rename."""
     mock_storage = MagicMock()
     mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
-    zone = ClimateZone(hass, mock_storage, "old_uid", "Old Name", SENSOR_ID, [], [], [])
+    zone = ClimateZone(hass, mock_storage, "old_uid", "Old Name", SENSOR_ID, [], [], [], [])
 
     # Mock Registry in hass.data
     mock_registry = MagicMock()
@@ -525,6 +533,7 @@ async def test_update_config_rename(hass: HomeAssistant) -> None:
         name="New Name",
         temperature_sensor=SENSOR_ID,
         heaters=[],
+        thermostats=[],
         coolers=[],
         window_sensors=[],
     )
@@ -544,7 +553,7 @@ async def test_update_temp_exception(hass: HomeAssistant) -> None:
     """Test ValueError in temp update."""
     mock_storage = MagicMock()
     mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
-    zone = ClimateZone(hass, mock_storage, "z_feat", "F", SENSOR_ID, [], [], [])
+    zone = ClimateZone(hass, mock_storage, "z_feat", "F", SENSOR_ID, [], [], [], [])
 
     # Mock sensor with invalid state
     hass.states.async_set(SENSOR_ID, "invalid_float")
@@ -565,6 +574,7 @@ async def test_startup_branches(hass: HomeAssistant) -> None:
         "Z",
         SENSOR_ID,
         heaters=[],
+        thermostats=[],
         coolers=[],
         window_sensors=["binary_sensor.win"],
     )
@@ -591,7 +601,7 @@ async def test_fahrenheit_defaults(hass: HomeAssistant) -> None:
     with patch.object(hass.config, "units") as mock_units:
         mock_units.temperature_unit = UnitOfTemperature.FAHRENHEIT
 
-        zone = ClimateZone(hass, mock_storage, "z_f_def", "F Defaults", SENSOR_ID, [], [], [])
+        zone = ClimateZone(hass, mock_storage, "z_f_def", "F Defaults", SENSOR_ID, [], [], [], [])
 
         # Defaults (defined in C) should be converted to F
         # Heat: 20C -> 68F
@@ -609,7 +619,7 @@ async def test_last_mile_coverage(hass: HomeAssistant) -> None:
     CLIMATE_COOLER_ID = "climate.ac"
     mock_storage = MagicMock()
     mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
-    zone = ClimateZone(hass, mock_storage, "z_last", "L", SENSOR_ID, [], [CLIMATE_COOLER_ID], [])
+    zone = ClimateZone(hass, mock_storage, "z_last", "L", SENSOR_ID, [], [], [CLIMATE_COOLER_ID], [])
 
     # Register mock service
     mock_service = AsyncMock()
@@ -666,7 +676,7 @@ async def test_next_schedule_and_override(hass: HomeAssistant) -> None:
 
     mock_storage = MagicMock()
     mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
-    zone = ClimateZone(hass, mock_storage, "zone_sched", "Sched Zone", SENSOR_ID, [], [], [])
+    zone = ClimateZone(hass, mock_storage, "zone_sched", "Sched Zone", SENSOR_ID, [], [], [], [])
     zone._schedule = [
         # Today (Mock Monday)
         {
@@ -771,6 +781,7 @@ async def test_actuator_range_only(hass: HomeAssistant) -> None:
         "Range Zone",
         SENSOR_ID,
         heaters=[RANGE_ACTUATOR_ID],
+        thermostats=[],
         coolers=[],
         window_sensors=[],
     )
@@ -820,6 +831,7 @@ async def test_sensor_loop_prevention(hass: HomeAssistant) -> None:
         "Loop Zone",
         CLIMATE_ID,
         heaters=[CLIMATE_ID],
+        thermostats=[],
         coolers=[],
         window_sensors=[],
     )
@@ -866,7 +878,7 @@ async def test_auto_mode_temporary_hold(hass: HomeAssistant) -> None:
 
     mock_storage = MagicMock()
     mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
-    zone = ClimateZone(hass, mock_storage, "zone_hold", "Hold Zone", SENSOR_ID, [], [], [])
+    zone = ClimateZone(hass, mock_storage, "zone_hold", "Hold Zone", SENSOR_ID, [], [], [], [])
     zone._schedule = [
         {
             "id": "1",
@@ -954,6 +966,7 @@ async def test_ecobee_auto_heat_call(hass: HomeAssistant) -> None:
         "Kitchen",
         SENSOR_ID,
         heaters=[ECOBEE_ID],
+        thermostats=[],
         coolers=[],
         window_sensors=[],
     )
@@ -1030,6 +1043,7 @@ async def test_ecobee_range_mismatch(hass: HomeAssistant) -> None:
         "Mismatch",
         SENSOR_ID,
         heaters=[ECOBEE_ID],
+        thermostats=[],
         coolers=[],
         window_sensors=[],
     )
@@ -1084,6 +1098,7 @@ async def test_supported_features_dynamic(hass: HomeAssistant) -> None:
         "Dual",
         SENSOR_ID,
         heaters=["climate.heater"],
+        thermostats=[],
         coolers=["climate.ac"],
         window_sensors=[],
     )
@@ -1108,6 +1123,7 @@ async def test_supported_features_dynamic(hass: HomeAssistant) -> None:
         "Single",
         SENSOR_ID,
         heaters=["climate.heater"],
+        thermostats=[],
         coolers=[],
         window_sensors=[],
     )
@@ -1137,6 +1153,7 @@ async def test_dual_mode_override_bug(hass: HomeAssistant) -> None:
         "Bug",
         SENSOR_ID,
         heaters=["climate.h"],
+        thermostats=[],
         coolers=["climate.c"],
         window_sensors=[],
     )
@@ -1173,6 +1190,7 @@ async def test_safety_mode_no_sensor(hass: HomeAssistant) -> None:
         "Safety Zone",
         "sensor.unavailable",
         heaters=[SWITCH_ID],
+        thermostats=[],
         coolers=[],
         window_sensors=[],
     )
@@ -1212,6 +1230,7 @@ async def test_safety_mode_actuator_behavior(hass: HomeAssistant) -> None:
         "Safety Zone 2",
         "sensor.gone",
         heaters=[SWITCH_ID, "climate.trv"],
+        thermostats=[],
         coolers=[],
         window_sensors=[],
     )
@@ -1265,6 +1284,7 @@ async def test_fallback_sensor(hass: HomeAssistant) -> None:
         "Office",
         "sensor.main",
         heaters=[],
+        thermostats=[],
         coolers=[],
         window_sensors=[],
     )

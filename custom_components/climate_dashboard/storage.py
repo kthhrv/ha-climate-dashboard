@@ -57,6 +57,7 @@ class ClimateZoneConfig(TypedDict):
     name: str
     temperature_sensor: str
     heaters: list[str]
+    thermostats: list[str]
     coolers: list[str]
     window_sensors: list[str]
     schedule: list[ScheduleBlock]

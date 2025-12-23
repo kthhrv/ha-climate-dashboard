@@ -63,6 +63,7 @@ async def test_external_sensor_forces_max_min_heat(hass: HomeAssistant) -> None:
         name="Test Zone",
         temperature_sensor="sensor.wall",
         heaters=["climate.trv"],
+        thermostats=[],
         coolers=[],
         window_sensors=[],
     )
@@ -136,6 +137,7 @@ async def test_internal_sensor_behaves_normally(hass: HomeAssistant) -> None:
         name="Smart Zone",
         temperature_sensor="climate.trv_smart",
         heaters=["climate.trv_smart"],
+        thermostats=[],
         coolers=[],
         window_sensors=[],
     )

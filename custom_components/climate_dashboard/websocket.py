@@ -63,6 +63,7 @@ async def _async_adopt_zone(hass: HomeAssistant, connection: ActiveConnection, m
         "name": name,
         "temperature_sensor": temperature_sensor,
         "heaters": heaters,
+        "thermostats": msg["thermostats"],
         "coolers": coolers,
         "window_sensors": window_sensors,
         "schedule": get_default_schedule(room_type),
@@ -166,6 +167,7 @@ async def _async_update_zone(hass: HomeAssistant, connection: ActiveConnection, 
             "name": msg["name"],
             "temperature_sensor": msg["temperature_sensor"],
             "heaters": msg["heaters"],
+            "thermostats": msg["thermostats"],
             "coolers": msg["coolers"],
             "window_sensors": msg["window_sensors"],
         }
@@ -391,6 +393,7 @@ def async_register_api(hass: HomeAssistant) -> None:
                 vol.Required("name"): str,
                 vol.Required("temperature_sensor"): str,
                 vol.Optional("heaters", default=[]): [str],
+                vol.Optional("thermostats", default=[]): [str],
                 vol.Optional("coolers", default=[]): [str],
                 vol.Optional("window_sensors", default=[]): [str],
                 vol.Optional("restore_delay_minutes", default=0): int,
@@ -410,6 +413,7 @@ def async_register_api(hass: HomeAssistant) -> None:
                 vol.Required("name"): str,
                 vol.Required("temperature_sensor"): str,
                 vol.Optional("heaters", default=[]): [str],
+                vol.Optional("thermostats", default=[]): [str],
                 vol.Optional("coolers", default=[]): [str],
                 vol.Optional("window_sensors", default=[]): [str],
                 vol.Optional("schedule"): list,
@@ -551,6 +555,8 @@ async def ws_scan_unmanaged(
                 used_entities.add(zone["temperature_sensor"])
             for h in zone.get("heaters", []):
                 used_entities.add(h)
+            for t in zone.get("thermostats", []):
+                used_entities.add(t)
             for c in zone.get("coolers", []):
                 used_entities.add(c)
             for w in zone.get("window_sensors", []):

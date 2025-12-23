@@ -34,6 +34,7 @@ async def test_home_away_manual_toggle(hass: HomeAssistant) -> None:
         "Away Zone",
         SENSOR_ID,
         heaters=[SWITCH_ID],
+        thermostats=[],
         coolers=[],
         window_sensors=[],
     )
@@ -144,6 +145,7 @@ async def test_home_away_dual_mode(hass: HomeAssistant) -> None:
         "Dual Zone",
         SENSOR_ID,
         heaters=[SWITCH_ID],
+        thermostats=[],
         coolers=[COOLER_ID],  # Has coolers -> Dual Mode
         window_sensors=[],
     )

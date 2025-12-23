@@ -24,6 +24,7 @@ export class ZoneEditor extends LitElement {
   @state() private _name = "";
   @state() private _temperatureSensor = "";
   @state() private _heaters: Set<string> = new Set();
+  @state() private _thermostats: Set<string> = new Set();
   @state() private _coolers: Set<string> = new Set();
   @state() private _windowSensors: Set<string> = new Set();
 
@@ -219,6 +220,10 @@ export class ZoneEditor extends LitElement {
       (attrs.actuator_entity_id ? [attrs.actuator_entity_id] : []);
     this._heaters = new Set(heaters);
 
+    // Thermostats
+    const thermostats = attrs.thermostats || [];
+    this._thermostats = new Set(thermostats);
+
     // Coolers
     const coolers = attrs.coolers || [];
     this._coolers = new Set(coolers);
@@ -231,6 +236,7 @@ export class ZoneEditor extends LitElement {
       name: this._name,
       temp: this._temperatureSensor,
       heaters: this._heaters,
+      thermostats: this._thermostats,
       coolers: this._coolers,
     });
 
@@ -285,6 +291,7 @@ export class ZoneEditor extends LitElement {
         name: this._name,
         temperature_sensor: this._temperatureSensor,
         heaters: Array.from(this._heaters),
+        thermostats: Array.from(this._thermostats),
         coolers: Array.from(this._coolers),
         window_sensors: Array.from(this._windowSensors),
         circuit_ids: this._selectedCircuitId ? [this._selectedCircuitId] : [],
@@ -321,6 +328,7 @@ export class ZoneEditor extends LitElement {
     if (this._error) return html`<div class="card">Error: ${this._error}</div>`;
 
     const heaterCandidates = this._getEntityList(["climate", "switch"]);
+    const thermostatCandidates = this._getEntityList(["climate"]);
     const coolerCandidates = this._getEntityList(["climate"]);
     const windowCandidates = this._getEntityList(["binary_sensor"]);
     let sensorCandidates = this.allEntities.filter(
@@ -421,6 +429,25 @@ export class ZoneEditor extends LitElement {
                     @change=${() => this._toggleSet(this._heaters, e.entity_id)}
                   />
                   <span>${e.name} (${e.entity_id})</span>
+                </div>
+              `,
+            )}
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Thermostats (Wall Dials)</label>
+          <div class="checkbox-list">
+            ${thermostatCandidates.map(
+              (e) => html`
+                <div class="checkbox-item">
+                  <input
+                    type="checkbox"
+                    ?checked=${this._thermostats.has(e.entity_id)}
+                    @change=${() =>
+                      this._toggleSet(this._thermostats, e.entity_id)}
+                  />
+                  <span>${e.name || e.entity_id}</span>
                 </div>
               `,
             )}
