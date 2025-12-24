@@ -1633,12 +1633,22 @@ class ne {
           minute: "2-digit"
         }
       );
-      let r = "";
-      return i.next_scheduled_temp_heat && i.next_scheduled_temp_cool ? r = `${i.next_scheduled_temp_heat}-${i.next_scheduled_temp_cool}°` : i.next_scheduled_temp_cool ? r = `${i.next_scheduled_temp_cool}°` : r = `${i.next_scheduled_temp_heat}°`, {
+      let r;
+      return i.next_scheduled_temp_heat && i.next_scheduled_temp_cool ? r = n`<span
+            style="color: var(--deep-orange-color, #ff5722)"
+            >${i.next_scheduled_temp_heat}</span
+          >-<span style="color: var(--blue-color, #2196f3)"
+            >${i.next_scheduled_temp_cool}</span
+          >°` : i.next_scheduled_temp_cool ? r = n`<span style="color: var(--blue-color, #2196f3)"
+          >${i.next_scheduled_temp_cool}°</span
+        >` : r = n`<span
+          style="color: var(--deep-orange-color, #ff5722)"
+          >${i.next_scheduled_temp_heat}°</span
+        >`, {
         icon: "mdi:calendar-clock",
         color: "var(--secondary-text-color)",
         text: "Following Schedule",
-        subtext: `${r} at ${s}`
+        subtext: n`${r} at ${s}`
       };
     }
     return {
@@ -2054,7 +2064,9 @@ const ke = class ke extends A {
         </div>
 
         <!-- Status Message -->
-        <div class="status-msg" style="color: ${s.color}">${s.text}</div>
+        <div class="status-msg" style="color: ${s.color}">
+          ${s.text}
+        </div>
         ${s.subtext ? n`<div
               class="status-msg"
               style="font-size: 0.7em; opacity: 0.8; color: ${s.color}"

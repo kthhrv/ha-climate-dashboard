@@ -42,4 +42,28 @@ describe("ZonesView", () => {
     expect(style).toContain("var(--error-color, #f44336)");
     expect(statusMsg?.textContent).toContain("Safety Mode");
   });
+
+  it("should render colored next temps for schedule", async () => {
+    // Re-fixture with schedule data
+    mockHass.states["climate.zone_office"].attributes = {
+      ...mockHass.states["climate.zone_office"].attributes,
+      safety_mode: false,
+      next_scheduled_change: "2023-01-01T12:00:00",
+      next_scheduled_temp_heat: 22,
+    };
+
+    element = await fixture(html`
+      <zones-view .hass=${mockHass}></zones-view>
+    `);
+
+    // The subtext is in the second status-msg
+    const statusMsgs = element.shadowRoot?.querySelectorAll(".status-msg");
+    const subtext = statusMsgs?.[1];
+    expect(subtext).toBeTruthy();
+
+    // Check for orange span
+    const span = subtext?.querySelector("span");
+    expect(span?.textContent).toContain("22°");
+    expect(span?.getAttribute("style")).toContain("var(--deep-orange-color");
+  });
 });

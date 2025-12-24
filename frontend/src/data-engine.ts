@@ -1,3 +1,5 @@
+import { html } from "lit";
+
 export interface ZoneGroup {
   floorName: string | null;
   floorIcon: string | null;
@@ -286,20 +288,30 @@ export class DataEngine {
         },
       );
 
-      let nextTempStr = "";
+      let nextTempDisplay;
       if (attrs.next_scheduled_temp_heat && attrs.next_scheduled_temp_cool) {
-        nextTempStr = `${attrs.next_scheduled_temp_heat}-${attrs.next_scheduled_temp_cool}°`;
+        nextTempDisplay = html`<span
+            style="color: var(--deep-orange-color, #ff5722)"
+            >${attrs.next_scheduled_temp_heat}</span
+          >-<span style="color: var(--blue-color, #2196f3)"
+            >${attrs.next_scheduled_temp_cool}</span
+          >°`;
       } else if (attrs.next_scheduled_temp_cool) {
-        nextTempStr = `${attrs.next_scheduled_temp_cool}°`;
+        nextTempDisplay = html`<span style="color: var(--blue-color, #2196f3)"
+          >${attrs.next_scheduled_temp_cool}°</span
+        >`;
       } else {
-        nextTempStr = `${attrs.next_scheduled_temp_heat}°`;
+        nextTempDisplay = html`<span
+          style="color: var(--deep-orange-color, #ff5722)"
+          >${attrs.next_scheduled_temp_heat}°</span
+        >`;
       }
 
       return {
         icon: "mdi:calendar-clock",
         color: "var(--secondary-text-color)",
         text: "Following Schedule",
-        subtext: `${nextTempStr} at ${nextTime}`,
+        subtext: html`${nextTempDisplay} at ${nextTime}`,
       };
     }
 
