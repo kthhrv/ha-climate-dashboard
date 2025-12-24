@@ -64,6 +64,8 @@ ENTITY_AREA_MAP = {
     # Standalone Sensors (Templates)
     "sensor_living_room_standalone_temp": "living_room",
     "sensor_bedroom_2_standalone_temp": "bedroom_2",
+    "sensor_broken_fallback": "bedroom_2",
+    "sensor_broken_safety": "bedroom_3",
 }
 
 INPUT_BOOLEAN_PATH = os.path.join(STORAGE_DIR, "input_boolean")
@@ -370,6 +372,22 @@ TEMPLATE_ENTRIES: list[dict[str, Any]] = [
         "unique_id": "sensor_bedroom_2_standalone_temp",
         "type": "sensor",
         "state": "{{ states('input_number.bedroom_2_standalone_temp_source') }}",
+        "unit_of_measurement": "°C",
+        "device_class": "temperature",
+    },
+    {
+        "name": "Broken Sensor (Fallback)",
+        "unique_id": "sensor_broken_fallback",
+        "type": "sensor",
+        "state": "unavailable",
+        "unit_of_measurement": "°C",
+        "device_class": "temperature",
+    },
+    {
+        "name": "Broken Sensor (Safety)",
+        "unique_id": "sensor_broken_safety",
+        "type": "sensor",
+        "state": "unavailable",
         "unit_of_measurement": "°C",
         "device_class": "temperature",
     },
@@ -805,7 +823,7 @@ def seed_dashboard_storage() -> None:
         {
             "unique_id": "zone_fallback",
             "name": "Fallback Room",
-            "temperature_sensor": "sensor.non_existent_1",
+            "temperature_sensor": "sensor.broken_fallback",
             "heaters": ["climate.bedroom_2"],
             "thermostats": [],
             "coolers": [],
@@ -816,7 +834,7 @@ def seed_dashboard_storage() -> None:
         {
             "unique_id": "zone_safety",
             "name": "Safety Room",
-            "temperature_sensor": "sensor.non_existent_2",
+            "temperature_sensor": "sensor.broken_safety",
             "heaters": ["climate.bedroom_3"],
             "thermostats": [],
             "coolers": [],
