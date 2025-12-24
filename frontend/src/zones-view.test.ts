@@ -20,6 +20,7 @@ describe("ZonesView", () => {
           current_temperature: 20,
           is_climate_dashboard_zone: true,
           safety_mode: true, // Should trigger Red color
+          heaters: ["climate.heater"],
         },
       },
     };
@@ -65,5 +66,32 @@ describe("ZonesView", () => {
     const span = subtext?.querySelector("span");
     expect(span?.textContent).toContain("22°");
     expect(span?.getAttribute("style")).toContain("var(--deep-orange-color");
+  });
+
+  it("should filter next temp based on capabilities", async () => {
+    // Re-fixture with cooling ONLY zone
+    mockHass.states["climate.zone_office"].attributes = {
+      ...mockHass.states["climate.zone_office"].attributes,
+      safety_mode: false,
+      heaters: [], // Remove heaters
+      coolers: ["climate.ac"], // Add coolers
+      next_scheduled_change: "2023-01-01T12:00:00",
+      next_scheduled_temp_heat: 22, // Should be ignored
+      next_scheduled_temp_cool: 25, // Should be shown
+    };
+
+    element = await fixture(html`
+      <zones-view .hass=${mockHass}></zones-view>
+    `);
+
+    const statusMsgs = element.shadowRoot?.querySelectorAll(".status-msg");
+    const subtext = statusMsgs?.[1];
+    const span = subtext?.querySelector("span");
+
+    // Should show 25 (cool), not 22 (heat)
+    expect(span?.textContent).toContain("25°");
+    expect(span?.textContent).not.toContain("22°");
+    // Should be blue
+    expect(span?.getAttribute("style")).toContain("var(--blue-color");
   });
 });

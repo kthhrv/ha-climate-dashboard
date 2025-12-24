@@ -1632,23 +1632,23 @@ class ne {
           hour: "2-digit",
           minute: "2-digit"
         }
-      );
-      let r;
-      return i.next_scheduled_temp_heat && i.next_scheduled_temp_cool ? r = n`<span
+      ), r = (i.heaters || []).length > 0, o = (i.coolers || []).length > 0;
+      let c;
+      return r && o && i.next_scheduled_temp_heat && i.next_scheduled_temp_cool ? c = n`<span
             style="color: var(--deep-orange-color, #ff5722)"
             >${i.next_scheduled_temp_heat}</span
           >-<span style="color: var(--blue-color, #2196f3)"
             >${i.next_scheduled_temp_cool}</span
-          >°` : i.next_scheduled_temp_cool ? r = n`<span style="color: var(--blue-color, #2196f3)"
+          >°` : o && i.next_scheduled_temp_cool ? c = n`<span style="color: var(--blue-color, #2196f3)"
           >${i.next_scheduled_temp_cool}°</span
-        >` : r = n`<span
+        >` : r && i.next_scheduled_temp_heat ? c = n`<span
           style="color: var(--deep-orange-color, #ff5722)"
           >${i.next_scheduled_temp_heat}°</span
-        >`, {
+        >` : c = n`--°`, {
         icon: "mdi:calendar-clock",
         color: "var(--secondary-text-color)",
         text: "Following Schedule",
-        subtext: n`${r} at ${s}`
+        subtext: n`${c} at ${s}`
       };
     }
     return {

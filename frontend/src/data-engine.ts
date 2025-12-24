@@ -288,23 +288,34 @@ export class DataEngine {
         },
       );
 
+      const hasHeaters = (attrs.heaters || []).length > 0;
+      const hasCoolers = (attrs.coolers || []).length > 0;
+
       let nextTempDisplay;
-      if (attrs.next_scheduled_temp_heat && attrs.next_scheduled_temp_cool) {
+      if (
+        hasHeaters &&
+        hasCoolers &&
+        attrs.next_scheduled_temp_heat &&
+        attrs.next_scheduled_temp_cool
+      ) {
         nextTempDisplay = html`<span
             style="color: var(--deep-orange-color, #ff5722)"
             >${attrs.next_scheduled_temp_heat}</span
           >-<span style="color: var(--blue-color, #2196f3)"
             >${attrs.next_scheduled_temp_cool}</span
           >°`;
-      } else if (attrs.next_scheduled_temp_cool) {
+      } else if (hasCoolers && attrs.next_scheduled_temp_cool) {
         nextTempDisplay = html`<span style="color: var(--blue-color, #2196f3)"
           >${attrs.next_scheduled_temp_cool}°</span
         >`;
-      } else {
+      } else if (hasHeaters && attrs.next_scheduled_temp_heat) {
         nextTempDisplay = html`<span
           style="color: var(--deep-orange-color, #ff5722)"
           >${attrs.next_scheduled_temp_heat}°</span
         >`;
+      } else {
+        // Fallback if no capabilities match or data missing
+        nextTempDisplay = html`--°`;
       }
 
       return {
