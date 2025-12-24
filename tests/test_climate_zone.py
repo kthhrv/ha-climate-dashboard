@@ -1375,3 +1375,72 @@ async def test_fallback_filtering(hass: HomeAssistant) -> None:
     assert zone.extra_state_attributes["safety_mode"] is False
     assert zone.extra_state_attributes["using_fallback_sensor"] == "sensor.good"
     assert zone.current_temperature == 20.5
+
+
+async def test_fallback_persistence_after_update(hass: HomeAssistant) -> None:
+    """Test that fallback logic persists after a config update (SafetyMonitor recreation)."""
+    ent_reg = er.async_get(hass)
+    area_reg = ar.async_get(hass)
+    area = area_reg.async_create("Lounge")
+
+    # Main Sensor (Broken)
+    ent_reg.async_get_or_create("sensor", "demo", "main", suggested_object_id="main")
+    ent_reg.async_update_entity("sensor.main", area_id=area.id)
+    hass.states.async_set("sensor.main", "unavailable")
+
+    # Backup Sensor (Working)
+    ent_reg.async_get_or_create("sensor", "demo", "backup", suggested_object_id="backup")
+    ent_reg.async_update_entity("sensor.backup", area_id=area.id)
+    hass.states.async_set("sensor.backup", "21.0", {"device_class": "temperature"})
+
+    mock_storage = MagicMock()
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
+
+    # Initialize Zone with stable unique_id "zone_lounge"
+    zone = ClimateZone(
+        hass,
+        mock_storage,
+        "zone_lounge",
+        "Lounge",
+        "sensor.main",
+        heaters=[],
+        thermostats=[],
+        coolers=[],
+        window_sensors=[],
+    )
+
+    # Register Zone in Registry
+    # IMPORTANT: The registry maps "zone_lounge" (unique_id) -> "climate.lounge" (entity_id)
+    # The SafetyMonitor uses unique_id to look this up.
+    zone_entry = ent_reg.async_get_or_create("climate", DOMAIN, "zone_lounge", suggested_object_id="zone_lounge")
+    ent_reg.async_update_entity(zone_entry.entity_id, area_id=area.id)
+
+    # 1. Initial State Check
+    with patch("asyncio.sleep", return_value=None):
+        await zone.async_added_to_hass()
+    await zone.async_set_hvac_mode(HVACMode.HEAT)
+
+    assert zone.extra_state_attributes["safety_mode"] is False
+    assert zone.extra_state_attributes["using_fallback_sensor"] == "sensor.backup"
+
+    # 2. Update Config (Rename)
+    # This triggers recreation of SafetyMonitor.
+    # If it uses entity_id instead of unique_id, it might fail the registry lookup
+    # if the internal state vs registry state gets confused, or simply because logic expects unique_id.
+    await zone.async_update_config(
+        name="Lounge Renamed",
+        temperature_sensor="sensor.main",
+        heaters=[],
+        thermostats=[],
+        coolers=[],
+        window_sensors=[],
+    )
+
+    # Trigger Control Loop again
+    await zone._async_control_actuator(force=True)
+
+    # 3. Verify Persistence
+    assert zone.extra_state_attributes["safety_mode"] is False
+    assert zone.extra_state_attributes["using_fallback_sensor"] == "sensor.backup"
+    # Ensure name updated
+    assert zone.name == "Lounge Renamed"

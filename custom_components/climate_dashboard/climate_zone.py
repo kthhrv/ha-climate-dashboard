@@ -267,7 +267,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self._schedule = schedule or []
         self._schedule_manager = ScheduleManager(self._schedule)
         self._safety_monitor = SafetyMonitor(
-            self.hass, self._storage, self.entity_id, self._window_sensors, self._temperature_sensor
+            self.hass, self._storage, self.unique_id, self._window_sensors, self._temperature_sensor
         )
 
         # Re-create Actuators
