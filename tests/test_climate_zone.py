@@ -1309,3 +1309,69 @@ async def test_fallback_sensor(hass: HomeAssistant) -> None:
     assert zone.extra_state_attributes["safety_mode"] is False
     assert zone.extra_state_attributes["using_fallback_sensor"] == "sensor.backup"
     assert zone.current_temperature == 21.5
+
+
+async def test_fallback_filtering(hass: HomeAssistant) -> None:
+    """Test fallback logic filters out invalid sensors."""
+    ent_reg = er.async_get(hass)
+    area_reg = ar.async_get(hass)
+    area = area_reg.async_create("Lounge")
+
+    # Main Sensor (Broken)
+    ent_reg.async_get_or_create("sensor", "demo", "main", suggested_object_id="main")
+    ent_reg.async_update_entity("sensor.main", area_id=area.id)
+    hass.states.async_set("sensor.main", "unavailable")
+
+    # Bad Candidate 1: Humidity
+    ent_reg.async_get_or_create("sensor", "demo", "hum", suggested_object_id="hum")
+    ent_reg.async_update_entity("sensor.hum", area_id=area.id)
+    hass.states.async_set("sensor.hum", "50", {"device_class": "humidity"})
+
+    # Bad Candidate 2: Unavailable Temp
+    ent_reg.async_get_or_create("sensor", "demo", "ghost", suggested_object_id="ghost")
+    ent_reg.async_update_entity("sensor.ghost", area_id=area.id)
+    hass.states.async_set("sensor.ghost", "unavailable", {"device_class": "temperature"})
+
+    # Bad Candidate 3: Text State
+    ent_reg.async_get_or_create("sensor", "demo", "text", suggested_object_id="text")
+    ent_reg.async_update_entity("sensor.text", area_id=area.id)
+    hass.states.async_set("sensor.text", "Hello", {"device_class": "temperature"})
+
+    mock_storage = MagicMock()
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
+    zone = ClimateZone(
+        hass,
+        mock_storage,
+        "lounge",
+        "Lounge",
+        "sensor.main",
+        heaters=[],
+        thermostats=[],
+        coolers=[],
+        window_sensors=[],
+    )
+
+    # Register Zone
+    zone_entry = ent_reg.async_get_or_create("climate", DOMAIN, "lounge", suggested_object_id="zone_lounge")
+    ent_reg.async_update_entity(zone_entry.entity_id, area_id=area.id)
+
+    # 1. Test Failure (All Candidates Bad)
+    with patch("asyncio.sleep", return_value=None):
+        await zone.async_added_to_hass()
+    await zone.async_set_hvac_mode(HVACMode.HEAT)
+
+    assert zone.extra_state_attributes["safety_mode"] is True
+    assert zone.extra_state_attributes["using_fallback_sensor"] is None
+
+    # 2. Test Success (Add Good Candidate)
+    ent_reg.async_get_or_create("sensor", "demo", "good", suggested_object_id="good")
+    ent_reg.async_update_entity("sensor.good", area_id=area.id)
+    # Test Unit matching (Celsius)
+    hass.states.async_set("sensor.good", "20.5", {"unit_of_measurement": UnitOfTemperature.CELSIUS})
+
+    # Trigger Update
+    await zone._async_control_actuator(force=True)
+
+    assert zone.extra_state_attributes["safety_mode"] is False
+    assert zone.extra_state_attributes["using_fallback_sensor"] == "sensor.good"
+    assert zone.current_temperature == 20.5

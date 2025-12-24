@@ -136,7 +136,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         # Initialize Managers
         self._schedule_manager = ScheduleManager(schedule or [])
         self._safety_monitor = SafetyMonitor(
-            self.hass, self._storage, self.entity_id, self._window_sensors, self._temperature_sensor
+            self.hass, self._storage, unique_id, self._window_sensors, self._temperature_sensor
         )
 
         self._heaters_actuators: list[Actuator] = []

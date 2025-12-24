@@ -243,6 +243,16 @@ export class DataEngine {
       };
     }
 
+    // Priority 1.5: Fallback Sensor
+    if (attrs.using_fallback_sensor) {
+      return {
+        icon: "mdi:thermometer-alert",
+        color: "var(--warning-color, #ff9800)",
+        text: "Sensor Fallback",
+        subtext: `Using ${attrs.using_fallback_sensor}`,
+      };
+    }
+
     // Priority 2: Window Open
     if (attrs.open_window_sensor) {
       return {

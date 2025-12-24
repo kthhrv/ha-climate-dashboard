@@ -25,14 +25,14 @@ class SafetyMonitor:
         self,
         hass: HomeAssistant,
         storage: ClimateDashboardStorage,
-        zone_id: str,
+        unique_id: str,
         window_sensors: list[str],
         temperature_sensor: str,
     ) -> None:
         """Initialize."""
         self.hass = hass
         self._storage = storage
-        self._zone_id = zone_id
+        self._unique_id = unique_id
         self._window_sensors = window_sensors
         self._temperature_sensor = temperature_sensor
 
@@ -63,7 +63,7 @@ class SafetyMonitor:
 
         if self.window_open_timestamp is None:
             self.window_open_timestamp = now
-            _LOGGER.debug("Zone %s: Window open detected. Starting delay.", self._zone_id)
+            _LOGGER.debug("Zone %s: Window open detected. Starting delay.", self._unique_id)
 
         delay = self._storage.settings.get("window_open_delay_seconds", 30)
         time_open = (now - self.window_open_timestamp).total_seconds()
@@ -76,7 +76,15 @@ class SafetyMonitor:
     def get_fallback_temperature(self) -> tuple[float, str] | None:
         """Attempt to find a fallback sensor in the same Area."""
         ent_reg = er.async_get(self.hass)
-        my_entry = ent_reg.async_get(self._zone_id)
+
+        # Look up entity_id from unique_id to ensure we match the registry
+        # regardless of runtime entity_id mismatches.
+        entity_id = ent_reg.async_get_entity_id("climate", "climate_dashboard", self._unique_id)
+
+        if not entity_id:
+            return None
+
+        my_entry = ent_reg.async_get(entity_id)
 
         if not my_entry or not my_entry.area_id:
             return None

@@ -1601,6 +1601,13 @@ class ne {
         text: "Safety Mode (Sensor Lost)",
         subtext: "Heating to 5°C"
       };
+    if (i.using_fallback_sensor)
+      return {
+        icon: "mdi:thermometer-alert",
+        color: "var(--warning-color, #ff9800)",
+        text: "Sensor Fallback",
+        subtext: `Using ${i.using_fallback_sensor}`
+      };
     if (i.open_window_sensor)
       return {
         icon: "mdi:window-open-variant",

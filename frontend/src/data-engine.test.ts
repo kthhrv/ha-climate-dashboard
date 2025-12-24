@@ -118,6 +118,20 @@ describe("DataEngine", () => {
       expect(status.color).toContain("error-color");
     });
 
+    it("should indicate Fallback Sensor usage", () => {
+      const zone = {
+        attributes: {
+          safety_mode: false,
+          using_fallback_sensor: "sensor.backup",
+          open_window_sensor: null,
+        },
+      };
+      const status = DataEngine.getZoneStatus(zone, false);
+      expect(status.text).toContain("Sensor Fallback");
+      expect(status.subtext).toContain("sensor.backup");
+      expect(status.icon).toBe("mdi:thermometer-alert");
+    });
+
     it("should show Away Mode if active", () => {
       const zone = MOCK_HASS.states["climate.zone_office"]; // Normal zone
       const status = DataEngine.getZoneStatus(zone, true); // isAway = true
