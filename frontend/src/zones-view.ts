@@ -233,11 +233,13 @@ export class ZonesView extends LitElement {
         </div>
 
         <!-- Status Message -->
-        <div class="status-msg">${status.text}</div>
+        <div class="status-msg" style="color: ${status.color}">
+          ${status.text}
+        </div>
         ${status.subtext
           ? html`<div
               class="status-msg"
-              style="font-size: 0.7em; opacity: 0.8;"
+              style="font-size: 0.7em; opacity: 0.8; color: ${status.color}"
             >
               ${status.subtext}
             </div>`

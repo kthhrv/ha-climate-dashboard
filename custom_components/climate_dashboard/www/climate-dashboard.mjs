@@ -2054,10 +2054,10 @@ const ke = class ke extends A {
         </div>
 
         <!-- Status Message -->
-        <div class="status-msg">${s.text}</div>
+        <div class="status-msg" style="color: ${s.color}">${s.text}</div>
         ${s.subtext ? n`<div
               class="status-msg"
-              style="font-size: 0.7em; opacity: 0.8;"
+              style="font-size: 0.7em; opacity: 0.8; color: ${s.color}"
             >
               ${s.subtext}
             </div>` : ""}
