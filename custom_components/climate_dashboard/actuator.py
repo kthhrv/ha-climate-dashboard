@@ -103,10 +103,10 @@ class ClimateActuator(Actuator):
         if self.type == ActuatorType.HEATER:
             if HVACMode.HEAT_COOL in valid_modes:
                 target_mode = HVACMode.HEAT_COOL
-            elif HVACMode.HEAT in valid_modes:
-                target_mode = HVACMode.HEAT
             elif HVACMode.AUTO in valid_modes:
                 target_mode = HVACMode.AUTO
+            elif HVACMode.HEAT in valid_modes:
+                target_mode = HVACMode.HEAT
         else:  # COOLER
             if HVACMode.COOL in valid_modes:
                 target_mode = HVACMode.COOL

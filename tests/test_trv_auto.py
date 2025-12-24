@@ -102,7 +102,7 @@ async def test_heater_auto_mode_priority(hass: HomeAssistant) -> None:
             trv_modes.append(data["hvac_mode"])
 
     # It might be in set_temperature call or set_hvac_mode call
-    assert HVACMode.HEAT in trv_modes, f"TRV should use HEAT mode for manual control. Got: {trv_modes}"
+    assert HVACMode.AUTO in trv_modes, f"TRV should use AUTO mode for manual control. Got: {trv_modes}"
     # assert HVACMode.HEAT not in trv_modes, "TRV should NOT use HEAT mode if AUTO is available"
 
     # Verify Generic got HEAT
