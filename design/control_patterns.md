@@ -11,7 +11,8 @@ To build a robust "Operating System" for climate, we must support the diverse ha
     *   Users want to use a separate room sensor to control the valve.
 *   **Strategy:**
     *   **Adoption:** We take control of the Target Temperature.
-    *   **Logic:** We set the TRV to `heat` mode. We modulate the `target_temp` based on our external sensor (software PID or simple offset).
+    *   **Logic:** We set the TRV to `auto` mode (if available) or `heat`. We modulate the `target_temp` based on our external sensor.
+    *   **Note:** We prefer `auto` because some TRVs (e.g. Tuya) treat `heat` as "Force Valve Open". We rely on our control loop to overwrite any internal schedule reverts.
 
 ## 2. The Smart Switch (Bang-Bang)
 *   **Examples:** Electric Space Heater on a Zigbee plug, Mill Wifi Heater (old gen), Boiler Relay.
