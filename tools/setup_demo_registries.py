@@ -54,7 +54,8 @@ ENTITY_AREA_MAP = {
     "zone_office_ac": "office",
     "zone_office_dual": "office",
     "zone_guest_room": "guest_room",
-    "zone_broken": "bedroom_2",
+    "zone_fallback": "bedroom_2",
+    "zone_safety": "bedroom_3",
     "zone_master_bedroom": "master_bedroom",
     # Binary Sensors (Templates)
     "binary_sensor_kitchen_door": "kitchen",
@@ -800,18 +801,29 @@ def seed_dashboard_storage() -> None:
             "window_sensors": ["binary_sensor.guest_room_window"],  # MQTT Window
             "schedule": default_schedule,
         },
-        # 6. Safety Zone (Broken Sensor)
+        # 6. Fallback Zone (Broken Sensor -> Area Fallback)
         {
-            "unique_id": "zone_broken",
-            "name": "Broken Sensor Room",
-            "temperature_sensor": "sensor.non_existent",
+            "unique_id": "zone_fallback",
+            "name": "Fallback Room",
+            "temperature_sensor": "sensor.non_existent_1",
             "heaters": ["climate.bedroom_2"],
             "thermostats": [],
             "coolers": [],
             "window_sensors": [],
             "schedule": default_schedule,
         },
-        # 7. Window Zone (Open)
+        # 7. Safety Zone (Broken Sensor -> No Fallback -> Safety Mode)
+        {
+            "unique_id": "zone_safety",
+            "name": "Safety Room",
+            "temperature_sensor": "sensor.non_existent_2",
+            "heaters": ["climate.bedroom_3"],
+            "thermostats": [],
+            "coolers": [],
+            "window_sensors": [],
+            "schedule": default_schedule,
+        },
+        # 8. Window Zone (Open)
         {
             "unique_id": "zone_master_bedroom",
             "name": "Master Bedroom",
@@ -847,7 +859,7 @@ def seed_dashboard_storage() -> None:
     }
     full_data = {"version": 1, "minor_version": 1, "key": "climate_dashboard", "data": data}
     save_json(CLIMATE_DASHBOARD_PATH, full_data)
-    print("Seeded Climate Dashboard Storage with 7 Demo Zones and 'Central Heating' circuit")
+    print("Seeded Climate Dashboard Storage with 8 Demo Zones and 'Central Heating' circuit")
 
 
 def seed_restore_state() -> None:
