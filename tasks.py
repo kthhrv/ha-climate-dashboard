@@ -49,7 +49,30 @@ def test_cov(c: Context) -> None:
     c.run("uv run pytest --cov=custom_components.climate_dashboard --cov-report=term-missing")
 
 
-@task(pre=[build_frontend])
+@task
+def check_mqtt(c: Context) -> None:
+    """Ensure MQTT broker is running."""
+    print("Checking MQTT Broker...")
+
+    # Check if container exists
+    result = c.run("docker ps -a --filter 'name=mqtt-broker' --format '{{.Status}}'", hide=True, warn=True)
+    status = result.stdout.strip()
+
+    if not status:
+        print("MQTT Broker not found. Starting new container...")
+        c.run(
+            "docker run -d -p 1883:1883 --name mqtt-broker "
+            "-v /home/keith/ws/ha-climate-dashboard/tools/mosquitto.conf:/mosquitto/config/mosquitto.conf "
+            "eclipse-mosquitto"
+        )
+    elif "Up" not in status:
+        print("MQTT Broker is stopped. Starting...")
+        c.run("docker start mqtt-broker")
+    else:
+        print("MQTT Broker is running.")
+
+
+@task(pre=[check_mqtt, build_frontend])
 def dev(c: Context) -> None:
     """Build frontend and run Home Assistant."""
     run(c)
