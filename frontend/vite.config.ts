@@ -17,6 +17,11 @@ export default defineConfig({
       // We will bundle everything for a standalone panel to ensure stability.
     },
   },
+  test: {
+    environment: "jsdom",
+    globals: true,
+    threads: false, // simpler for lit component testing
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
