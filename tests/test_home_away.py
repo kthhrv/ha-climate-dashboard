@@ -203,3 +203,47 @@ async def test_home_away_dual_mode(hass: HomeAssistant) -> None:
             found = True
 
     assert found, "Cooler set_temperature not called"
+
+
+async def test_home_away_zone_entity_numeric_state(hass: HomeAssistant) -> None:
+    """Test presence automation works with zone entities having numeric states."""
+    storage = ClimateDashboardStorage(hass)
+    await storage.async_load()
+
+    ZONE_ID = "zone.home"
+
+    # Configure to use a zone entity
+    await storage.async_update_settings(
+        {"home_away_entity_id": ZONE_ID, "away_delay_minutes": 10, "is_away_mode_on": False}
+    )
+
+    coordinator = ClimateDashboardCoordinator(hass, storage)
+
+    # 1. Set Presence to HOME (1 person)
+    hass.states.async_set(ZONE_ID, "1")
+    await hass.async_block_till_done()
+
+    # 2. Set Presence to AWAY (0 people)
+    hass.states.async_set(ZONE_ID, "0")
+    await hass.async_block_till_done()
+
+    # Verify timer started
+    assert coordinator._timer_remove is not None
+    assert not storage.settings["is_away_mode_on"]
+
+    start_time = dt_util.utcnow()
+
+    # 3. Advance Time: 11 mins (Total)
+    async_fire_time_changed(hass, start_time + timedelta(minutes=11))
+    await hass.async_block_till_done()
+
+    # Verify Away Mode Enabled
+    assert storage.settings["is_away_mode_on"]
+    assert coordinator._timer_remove is None
+
+    # 4. Return Home (2 people)
+    hass.states.async_set(ZONE_ID, "2")
+    await hass.async_block_till_done()
+
+    # Verify Away Mode Disabled Immediately
+    assert not storage.settings["is_away_mode_on"]

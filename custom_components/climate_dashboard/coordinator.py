@@ -58,9 +58,15 @@ class ClimateDashboardCoordinator:
 
         # Determine "Home" vs "Away" based on state
         # Support device_tracker (home/not_home) and boolean/binary_sensor (on/off) or person (home/not_home)
-        # Assuming: "home"/"on" = Home. "not_home"/"off" = Away.
+        # Also support zone entities (numeric count of persons, where > 0 is Home)
 
         is_presence_home = new_state.state in [STATE_HOME, STATE_ON]
+        if not is_presence_home:
+            try:
+                if float(new_state.state) > 0:
+                    is_presence_home = True
+            except ValueError:
+                pass
 
         if is_presence_home:
             # User Returned Home
