@@ -433,6 +433,12 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             low = None
             high = None
 
+            # Determine Intent Mode
+            # If Zone is already AUTO, we interpret HEAT/COOL inputs as setpoint adjustments within AUTO.
+            intent_mode = new_mode
+            if self._attr_hvac_mode == HVACMode.AUTO and new_mode in (HVACMode.HEAT, HVACMode.COOL):
+                intent_mode = HVACMode.AUTO
+
             if new_mode == HVACMode.COOL:
                 high = new_temp
             else:
@@ -442,7 +448,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             self._intents.append(
                 ClimateIntent(
                     source=IntentSource.MANUAL_DIAL,
-                    mode=new_mode,
+                    mode=intent_mode,
                     setpoints=TargetSetpoints(target=target, low=low, high=high),
                 )
             )
