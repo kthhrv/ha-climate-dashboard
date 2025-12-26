@@ -41,15 +41,16 @@ def zone(hass: Any, mock_storage: MagicMock) -> ClimateZone:
 @pytest.mark.asyncio
 async def test_manual_override_cool(hass: Any, zone: ClimateZone) -> None:
     """Test setting cooling manually triggers correct reconciliation."""
-    # Setup States
-    hass.states.async_set(SENSOR_ID, "25.0")
-    hass.states.async_set(CLIMATE_ID, HVACMode.OFF, {"hvac_modes": [HVACMode.OFF, HVACMode.COOL]})
-
-    # Init
-    await zone.async_added_to_hass()
 
     # Patch async_call
     with patch("homeassistant.core.ServiceRegistry.async_call") as call_mock:
+        # Setup States
+        hass.states.async_set(SENSOR_ID, "25.0")
+        hass.states.async_set(CLIMATE_ID, HVACMode.OFF, {"hvac_modes": [HVACMode.OFF, HVACMode.COOL]})
+
+        # Init
+        await zone.async_added_to_hass()
+
         # Action: Set Cool Mode
         await zone.async_set_hvac_mode(HVACMode.COOL)
         await zone.async_set_temperature(temperature=22.0)
@@ -61,10 +62,10 @@ async def test_manual_override_cool(hass: Any, zone: ClimateZone) -> None:
         assert zone.hvac_mode == HVACMode.COOL
         assert zone.target_temperature == 22.0
 
-        # Verify calls
-        # We expect 'set_hvac_mode' -> COOL
-        # We expect 'set_temperature' -> 16.0
+        # Assert Reconciler Actions
+        assert zone.hvac_action == HVACAction.COOLING
 
+        # Verify calls
         calls = call_mock.call_args_list
         assert len(calls) >= 1
 
@@ -99,22 +100,24 @@ async def test_window_safety(hass: Any, mock_storage: MagicMock) -> None:
     )
     zone._startup_grace_period = False
 
-    # Setup
-    hass.states.async_set(SENSOR_ID, "20.0")
-    hass.states.async_set(CLIMATE_ID, HVACMode.HEAT, {"hvac_modes": [HVACMode.HEAT, HVACMode.OFF]})
-    hass.states.async_set(WINDOW_ID, "off")  # Closed
+    # Patch async_call
+    with patch("homeassistant.core.ServiceRegistry.async_call"):
+        # Setup
+        hass.states.async_set(SENSOR_ID, "20.0")
+        hass.states.async_set(CLIMATE_ID, HVACMode.HEAT, {"hvac_modes": [HVACMode.HEAT, HVACMode.OFF]})
+        hass.states.async_set(WINDOW_ID, "off")  # Closed
 
-    await zone.async_added_to_hass()
-    await zone.async_set_hvac_mode(HVACMode.HEAT)
-    await zone.async_set_temperature(temperature=25.0)
-    await hass.async_block_till_done()
+        await zone.async_added_to_hass()
+        await zone.async_set_hvac_mode(HVACMode.HEAT)
+        await zone.async_set_temperature(temperature=25.0)
+        await hass.async_block_till_done()
 
-    # Should be heating
-    assert zone.hvac_action == HVACAction.HEATING
+        # Should be heating
+        assert zone.hvac_action == HVACAction.HEATING
 
-    # OPEN WINDOW
-    hass.states.async_set(WINDOW_ID, "on")
-    await hass.async_block_till_done()
+        # OPEN WINDOW
+        hass.states.async_set(WINDOW_ID, "on")
+        await hass.async_block_till_done()
 
-    # Should be OFF
-    assert zone.hvac_action == HVACAction.OFF
+        # Should be OFF
+        assert zone.hvac_action == HVACAction.OFF
