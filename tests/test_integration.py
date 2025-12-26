@@ -75,6 +75,17 @@ async def test_zone_heating_cycle(hass: HomeAssistant, hass_ws_client: Any) -> N
     assert state is not None
     assert state.state == HVACMode.AUTO  # Default is AUTO
 
+    # 2b. Enable Overrides (Default is Disabled)
+    await client.send_json(
+        {
+            "id": 2,
+            "type": "climate_dashboard/settings/update",
+            "default_override_type": "next_block",
+        }
+    )
+    settings_response = await client.receive_json()
+    assert settings_response["success"]
+
     # 3. Turn On Heat (Goal: 22C, Current: 18C)
     await hass.services.async_call(
         "climate",

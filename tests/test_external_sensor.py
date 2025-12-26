@@ -14,8 +14,10 @@ from homeassistant.const import SERVICE_TURN_OFF, SERVICE_TURN_ON
 from homeassistant.core import HomeAssistant
 
 from custom_components.climate_dashboard.climate_zone import ClimateZone
+from custom_components.climate_dashboard.storage import OverrideType
 
-# Global mock to capture calls
+# Constants
+
 mock_service_calls = []
 
 
@@ -53,7 +55,7 @@ async def test_external_sensor_forces_max_min_heat(hass: HomeAssistant) -> None:
 
     # Mock storage
     mock_storage = MagicMock()
-    mock_storage.settings = {}
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
 
     # 3. Create Zone
     zone = ClimateZone(
@@ -128,7 +130,7 @@ async def test_internal_sensor_behaves_normally(hass: HomeAssistant) -> None:
 
     # Zone uses the TRV as sensor
     mock_storage = MagicMock()
-    mock_storage.settings = {}
+    mock_storage.settings = {"default_override_type": OverrideType.NEXT_BLOCK}
 
     zone = ClimateZone(
         hass,

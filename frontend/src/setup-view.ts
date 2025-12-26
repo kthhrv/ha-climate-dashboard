@@ -13,7 +13,7 @@ interface ClimateEntity {
 }
 
 interface GlobalSettings {
-  default_override_type: "next_block" | "duration";
+  default_override_type: "next_block" | "duration" | "disabled";
   default_timer_minutes: number;
   window_open_delay_seconds: number;
   home_away_entity_id: string | null;
@@ -36,7 +36,7 @@ export class SetupView extends LitElement {
   @state() private _devices: ClimateEntity[] = [];
   @state() private _loading = false;
   @state() private _settings: GlobalSettings = {
-    default_override_type: "next_block",
+    default_override_type: "disabled",
     default_timer_minutes: 60,
     window_open_delay_seconds: 30,
     home_away_entity_id: null,
@@ -264,6 +264,7 @@ export class SetupView extends LitElement {
                 (e.target as HTMLSelectElement).value,
               )}
           >
+            <option value="disabled">Disabled (Manual Not Respected)</option>
             <option value="next_block">Until Next Schedule</option>
             <option value="duration">Timer (Fixed Duration)</option>
           </select>

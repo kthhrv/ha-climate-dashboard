@@ -23,6 +23,7 @@ class OverrideType(StrEnum):
 
     NEXT_BLOCK = "next_block"
     DURATION = "duration"
+    DISABLED = "disabled"
 
 
 class GlobalSettings(TypedDict, total=False):
@@ -102,7 +103,7 @@ class ClimateDashboardStorage:
         zones: list[ClimateZoneConfig] = []
         circuits: list[CircuitConfig] = []
         settings: GlobalSettings = {
-            "default_override_type": OverrideType.NEXT_BLOCK,
+            "default_override_type": OverrideType.DISABLED,
             "default_timer_minutes": 60,
             "window_open_delay_seconds": 30,
             "home_away_entity_id": None,
@@ -162,7 +163,7 @@ class ClimateDashboardStorage:
         if self._data is None:
             # This should not happen if async_load is called first
             return {
-                "default_override_type": OverrideType.NEXT_BLOCK,
+                "default_override_type": OverrideType.DISABLED,
                 "default_timer_minutes": 60,
                 "window_open_delay_seconds": 30,
                 "home_away_entity_id": None,
@@ -180,7 +181,7 @@ class ClimateDashboardStorage:
                 zones=[],
                 circuits=[],
                 settings={
-                    "default_override_type": OverrideType.NEXT_BLOCK,
+                    "default_override_type": OverrideType.DISABLED,
                     "default_timer_minutes": 60,
                     "window_open_delay_seconds": 30,
                     "home_away_entity_id": None,
@@ -242,7 +243,7 @@ class ClimateDashboardStorage:
                 zones=[],
                 circuits=[],
                 settings={
-                    "default_override_type": OverrideType.NEXT_BLOCK,
+                    "default_override_type": OverrideType.DISABLED,
                     "default_timer_minutes": 60,
                     "window_open_delay_seconds": 30,
                     "home_away_entity_id": None,
@@ -264,7 +265,7 @@ class ClimateDashboardStorage:
                 zones=[],
                 circuits=[],
                 settings={
-                    "default_override_type": OverrideType.NEXT_BLOCK,
+                    "default_override_type": OverrideType.DISABLED,
                     "default_timer_minutes": 60,
                     "window_open_delay_seconds": 30,
                     "home_away_entity_id": None,

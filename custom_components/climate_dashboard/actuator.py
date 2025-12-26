@@ -11,6 +11,7 @@ from homeassistant.components.climate import (
     ATTR_TARGET_TEMP_HIGH,
     ATTR_TARGET_TEMP_LOW,
     ClimateEntityFeature,
+    HVACAction,
     HVACMode,
 )
 from homeassistant.const import ATTR_ENTITY_ID, ATTR_TEMPERATURE
@@ -60,6 +61,11 @@ class SwitchActuator(Actuator):
         force_target: bool = False,
     ) -> None:
         """Control the switch."""
+        state = self.hass.states.get(self.entity_id)
+        if not state or state.state in ("unavailable", "unknown"):
+            _LOGGER.debug("Entity %s is unavailable, skipping control.", self.entity_id)
+            return
+
         is_on = enable and not force_off
         service = "turn_on" if is_on else "turn_off"
         await self.hass.services.async_call("switch", service, {ATTR_ENTITY_ID: self.entity_id})
@@ -91,7 +97,8 @@ class ClimateActuator(Actuator):
     ) -> None:
         """Control the climate entity."""
         state = self.hass.states.get(self.entity_id)
-        if not state:
+        if not state or state.state in ("unavailable", "unknown"):
+            _LOGGER.debug("Entity %s is unavailable, skipping control.", self.entity_id)
             return
 
         features = state.attributes.get("supported_features", 0)
@@ -204,6 +211,27 @@ class ThermostatSync:
         """Initialize."""
         self.hass = hass
         self.entity_id = entity_id
+        self._last_sent_target: float | None = None
+
+    def check_is_external_change(self, new_state: Any) -> bool:
+        """Check if the state change is external (user) or our own echo."""
+        if self._last_sent_target is None:
+            return True
+
+        new_temp = new_state.attributes.get(ATTR_TEMPERATURE)
+        if new_temp is None:
+            return True
+
+        try:
+            diff = abs(float(new_temp) - self._last_sent_target)
+            if diff < 0.1:
+                _LOGGER.debug("ThermostatSync %s: Ignoring echo (%.1f)", self.entity_id, self._last_sent_target)
+                self._last_sent_target = None  # Consume latch
+                return False
+        except (ValueError, TypeError):
+            pass
+
+        return True
 
     async def async_sync(
         self,
@@ -211,22 +239,39 @@ class ThermostatSync:
         target_low: float | None,
         target_high: float | None,
         zone_hvac_mode: HVACMode,
+        zone_hvac_action: HVACAction,
     ) -> None:
         """Sync state to device."""
+        _LOGGER.debug("ThermostatSync %s: Checking sync...", self.entity_id)
         state = self.hass.states.get(self.entity_id)
-        if not state:
+        if not state or state.state in ("unavailable", "unknown"):
+            _LOGGER.debug("Entity %s is unavailable, skipping sync.", self.entity_id)
             return
 
         features = state.attributes.get("supported_features", 0)
         valid_modes = state.attributes.get("hvac_modes", [])
         service_data: dict[str, Any] = {ATTR_ENTITY_ID: self.entity_id}
 
+        _LOGGER.debug(
+            "ThermostatSync %s: State=%s, Modes=%s, Action=%s",
+            self.entity_id,
+            state.state,
+            valid_modes,
+            zone_hvac_action,
+        )
+
         # 1. Temperature Sync
         if features & ClimateEntityFeature.TARGET_TEMPERATURE:
             if target_temp is not None:
                 service_data[ATTR_TEMPERATURE] = target_temp
             elif target_low is not None:
-                service_data[ATTR_TEMPERATURE] = target_low
+                # For single-point dials in dual zones, sync to the active boundary if possible,
+                # or just use low as baseline.
+                if zone_hvac_action == HVACAction.COOLING and target_high is not None:
+                    service_data[ATTR_TEMPERATURE] = target_high
+                else:
+                    service_data[ATTR_TEMPERATURE] = target_low
+
         elif features & ClimateEntityFeature.TARGET_TEMPERATURE_RANGE:
             if target_low is not None and target_high is not None:
                 service_data[ATTR_TARGET_TEMP_LOW] = target_low
@@ -240,12 +285,16 @@ class ThermostatSync:
             needs_sync = False
             if ATTR_TEMPERATURE in service_data:
                 curr = state.attributes.get(ATTR_TEMPERATURE)
-                if curr is None or abs(float(curr) - float(service_data[ATTR_TEMPERATURE])) > 0.1:
+                target = service_data[ATTR_TEMPERATURE]
+                if curr is None or abs(float(curr) - float(target)) > 0.1:
                     needs_sync = True
+                    self._last_sent_target = float(target)  # Set Latch
             elif ATTR_TARGET_TEMP_LOW in service_data:
                 curr_low = state.attributes.get(ATTR_TARGET_TEMP_LOW)
                 if curr_low is None or abs(float(curr_low) - float(service_data[ATTR_TARGET_TEMP_LOW])) > 0.1:
                     needs_sync = True
+                    # Range latching not fully implemented yet for dual-point dials,
+                    # but simple dials use ATTR_TEMPERATURE path.
 
             if needs_sync:
                 await self.hass.services.async_call("climate", "set_temperature", service_data, blocking=False)
@@ -259,7 +308,38 @@ class ThermostatSync:
         elif zone_hvac_mode == HVACMode.COOL:
             target_mode = HVACMode.COOL if HVACMode.COOL in valid_modes else HVACMode.AUTO
         elif zone_hvac_mode == HVACMode.AUTO:
-            target_mode = HVACMode.AUTO if HVACMode.AUTO in valid_modes else HVACMode.HEAT_COOL
+            # If Zone is AUTO, we can reflect the active action on the Dial
+            if zone_hvac_action == HVACAction.HEATING and HVACMode.HEAT in valid_modes:
+                target_mode = HVACMode.HEAT
+            elif zone_hvac_action == HVACAction.COOLING and HVACMode.COOL in valid_modes:
+                target_mode = HVACMode.COOL
+            elif HVACMode.AUTO in valid_modes:
+                target_mode = HVACMode.AUTO
+            elif HVACMode.HEAT_COOL in valid_modes:
+                target_mode = HVACMode.HEAT_COOL
+            # Fallback if device doesn't support AUTO/HEAT_COOL (e.g. dumb dial)
+            # Default to HEAT (Winter) or COOL (Summer) based on available modes
+            # STICKY LOGIC: If IDLE, prefer keeping current mode if it is HEAT or COOL
+            elif state.state in (HVACMode.HEAT, HVACMode.COOL) and state.state in valid_modes:
+                target_mode = HVACMode(state.state)
+            # If current is OFF or something else, default to HEAT then COOL
+            elif HVACMode.HEAT in valid_modes:
+                target_mode = HVACMode.HEAT
+            elif HVACMode.COOL in valid_modes:
+                target_mode = HVACMode.COOL
+            else:
+                # Last resort, if device supports nothing else
+                target_mode = HVACMode.OFF
+
+        if target_mode:
+            _LOGGER.debug(
+                "Syncing %s: ZoneMode=%s Action=%s -> TargetMode=%s (Current=%s)",
+                self.entity_id,
+                zone_hvac_mode,
+                zone_hvac_action,
+                target_mode,
+                state.state,
+            )
 
         if target_mode and state.state != target_mode and target_mode in valid_modes:
             await self.hass.services.async_call(

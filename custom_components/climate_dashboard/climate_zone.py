@@ -43,7 +43,7 @@ DEFAULT_TOLERANCE = 0.3
 DEFAULT_TEMP_HEAT = 20.0
 DEFAULT_TEMP_COOL = 24.0
 SAFETY_TARGET_TEMP = 5.0
-THROTTLE_LIMIT = 5
+THROTTLE_LIMIT = 10
 
 
 @dataclass
@@ -214,6 +214,13 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                 continue
 
             self._thermostats_sync.append(ThermostatSync(self.hass, eid))
+            _LOGGER.debug(
+                "Zone %s: Added ThermostatSync for %s (Internal=%s, Actuator=%s)",
+                self.name,
+                eid,
+                is_internal,
+                is_actuator,
+            )
 
     async def async_update_config(
         self,
@@ -506,6 +513,10 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
         If the physical thermostat is adjusted manually, we treat it as a Manual Override.
         """
+        # Ignore upstream sync during startup (prevent stale device state from overriding schedule)
+        if self._startup_grace_period:
+            return
+
         new_state = event.data.get("new_state")
         if not new_state:
             return
@@ -533,18 +544,64 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         new_temp = new_state.attributes.get("temperature")
         current_target = self._attr_target_temperature
 
-        if new_temp is not None and current_target is not None:
-            diff = abs(float(new_temp) - float(current_target))
-            if diff > 0.1:
-                _LOGGER.info(
-                    "Upstream Sync: Thermostat %s set to %s (Zone was %s). Creating Override.",
-                    new_state.entity_id,
-                    new_temp,
-                    current_target,
-                )
+        # Find sync helper
+        sync_helper = next((s for s in self._thermostats_sync if s.entity_id == new_state.entity_id), None)
+        if sync_helper and not sync_helper.check_is_external_change(new_state):
+            return
 
-                # Trigger Override
-                self.hass.async_create_task(self.async_set_temperature(temperature=new_temp))
+        # Check if overrides are disabled
+        settings = self._storage.settings
+        override_disabled = settings.get("default_override_type", OverrideType.DISABLED) == OverrideType.DISABLED
+
+        if new_temp is not None and not override_disabled:
+            if current_target is not None:
+                # Single Point -> Single Point
+                diff = abs(float(new_temp) - float(current_target))
+                if diff > 0.1:
+                    _LOGGER.info(
+                        "Upstream Sync: Thermostat %s set to %s (Zone was %s). Creating Override.",
+                        new_state.entity_id,
+                        new_temp,
+                        current_target,
+                    )
+                    self.hass.async_create_task(self.async_set_temperature(temperature=new_temp))
+
+            elif self._attr_target_temperature_low is not None:
+                # Single Point Dial -> Dual Point Zone
+                # Interpret Dial change as shifting the Range
+                current_low = self._attr_target_temperature_low
+                current_high = self._attr_target_temperature_high
+
+                # Default to shifting based on Low (Heating)
+                baseline_temp = current_low
+
+                # If Dial is in COOL mode, it represents the High setpoint
+                if new_state.state == HVACMode.COOL and current_high is not None:
+                    baseline_temp = current_high
+
+                # If high is somehow missing, assume a default delta
+                if current_high is None:
+                    current_high = current_low + 3.0
+
+                diff = float(new_temp) - float(baseline_temp)
+
+                if abs(diff) > 0.1:
+                    new_low = current_low + diff
+                    new_high = current_high + diff
+
+                    _LOGGER.info(
+                        "Upstream Sync: Thermostat %s set to %s (Zone Baseline was %s). Shifting Range by %s.",
+                        new_state.entity_id,
+                        new_temp,
+                        baseline_temp,
+                        diff,
+                    )
+                    self.hass.async_create_task(
+                        self.async_set_temperature(target_temp_low=new_low, target_temp_high=new_high)
+                    )
+
+        # Always trigger downstream sync check (e.g. for Mode Sync updates)
+        self.hass.async_create_task(self._async_control_actuator())
 
     @callback
     def _async_sensor_changed(self, event: Any) -> None:
@@ -682,6 +739,13 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
         # If changing temp, create override
         if set_temp:
+            _LOGGER.debug(
+                "Zone %s async_set_temperature triggering Override: NewTemp=%s, Low=%s, High=%s",
+                self.name,
+                new_temp,
+                new_low,
+                new_high,
+            )
             # Update attributes immediately for feedback
             if new_temp is not None:
                 self._attr_target_temperature = new_temp
@@ -692,7 +756,12 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
             # Determine Override Type
             settings = self._storage.settings
-            override_type = settings.get("default_override_type", OverrideType.NEXT_BLOCK)
+            override_type = settings.get("default_override_type", OverrideType.DISABLED)
+
+            if override_type == OverrideType.DISABLED:
+                _LOGGER.info("Zone %s: Overrides disabled. Reverting manual change to schedule.", self.name)
+                self._apply_schedule()
+                return
 
             end_time = None
             now = dt_util.now()
@@ -950,4 +1019,5 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                 target_low=self._attr_target_temperature_low,
                 target_high=self._attr_target_temperature_high,
                 zone_hvac_mode=self._attr_hvac_mode,
+                zone_hvac_action=self._attr_hvac_action,
             )
