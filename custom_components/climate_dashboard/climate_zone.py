@@ -429,9 +429,9 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             _LOGGER.info("Upstream Sync: User adjusted %s to %s", new_state.entity_id, new_temp)
 
             # Map based on current mode (Windowing logic in reverse)
-            target = None
-            low = None
-            high = None
+            target = self._attr_target_temperature
+            low = self._attr_target_temperature_low
+            high = self._attr_target_temperature_high
 
             # Determine Intent Mode
             # If Zone is already AUTO, we interpret HEAT/COOL inputs as setpoint adjustments within AUTO.
@@ -442,8 +442,11 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             if new_mode == HVACMode.COOL:
                 high = new_temp
             else:
-                target = new_temp
-                low = new_temp
+                # If we are in AUTO but switched to HEAT side, update LOW
+                if intent_mode == HVACMode.AUTO:
+                    low = new_temp
+                else:
+                    target = new_temp
 
             self._intents.append(
                 ClimateIntent(
