@@ -419,7 +419,16 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         if self._reconciler.is_echo(new_state.entity_id, new_state):
             return
 
-        # 2. Extract User Intent from Dial
+        # 2. Filter Non-User Changes (e.g. current_temperature update)
+        old_state = event.data.get("old_state")
+        if old_state:
+            mode_changed = old_state.state != new_state.state
+            temp_changed = old_state.attributes.get(ATTR_TEMPERATURE) != new_state.attributes.get(ATTR_TEMPERATURE)
+
+            if not mode_changed and not temp_changed:
+                return
+
+        # 3. Extract User Intent from Dial
         # We treat any difference between Desired and Reported as a User Intent
         # unless it's an echo we just filtered.
         new_mode = HVACMode(new_state.state)
