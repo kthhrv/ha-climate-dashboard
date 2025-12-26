@@ -421,6 +421,8 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
         # 2. Filter Non-User Changes (e.g. current_temperature update)
         old_state = event.data.get("old_state")
+        mode_changed = True  # Default to True if no old state
+
         if old_state:
             mode_changed = old_state.state != new_state.state
             temp_changed = old_state.attributes.get(ATTR_TEMPERATURE) != new_state.attributes.get(ATTR_TEMPERATURE)
