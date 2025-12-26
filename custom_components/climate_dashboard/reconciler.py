@@ -203,6 +203,12 @@ class Reconciler:
         if datetime.now() - latch.timestamp > timedelta(seconds=10):
             return False
 
+        # Hard Ignore Period (e.g. 2 seconds)
+        # If we just sent a command, ignore everything for 2s to allow device to settle/transition.
+        if datetime.now() - latch.timestamp < timedelta(seconds=2.0):
+            _LOGGER.debug("Reconciler: Ignoring input from %s (Settling Period)", entity_id)
+            return True
+
         # Mode Match
         mode_match = latch.mode is None or new_state.state == latch.mode
 
