@@ -448,14 +448,17 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             if self._attr_hvac_mode == HVACMode.AUTO and new_mode in (HVACMode.HEAT, HVACMode.COOL):
                 intent_mode = HVACMode.AUTO
 
-            if new_mode == HVACMode.COOL:
-                high = new_temp
-            else:
-                # If we are in AUTO but switched to HEAT side, update LOW
-                if intent_mode == HVACMode.AUTO:
-                    low = new_temp
+            # Only update setpoints if mode DID NOT change (i.e. user turned the dial)
+            # If mode changed, we assume user just switched context, so we preserve current setpoints.
+            if not mode_changed:
+                if new_mode == HVACMode.COOL:
+                    high = new_temp
                 else:
-                    target = new_temp
+                    # If we are in AUTO but switched to HEAT side, update LOW
+                    if intent_mode == HVACMode.AUTO:
+                        low = new_temp
+                    else:
+                        target = new_temp
 
             self._intents.append(
                 ClimateIntent(
