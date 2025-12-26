@@ -212,26 +212,40 @@ class ThermostatSync:
         self.hass = hass
         self.entity_id = entity_id
         self._last_sent_target: float | None = None
+        self._last_sent_mode: str | None = None
 
     def check_is_external_change(self, new_state: Any) -> bool:
         """Check if the state change is external (user) or our own echo."""
-        if self._last_sent_target is None:
-            return True
+        is_echo = False
 
-        new_temp = new_state.attributes.get(ATTR_TEMPERATURE)
-        if new_temp is None:
-            return True
+        # 1. Mode Check
+        if self._last_sent_mode is not None:
+            if new_state.state == self._last_sent_mode:
+                _LOGGER.debug("ThermostatSync %s: Ignoring Mode Echo (%s)", self.entity_id, self._last_sent_mode)
+                self._last_sent_mode = None
+                is_echo = True
+            else:
+                # Mismatch implies external change or failed sync
+                pass
 
-        try:
-            diff = abs(float(new_temp) - self._last_sent_target)
-            if diff < 0.1:
-                _LOGGER.debug("ThermostatSync %s: Ignoring echo (%.1f)", self.entity_id, self._last_sent_target)
-                self._last_sent_target = None  # Consume latch
-                return False
-        except (ValueError, TypeError):
-            pass
+        # 2. Temp Check
+        if self._last_sent_target is not None:
+            new_temp = new_state.attributes.get(ATTR_TEMPERATURE)
+            if new_temp is not None:
+                try:
+                    diff = abs(float(new_temp) - self._last_sent_target)
+                    if diff < 0.1:
+                        _LOGGER.debug(
+                            "ThermostatSync %s: Ignoring Temp Echo (%.1f)", self.entity_id, self._last_sent_target
+                        )
+                        self._last_sent_target = None  # Consume latch
+                        is_echo = True
+                except (ValueError, TypeError):
+                    pass
 
-        return True
+        # If any latch matched, we consider this an echo event and ignore it entirely
+        # (Assuming mode+temp changes come in one state update event often)
+        return not is_echo
 
     async def async_sync(
         self,
@@ -265,9 +279,17 @@ class ThermostatSync:
             if target_temp is not None:
                 service_data[ATTR_TEMPERATURE] = target_temp
             elif target_low is not None:
-                # For single-point dials in dual zones, sync to the active boundary if possible,
-                # or just use low as baseline.
-                if zone_hvac_action == HVACAction.COOLING and target_high is not None:
+                # For single-point dials in dual zones, determine which setpoint to sync
+                use_high = False
+
+                # 1. Prefer Zone Action (if active)
+                if zone_hvac_action == HVACAction.COOLING:
+                    use_high = True
+                # 2. If Idle, look at Dial's current state to match context
+                elif state.state == HVACMode.COOL:
+                    use_high = True
+
+                if use_high and target_high is not None:
                     service_data[ATTR_TEMPERATURE] = target_high
                 else:
                     service_data[ATTR_TEMPERATURE] = target_low
@@ -342,6 +364,7 @@ class ThermostatSync:
             )
 
         if target_mode and state.state != target_mode and target_mode in valid_modes:
+            self._last_sent_mode = target_mode  # Set Latch
             await self.hass.services.async_call(
                 "climate", "set_hvac_mode", {ATTR_ENTITY_ID: self.entity_id, "hvac_mode": target_mode}, blocking=False
             )

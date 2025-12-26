@@ -540,18 +540,43 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             # So ignoring it is the correct "Child Lock" behavior to prevent the loop.
             return
 
-        # 1. Check for Target Temp Change
-        new_temp = new_state.attributes.get("temperature")
-        current_target = self._attr_target_temperature
-
         # Find sync helper
         sync_helper = next((s for s in self._thermostats_sync if s.entity_id == new_state.entity_id), None)
+
+        # Check if this is an echo (Mode or Temp) using the Latch
         if sync_helper and not sync_helper.check_is_external_change(new_state):
             return
+
+        # Check for Mode Switch first
+        old_state = event.data.get("old_state")
+        mode_changed = old_state and old_state.state != new_state.state
+
+        if mode_changed:
+            new_mode = new_state.state
+            if new_mode in self._attr_hvac_modes:
+                _LOGGER.info(
+                    "Upstream Sync: Thermostat %s changed mode to %s. Updating Zone.",
+                    new_state.entity_id,
+                    new_mode,
+                )
+                self.hass.async_create_task(self.async_set_hvac_mode(HVACMode(new_mode)))
+                # We return here to avoid processing potentially stale temperature attributes
+                # associated with the old mode or transition state.
+                return
+            else:
+                _LOGGER.debug(
+                    "Upstream Sync: Thermostat %s changed to unsupported mode %s. Ignoring.",
+                    new_state.entity_id,
+                    new_mode,
+                )
 
         # Check if overrides are disabled
         settings = self._storage.settings
         override_disabled = settings.get("default_override_type", OverrideType.DISABLED) == OverrideType.DISABLED
+
+        # Get Temp Data
+        new_temp = new_state.attributes.get("temperature")
+        current_target = self._attr_target_temperature
 
         if new_temp is not None and not override_disabled:
             if current_target is not None:
@@ -601,7 +626,8 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                     )
 
         # Always trigger downstream sync check (e.g. for Mode Sync updates)
-        self.hass.async_create_task(self._async_control_actuator())
+        # Force update if mode changed to ensure immediate UI feedback and correct target sync
+        self.hass.async_create_task(self._async_control_actuator(force=mode_changed))
 
     @callback
     def _async_sensor_changed(self, event: Any) -> None:
