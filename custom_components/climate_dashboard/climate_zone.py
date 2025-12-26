@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, cast
 
 import homeassistant.util.dt as dt_util
@@ -31,10 +30,11 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.util import slugify
 from homeassistant.util.unit_conversion import TemperatureConverter
 
-from .actuator import Actuator, ActuatorType, ClimateActuator, SwitchActuator, ThermostatSync
+from .engine import ClimateIntent, IntentSource, ReconciliationEngine, TargetSetpoints
+from .reconciler import Reconciler
 from .safety import SafetyMonitor
 from .schedule_manager import ScheduleManager
-from .storage import ClimateDashboardStorage, OverrideType, ScheduleBlock
+from .storage import ClimateDashboardStorage, ScheduleBlock
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,17 +44,6 @@ DEFAULT_TEMP_HEAT = 20.0
 DEFAULT_TEMP_COOL = 24.0
 SAFETY_TARGET_TEMP = 5.0
 THROTTLE_LIMIT = 10
-
-
-@dataclass
-class ZoneOverride:
-    """Representation of an active override."""
-
-    type: OverrideType
-    end_time: datetime | None  # Optional for Infinite hold
-    target_temp_low: float | None = None
-    target_temp_high: float | None = None
-    hvac_mode: HVACMode | None = None
 
 
 class ClimateZone(ClimateEntity, RestoreEntity):
@@ -123,8 +112,12 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                 SAFETY_TARGET_TEMP, UnitOfTemperature.CELSIUS, UnitOfTemperature.FAHRENHEIT
             )
 
+        # Initialize New Engine Components
+        self._engine = ReconciliationEngine(tolerance=DEFAULT_TOLERANCE)
+        self._reconciler = Reconciler(self.hass)
+        self._intents: list[ClimateIntent] = []
+
         # Initialize schedule state
-        self._active_override: ZoneOverride | None = None
         self._next_schedule_block: ScheduleBlock | None = None
 
         self._temperature_sensor = temperature_sensor
@@ -138,10 +131,6 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self._safety_monitor = SafetyMonitor(
             self.hass, self._storage, unique_id, self._window_sensors, self._temperature_sensor
         )
-
-        self._heaters_actuators: list[Actuator] = []
-        self._coolers_actuators: list[Actuator] = []
-        self._thermostats_sync: list[ThermostatSync] = []
 
         self._attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT, HVACMode.AUTO]
         if self._coolers:
@@ -169,9 +158,6 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self._startup_grace_period: bool = True
         self._startup_task: asyncio.Task | None = None
 
-        # Create Actuators
-        self._create_actuators()
-
         # Listen for storage/setting changes (Global Away Mode)
         self._storage.async_add_listener(self._async_on_storage_change)
 
@@ -184,43 +170,6 @@ class ClimateZone(ClimateEntity, RestoreEntity):
     def _schedule(self, value: list[ScheduleBlock]) -> None:
         """Update the schedule in the manager."""
         self._schedule_manager.schedule = value
-
-    def _create_actuators(self) -> None:
-        """Create actuator objects based on config."""
-        self._heaters_actuators = []
-        for eid in self._heaters:
-            domain = eid.split(".")[0]
-            if domain == "switch":
-                self._heaters_actuators.append(SwitchActuator(self.hass, eid))
-            elif domain == "climate":
-                is_internal = eid == self._temperature_sensor
-                self._heaters_actuators.append(ClimateActuator(self.hass, eid, ActuatorType.HEATER, is_internal))
-
-        self._coolers_actuators = []
-        for eid in self._coolers:
-            domain = eid.split(".")[0]
-            if domain == "climate":
-                is_internal = eid == self._temperature_sensor
-                self._coolers_actuators.append(ClimateActuator(self.hass, eid, ActuatorType.COOLER, is_internal))
-
-        self._thermostats_sync = []
-        for eid in self._thermostats:
-            # Check if this thermostat is already handled as an active actuator (external sensor mode)
-            is_internal = eid == self._temperature_sensor
-            is_actuator = (self._heaters and eid in self._heaters) or (self._coolers and eid in self._coolers)
-
-            if is_actuator and not is_internal:
-                # Controlled by actuator logic (Dummy Valve), skip passive sync
-                continue
-
-            self._thermostats_sync.append(ThermostatSync(self.hass, eid))
-            _LOGGER.debug(
-                "Zone %s: Added ThermostatSync for %s (Internal=%s, Actuator=%s)",
-                self.name,
-                eid,
-                is_internal,
-                is_actuator,
-            )
 
     async def async_update_config(
         self,
@@ -277,9 +226,6 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             self.hass, self._storage, self.unique_id, self._window_sensors, self._temperature_sensor
         )
 
-        # Re-create Actuators
-        self._create_actuators()
-
         # Re-apply schedule if auto
         if self._attr_hvac_mode == HVACMode.AUTO:
             self._apply_schedule()
@@ -326,11 +272,9 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             "next_scheduled_change": self._attr_next_scheduled_change,
             "next_scheduled_temp_heat": self._attr_next_scheduled_temp_heat,
             "next_scheduled_temp_cool": self._attr_next_scheduled_temp_cool,
-            # "manual_override_end": self._attr_manual_override_end, # Deprecated
-            "override_type": self._active_override.type if self._active_override else None,
-            "override_end": self._active_override.end_time.isoformat()
-            if self._active_override and self._active_override.end_time
-            else None,
+            # Show active intent info
+            "active_intents_count": len(self._intents),
+            "latest_intent": self._intents[-1].source.value if self._intents else None,
             "open_window_sensor": self._attr_open_window_sensor,
             "safety_mode": self._attr_safety_mode,
             "using_fallback_sensor": self._attr_using_fallback_sensor,
@@ -426,7 +370,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
         # Finally run control (will trigger Safety Mode if still None/Unavailable)
         # Finally run control (will trigger Safety Mode if still None/Unavailable)
-        await self._async_control_actuator(force=True)
+        await self._async_reconcile()
 
     @callback
     def _on_time_change(self, now: datetime) -> None:
@@ -444,56 +388,10 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
         now = dt_util.now()
 
-        # Check Active Override
-        if self._active_override:
-            # Check expiry
-            if self._active_override.end_time and now >= self._active_override.end_time:
-                # Expired -> Clear
-                _LOGGER.debug("Override expired for %s", self.entity_id)
-                self._active_override = None
-
-                if self._attr_hvac_mode != HVACMode.AUTO:
-                    self._attr_hvac_mode = HVACMode.AUTO
-            else:
-                # Active -> Skip schedule application
-                self._calculate_next_scheduled_change(now)
-                self.async_write_ha_state()
-                self.hass.async_create_task(self._async_control_actuator())
-                return
-
-        setting = self._schedule_manager.get_active_setting(now)
-
-        # Reset Setpoints
-        self._attr_target_temperature_low = None
-        self._attr_target_temperature_high = None
-        self._attr_target_temperature = None
-
-        if setting:
-            t_heat = setting.temp_heat
-            t_cool = setting.temp_cool
-
-            if self._attr_hvac_mode == HVACMode.HEAT:
-                self._attr_target_temperature = t_heat
-            elif self._attr_hvac_mode == HVACMode.COOL:
-                self._attr_target_temperature = t_cool
-            elif self._attr_hvac_mode == HVACMode.AUTO:
-                # DUAL MODE (Heaters + Coolers): Use Range
-                if self._heaters and self._coolers:
-                    self._attr_target_temperature_low = t_heat
-                    self._attr_target_temperature_high = t_cool
-                # SINGLE MODE
-                elif self._heaters:
-                    self._attr_target_temperature = t_heat
-                elif self._coolers:
-                    self._attr_target_temperature = t_cool
-                else:
-                    self._attr_target_temperature = t_heat
-
-        # Calculate next scheduled change
+        # Calculate next scheduled change for UI
         self._calculate_next_scheduled_change(now)
 
-        self.async_write_ha_state()
-        self.hass.async_create_task(self._async_control_actuator())
+        self.hass.async_create_task(self._async_reconcile())
 
     def _calculate_next_scheduled_change(self, now: datetime) -> None:
         """Calculate the next scheduled change using ScheduleManager."""
@@ -509,11 +407,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
     @callback
     def _async_thermostat_changed(self, event: Any) -> None:
-        """Handle thermostat state changes (Upstream Sync).
-
-        If the physical thermostat is adjusted manually, we treat it as a Manual Override.
-        """
-        # Ignore upstream sync during startup (prevent stale device state from overriding schedule)
+        """Handle thermostat state changes (Upstream Sync)."""
         if self._startup_grace_period:
             return
 
@@ -521,113 +415,146 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         if not new_state:
             return
 
-        # 2. Prevent Infinite Loop: Actuator Control vs Upstream Sync
-        # If this thermostat is ALSO a heater/cooler controlled by us, and we are using
-        # External Sensor logic (so we force it to Max/Min), then we must IGNORE its state changes.
-        # Otherwise: We force it to 30 -> It reports 30 -> We set Zone Target to 30 -> We force it to 30... (Loop)
-
-        is_internal_sensor = self._temperature_sensor == new_state.entity_id
-        is_actuator_controlled = (self._heaters and new_state.entity_id in self._heaters) or (
-            self._coolers and new_state.entity_id in self._coolers
-        )
-
-        if is_actuator_controlled and not is_internal_sensor:
-            # We are driving this device as a dummy actuator (Bang-Bang).
-            # We should NOT accept its setpoint changes as user input, because they are likely our own commands.
-            # However, sophisticated users might still want to turn the dial?
-            # No, if we force it to 30, turning the dial to 22 will just be overwritten next cycle anyway.
-            # So ignoring it is the correct "Child Lock" behavior to prevent the loop.
-            # So ignoring it is the correct "Child Lock" behavior to prevent the loop.
+        # 1. Filter Echoes
+        if self._reconciler.is_echo(new_state.entity_id, new_state):
             return
 
-        # Find sync helper
-        sync_helper = next((s for s in self._thermostats_sync if s.entity_id == new_state.entity_id), None)
+        # 2. Extract User Intent from Dial
+        # We treat any difference between Desired and Reported as a User Intent
+        # unless it's an echo we just filtered.
+        new_mode = HVACMode(new_state.state)
+        new_temp = new_state.attributes.get(ATTR_TEMPERATURE)
 
-        # Check if this is an echo (Mode or Temp) using the Latch
-        if sync_helper and not sync_helper.check_is_external_change(new_state):
-            return
+        if new_temp is not None:
+            _LOGGER.info("Upstream Sync: User adjusted %s to %s", new_state.entity_id, new_temp)
 
-        # Check for Mode Switch first
-        old_state = event.data.get("old_state")
-        mode_changed = old_state and old_state.state != new_state.state
+            # Map based on current mode (Windowing logic in reverse)
+            target = None
+            low = None
+            high = None
 
-        if mode_changed:
-            new_mode = new_state.state
-            if new_mode in self._attr_hvac_modes:
-                _LOGGER.info(
-                    "Upstream Sync: Thermostat %s changed mode to %s. Updating Zone.",
-                    new_state.entity_id,
-                    new_mode,
-                )
-                self.hass.async_create_task(self.async_set_hvac_mode(HVACMode(new_mode)))
-                # We return here to avoid processing potentially stale temperature attributes
-                # associated with the old mode or transition state.
-                return
+            if new_mode == HVACMode.COOL:
+                high = new_temp
             else:
-                _LOGGER.debug(
-                    "Upstream Sync: Thermostat %s changed to unsupported mode %s. Ignoring.",
-                    new_state.entity_id,
-                    new_mode,
+                target = new_temp
+                low = new_temp
+
+            self._intents.append(
+                ClimateIntent(
+                    source=IntentSource.MANUAL_DIAL,
+                    mode=new_mode,
+                    setpoints=TargetSetpoints(target=target, low=low, high=high),
+                )
+            )
+
+            self.hass.async_create_task(self._async_reconcile())
+
+    async def _async_reconcile(self) -> None:
+        """The heartbeat of the Reconciliation Engine."""
+        async with self._control_lock:
+            # 1. Collect Active Intents
+            all_intents = list(self._intents)
+
+            # Add Away Mode Intent
+            settings = self._storage.settings
+            if settings.get("is_away_mode_on"):
+                away_temp = float(settings.get("away_temperature", 16.0))
+                away_cool_temp = float(settings.get("away_temperature_cool", 30.0))
+
+                # Check for Dual Mode capability (implied by having coolers)
+                # Or just provide both targets and let Engine decide?
+                # Engine priority logic will pick this intent.
+                # Mode? Away Mode forces a specific temp. Does it force HVAC Mode?
+                # Usually keeps current mode but shifts temp.
+                # Or forces HEAT if Winter / COOL if Summer?
+                # Let's assume AUTO if dual, or current mode.
+
+                # Simple Logic: Add intent for AUTO with range.
+                all_intents.append(
+                    ClimateIntent(
+                        source=IntentSource.AWAY_MODE,
+                        mode=HVACMode.AUTO,  # Engine will map this to HEAT/COOL action
+                        setpoints=TargetSetpoints(
+                            target=away_temp,  # For Single Mode
+                            low=away_temp,
+                            high=away_cool_temp,
+                        ),
+                    )
                 )
 
-        # Check if overrides are disabled
-        settings = self._storage.settings
-        override_disabled = settings.get("default_override_type", OverrideType.DISABLED) == OverrideType.DISABLED
-
-        # Get Temp Data
-        new_temp = new_state.attributes.get("temperature")
-        current_target = self._attr_target_temperature
-
-        if new_temp is not None and not override_disabled:
-            if current_target is not None:
-                # Single Point -> Single Point
-                diff = abs(float(new_temp) - float(current_target))
-                if diff > 0.1:
-                    _LOGGER.info(
-                        "Upstream Sync: Thermostat %s set to %s (Zone was %s). Creating Override.",
-                        new_state.entity_id,
-                        new_temp,
-                        current_target,
+            # Add Schedule Intent
+            now = dt_util.now()
+            schedule_setting = self._schedule_manager.get_active_setting(now)
+            if schedule_setting:
+                all_intents.append(
+                    ClimateIntent(
+                        source=IntentSource.SCHEDULE,
+                        mode=HVACMode.AUTO,
+                        setpoints=TargetSetpoints(low=schedule_setting.temp_heat, high=schedule_setting.temp_cool),
                     )
-                    self.hass.async_create_task(self.async_set_temperature(temperature=new_temp))
+                )
 
-            elif self._attr_target_temperature_low is not None:
-                # Single Point Dial -> Dual Point Zone
-                # Interpret Dial change as shifting the Range
-                current_low = self._attr_target_temperature_low
-                current_high = self._attr_target_temperature_high
+            # 2. Calculate Desired State
+            self._async_update_temp()
 
-                # Default to shifting based on Low (Heating)
-                baseline_temp = current_low
+            # Check Window Timeout (Updates internal safety monitor state)
+            is_window_open = self._safety_monitor.check_window_timeout(now)
+            # Update public attribute for UI
+            self._attr_open_window_sensor = self._safety_monitor.open_window_sensor
 
-                # If Dial is in COOL mode, it represents the High setpoint
-                if new_state.state == HVACMode.COOL and current_high is not None:
-                    baseline_temp = current_high
+            desired = self._engine.calculate_desired_state(
+                intents=all_intents, current_temp=self._attr_current_temperature, now=now, is_window_open=is_window_open
+            )
 
-                # If high is somehow missing, assume a default delta
-                if current_high is None:
-                    current_high = current_low + 3.0
+            # 3. Update Zone Entity State
+            self._attr_hvac_mode = desired.mode
+            self._attr_hvac_action = desired.action
 
-                diff = float(new_temp) - float(baseline_temp)
+            # Dual Mode Logic: If Auto and Dual Capable, hide single target
+            if self._heaters and self._coolers and desired.mode == HVACMode.AUTO:
+                self._attr_target_temperature = None
+            else:
+                self._attr_target_temperature = desired.setpoints.target
 
-                if abs(diff) > 0.1:
-                    new_low = current_low + diff
-                    new_high = current_high + diff
+            self._attr_target_temperature_low = desired.setpoints.low
+            self._attr_target_temperature_high = desired.setpoints.high
 
-                    _LOGGER.info(
-                        "Upstream Sync: Thermostat %s set to %s (Zone Baseline was %s). Shifting Range by %s.",
-                        new_state.entity_id,
-                        new_temp,
-                        baseline_temp,
-                        diff,
-                    )
-                    self.hass.async_create_task(
-                        self.async_set_temperature(target_temp_low=new_low, target_temp_high=new_high)
-                    )
+            _LOGGER.debug(
+                "Zone %s Reconciled: Mode=%s Action=%s Target=%s Low=%s High=%s",
+                self.name,
+                desired.mode,
+                desired.action,
+                self._attr_target_temperature,
+                self._attr_target_temperature_low,
+                self._attr_target_temperature_high,
+            )
 
-        # Always trigger downstream sync check (e.g. for Mode Sync updates)
-        # Force update if mode changed to ensure immediate UI feedback and correct target sync
-        self.hass.async_create_task(self._async_control_actuator(force=mode_changed))
+            self.async_write_ha_state()
+
+            # 4. Push to Hardware (Reconciliation)
+            # HMIs (Dials/Displays)
+            for eid in self._thermostats:
+                await self._reconciler.reconcile_hmi(eid, desired)
+
+            # Actuators (Heaters/Coolers)
+            should_heat = desired.action == HVACAction.HEATING
+            should_cool = desired.action == HVACAction.COOLING
+
+            # Heaters
+            for eid in self._heaters:
+                domain = eid.split(".")[0]
+                if domain == "switch":
+                    await self._reconciler.reconcile_switch(eid, should_heat)
+                elif domain == "climate":
+                    # For TRVs: if heating, force open (30C). If not, force closed (7C).
+                    # But if we are cooling, we MUST force closed.
+                    await self._reconciler.reconcile_climate_actuator(eid, should_heat=should_heat, should_cool=False)
+
+            # Coolers
+            for eid in self._coolers:
+                domain = eid.split(".")[0]
+                if domain == "climate":
+                    await self._reconciler.reconcile_climate_actuator(eid, should_heat=False, should_cool=should_cool)
 
     @callback
     def _async_sensor_changed(self, event: Any) -> None:
@@ -639,13 +566,13 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         if self._attr_current_temperature == old_temp:
             return
 
-        self.hass.async_create_task(self._async_control_actuator())
+        self.hass.async_create_task(self._async_reconcile())
         self.async_write_ha_state()
 
     @callback
     def _async_window_changed(self, event: Any) -> None:
         """Handle window sensor state changes."""
-        self.hass.async_create_task(self._async_control_actuator())
+        self.hass.async_create_task(self._async_reconcile())
         self.async_write_ha_state()
 
     @callback
@@ -653,7 +580,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         """Handle heater state changes.
 
         This detects if a heater has reverted its mode (Stubborn Device) or been changed externally.
-        We trigger the control loop to enforce our state if necessary.
+        We trigger the control loop to verify/enforce.
         """
         # If the change is just temperature update (and it's a sensor), sensor_changed handles it.
         # We care about MODE changes here.
@@ -663,9 +590,13 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         if not new_state or not old_state:
             return
 
+        # Check if Echo
+        if self._reconciler.is_echo(new_state.entity_id, new_state):
+            return
+
         if new_state.state != old_state.state:
             # Mode changed! Trigger control loop to verify/enforce.
-            self.hass.async_create_task(self._async_control_actuator())
+            self.hass.async_create_task(self._async_reconcile())
             self.async_write_ha_state()
 
     @callback
@@ -714,336 +645,43 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             if self._attr_hvac_mode == HVACMode.AUTO:
                 self._apply_schedule()
 
-        self.hass.async_create_task(self._async_control_actuator(force=True))
+        self.hass.async_create_task(self._async_reconcile())
         self.async_write_ha_state()
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set new target hvac mode."""
-        self._attr_hvac_mode = hvac_mode
+        self._intents.append(
+            ClimateIntent(
+                source=IntentSource.MANUAL_APP,
+                mode=hvac_mode,
+                setpoints=TargetSetpoints(),  # Mode change reset?
+            )
+        )
+        # If the mode is changed, we usually want to retain the 'current' setpoints
+        # but the logic for that is complex. For now, let's assume the Engine
+        # will handle "None" setpoints by looking at the Schedule or Defaults.
 
-        # Clear existing override when mode changes manually
-        # Unless this IS the setting of a mode with a restore delay?
-        # Let's say explicit mode change clears any previous "next block" temperature holds.
-        self._active_override = None
-
-        if hvac_mode == HVACMode.AUTO:
-            self._apply_schedule()
-        elif hvac_mode in (HVACMode.HEAT, HVACMode.COOL):
-            pass
-
-        await self._async_control_actuator(force=True)
-        self.async_write_ha_state()
-
-    # _restore_schedule Removed - Handled by _apply_schedule logic on override expiry
+        self.hass.async_create_task(self._async_reconcile())
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
         """Set new target temperature."""
-        if (mode := kwargs.get("hvac_mode")) is not None:
-            self._attr_hvac_mode = mode
+        mode = kwargs.get("hvac_mode")
+        if mode is None:
+            mode = self._attr_hvac_mode
 
-        # Track if we need to apply override logic
-        set_temp = False
-        new_temp = None
-        new_low = None
-        new_high = None
-
-        # Handle Single Point
-        if (temp := kwargs.get(ATTR_TEMPERATURE)) is not None:
-            new_temp = temp
-            set_temp = True
-
-        # Handle Dual Point
+        target = kwargs.get(ATTR_TEMPERATURE)
         low = kwargs.get("target_temp_low")
         high = kwargs.get("target_temp_high")
-        if low is not None and high is not None:
-            new_low = low
-            new_high = high
-            set_temp = True
 
-        if not set_temp and mode is None:
-            return
+        # Determine Intent Source
+        # If this call came from a service call by a user, it's MANUAL_APP.
+        # But wait, how do we distinguish?
+        # Standard HA behavior is that UI calls this.
 
-        # If changing temp, create override
-        if set_temp:
-            _LOGGER.debug(
-                "Zone %s async_set_temperature triggering Override: NewTemp=%s, Low=%s, High=%s",
-                self.name,
-                new_temp,
-                new_low,
-                new_high,
+        self._intents.append(
+            ClimateIntent(
+                source=IntentSource.MANUAL_APP, mode=mode, setpoints=TargetSetpoints(target=target, low=low, high=high)
             )
-            # Update attributes immediately for feedback
-            if new_temp is not None:
-                self._attr_target_temperature = new_temp
-            if new_low is not None:
-                self._attr_target_temperature_low = new_low
-                self._attr_target_temperature_high = new_high
-                self._attr_target_temperature = None  # Clear single target if dual set
+        )
 
-            # Determine Override Type
-            settings = self._storage.settings
-            override_type = settings.get("default_override_type", OverrideType.DISABLED)
-
-            if override_type == OverrideType.DISABLED:
-                _LOGGER.info("Zone %s: Overrides disabled. Reverting manual change to schedule.", self.name)
-                self._apply_schedule()
-                return
-
-            end_time = None
-            now = dt_util.now()
-
-            if override_type == OverrideType.NEXT_BLOCK:
-                # Use current lookahead if available, or calculate it
-                if not self._attr_next_scheduled_change:
-                    self._calculate_next_scheduled_change(now)
-
-                if self._attr_next_scheduled_change:
-                    end_time = datetime.fromisoformat(self._attr_next_scheduled_change)
-                else:
-                    # Fallback to Duration if no next block (e.g. empty schedule)?
-                    # Or just infinite hold? Let's use 24h fallback.
-                    end_time = now + timedelta(hours=24)
-
-            elif override_type == OverrideType.DURATION:
-                minutes = settings.get("default_timer_minutes", 60)
-                end_time = now + timedelta(minutes=minutes)
-
-            # Create Override
-            if end_time:
-                self._active_override = ZoneOverride(
-                    type=override_type,
-                    end_time=end_time,
-                    target_temp_low=self._attr_target_temperature_low,
-                    target_temp_high=self._attr_target_temperature_high,
-                    # We store just the temperature override.
-                    # If mode was changed, strictly speaking it should be an override too?
-                )
-
-        await self._async_control_actuator(force=True)
-        self.async_write_ha_state()
-
-    async def _async_control_actuator(self, force: bool = False) -> None:
-        """Control the actuators based on state.
-
-        Core control loop that:
-        1. Checks for open windows (Safety Stop).
-        2. Checks for HVAC Mode OFF.
-        3. Handles Failsafe/Safety Mode if sensors are invalid.
-        4. Calculates demand based on Mode (HEAT/COOL/AUTO) and Target.
-        5. Calls _async_set_heaters / _async_set_coolers accordingly.
-        """
-        async with self._control_lock:
-            # Throttle Control Loop to prevent event floods if actuators are "fighting" (e.g. stubborn mode)
-            # We allow frequent updates if they are far apart, but if we get slammed with updates, we throttle.
-            now_ts = asyncio.get_running_loop().time()
-
-            # Reset bucket if time passed
-            if hasattr(self, "_last_control_time") and (now_ts - self._last_control_time) > 2.0:
-                self._throttle_count = 0
-
-            if not force:
-                # Check Budget
-                if self._throttle_count >= THROTTLE_LIMIT:
-                    # Exhausted budget for this window
-                    _LOGGER.warning("Zone %s: Throttling excessive control updates to prevent loop.", self.name)
-                    return
-                self._throttle_count += 1
-
-            self._last_control_time = now_ts
-
-            # Force update of sensor state to avoid stale fallback values!
-            self._async_update_temp()
-
-            # Safety Check: Windows
-            if self._safety_monitor.check_window_timeout(dt_util.now()):
-                # Delay passed -> Force OFF
-                await self._async_turn_off_all(force_off=True)
-                self._attr_hvac_action = HVACAction.OFF
-                self._attr_safety_mode = False
-                self._attr_using_fallback_sensor = None
-                self._attr_open_window_sensor = self._safety_monitor.open_window_sensor
-                self.async_write_ha_state()
-                return
-
-            self._attr_open_window_sensor = self._safety_monitor.open_window_sensor
-
-            if self._attr_hvac_mode == HVACMode.OFF:
-                await self._async_turn_off_all(force_off=True)
-                self._attr_hvac_action = HVACAction.OFF
-                self._attr_safety_mode = False
-                self._attr_using_fallback_sensor = None
-                self.async_write_ha_state()
-                return
-
-            # --- GLOBAL AWAY MODE OVERRIDE ---
-            settings = self._storage.settings
-            if settings.get("is_away_mode_on"):
-                # Force Away Temperatures
-                away_temp = float(settings.get("away_temperature", 16.0))
-                away_cool_temp = float(settings.get("away_temperature_cool", 30.0))
-
-                # Apply logic based on Mode capabilities
-                if self._heaters and self._coolers and self._attr_hvac_mode == HVACMode.AUTO:
-                    # DUAL MODE -> Use Range
-                    self._attr_target_temperature = None
-                    self._attr_target_temperature_low = away_temp
-                    self._attr_target_temperature_high = away_cool_temp
-                    _LOGGER.debug("Zone %s in Global Away Mode (Range: %s - %s)", self.name, away_temp, away_cool_temp)
-                else:
-                    # SINGLE MODE -> Use appropriate target
-                    if self._attr_hvac_mode == HVACMode.COOL:
-                        self._attr_target_temperature = away_cool_temp
-                        _LOGGER.debug("Zone %s in Global Away Mode (Cool Target: %s)", self.name, away_cool_temp)
-                    else:
-                        # HEAT or AUTO (single)
-                        self._attr_target_temperature = away_temp
-                        _LOGGER.debug("Zone %s in Global Away Mode (Heat Target: %s)", self.name, away_temp)
-
-            if self._attr_hvac_mode in (HVACMode.HEAT, HVACMode.AUTO, HVACMode.COOL):
-                current = self._attr_current_temperature
-
-                # --- FAILSAFE LOGIC ---
-                if current is None:
-                    # Check for startup grace period - SKIP Safety Mode if waiting
-                    if self._startup_grace_period:
-                        _LOGGER.debug(
-                            "Zone %s skipping Safety Mode check (Startup Grace Period Active)",
-                            self.name,
-                        )
-                        return
-
-                    # 1. Try Area Fallback
-                    fallback = self._safety_monitor.get_fallback_temperature()
-                    if fallback:
-                        current, sensor_id = fallback
-                        self._attr_using_fallback_sensor = sensor_id
-                        self._attr_safety_mode = False
-                        self._attr_current_temperature = current  # Update state for UI
-                        _LOGGER.warning("Zone %s using fallback sensor: %s", self.name, sensor_id)
-                    else:
-                        # 2. Safety Mode (Delegated Protection)
-                        self._attr_safety_mode = True
-                        self._attr_using_fallback_sensor = None
-                        self._attr_hvac_action = HVACAction.IDLE
-
-                        _LOGGER.warning("Zone %s entering SAFETY MODE (No sensors). Delegating to TRVs.", self.name)
-
-                        # Set actuators to safety mode
-                        for actuator in self._heaters_actuators:
-                            if isinstance(actuator, ClimateActuator):
-                                # TRV / AC Logic: Set to 5C and HEAT
-                                await actuator.async_control(
-                                    enable=True, target_temp=SAFETY_TARGET_TEMP, force_target=True
-                                )
-                            elif isinstance(actuator, SwitchActuator):
-                                # Dumb Actuators: OFF
-                                await actuator.async_control(enable=False)
-
-                        # Also turn off coolers if any
-                        await self._async_set_coolers(False, force_off=True)
-
-                        self.async_write_ha_state()
-                        return
-                else:
-                    # Normal Operation
-                    self._attr_safety_mode = False
-                    self._attr_using_fallback_sensor = None
-
-                target = self._attr_target_temperature
-
-                # Zone-Level Mode Logic
-                if self._attr_hvac_mode == HVACMode.HEAT:
-                    # Winter Strategy: Keep at or above target
-                    target = self._attr_target_temperature
-                    if target is not None:
-                        if current < (target - DEFAULT_TOLERANCE):
-                            self._attr_hvac_action = HVACAction.HEATING
-                            await self._async_set_heaters(True)
-                            await self._async_set_coolers(False, force_off=True)
-                        else:
-                            self._attr_hvac_action = HVACAction.IDLE
-                            await self._async_set_heaters(False)
-                            await self._async_set_coolers(False, force_off=True)
-
-                elif self._attr_hvac_mode == HVACMode.COOL:
-                    # Summer Strategy: Keep at or below target
-                    target = self._attr_target_temperature
-                    if target is not None:
-                        if current > (target + DEFAULT_TOLERANCE) and self._coolers:
-                            self._attr_hvac_action = HVACAction.COOLING
-                            await self._async_set_heaters(False, force_off=True)
-                            await self._async_set_coolers(True)
-                        else:
-                            self._attr_hvac_action = HVACAction.IDLE
-                            await self._async_set_heaters(False, force_off=True)
-                            await self._async_set_coolers(False)
-
-                elif self._attr_hvac_mode == HVACMode.AUTO:
-                    # Shoulder Strategy: Keep within Low/High
-                    low = self._attr_target_temperature_low
-                    high = self._attr_target_temperature_high
-
-                    if low is None or (high is None and self._attr_target_temperature is not None):
-                        # Ensure strict float logic
-                        base_temp = self._attr_target_temperature or DEFAULT_TEMP_HEAT
-                        low = base_temp - DEFAULT_TOLERANCE
-                        high = base_temp + DEFAULT_TOLERANCE
-
-                    if low is not None and high is not None:
-                        if current < (low - DEFAULT_TOLERANCE):
-                            self._attr_hvac_action = HVACAction.HEATING
-                            await self._async_set_heaters(True)
-                            await self._async_set_coolers(False)
-                        elif current > (high + DEFAULT_TOLERANCE) and self._coolers:
-                            self._attr_hvac_action = HVACAction.COOLING
-                            await self._async_set_heaters(False)
-                            await self._async_set_coolers(True)
-                        else:
-                            self._attr_hvac_action = HVACAction.IDLE
-                            await self._async_set_heaters(False)
-                            await self._async_set_coolers(False)
-
-            # Sync to physical thermostats
-            await self._async_sync_thermostats()
-
-            self.async_write_ha_state()
-
-    async def _async_turn_off_all(self, force_off: bool = True) -> None:
-        """Turn off all actuators."""
-        await self._async_set_heaters(False, force_off=force_off)
-        await self._async_set_coolers(False, force_off=force_off)
-
-    async def _async_set_heaters(self, enable: bool, force_off: bool = False, force_target: bool = False) -> None:
-        """Control heaters."""
-        for actuator in self._heaters_actuators:
-            await actuator.async_control(
-                enable=enable,
-                target_temp=self._attr_target_temperature,
-                target_low=self._attr_target_temperature_low,
-                target_high=self._attr_target_temperature_high,
-                force_off=force_off,
-                force_target=force_target,
-            )
-
-    async def _async_set_coolers(self, enable: bool, force_off: bool = False, force_target: bool = False) -> None:
-        """Control coolers."""
-        for actuator in self._coolers_actuators:
-            await actuator.async_control(
-                enable=enable,
-                target_temp=self._attr_target_temperature,
-                target_low=self._attr_target_temperature_low,
-                target_high=self._attr_target_temperature_high,
-                force_off=force_off,
-                force_target=force_target,
-            )
-
-    async def _async_sync_thermostats(self) -> None:
-        """Sync target temperature to physical thermostats."""
-        for sync in self._thermostats_sync:
-            await sync.async_sync(
-                target_temp=self._attr_target_temperature,
-                target_low=self._attr_target_temperature_low,
-                target_high=self._attr_target_temperature_high,
-                zone_hvac_mode=self._attr_hvac_mode,
-                zone_hvac_action=self._attr_hvac_action,
-            )
+        self.hass.async_create_task(self._async_reconcile())
