@@ -617,7 +617,7 @@ def seed_dashboard_storage() -> None:
         {
             "unique_id": "zone_fallback",
             "name": "Fallback Room",
-            "temperature_sensor": "sensor.broken_fallback",
+            "temperature_sensor": "sensor.broken_sensor_fallback",
             "heaters": ["climate.bedroom_2"],
             "thermostats": [],
             "coolers": [],
@@ -627,7 +627,7 @@ def seed_dashboard_storage() -> None:
         {
             "unique_id": "zone_safety",
             "name": "Safety Room",
-            "temperature_sensor": "sensor.broken_safety",
+            "temperature_sensor": "sensor.broken_sensor_safety",
             "heaters": ["climate.bedroom_3"],
             "thermostats": [],
             "coolers": [],
