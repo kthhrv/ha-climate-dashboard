@@ -527,11 +527,27 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                     else:
                         target = new_temp
 
+            # Determine Expiration for Dial Overrides
+            settings = self._storage.settings
+            override_type = settings.get("default_override_type", OverrideType.PERMANENT)
+
+            expires_at = None
+            now = dt_util.now()
+
+            if override_type == OverrideType.DURATION:
+                minutes = settings.get("default_timer_minutes", 60)
+                expires_at = now + timedelta(minutes=minutes)
+            elif override_type == OverrideType.NEXT_BLOCK:
+                next_change = self._schedule_manager.get_next_change(now)
+                if next_change:
+                    expires_at = next_change.time
+
             self._intents.append(
                 ClimateIntent(
                     source=IntentSource.MANUAL_DIAL,
                     mode=intent_mode,
                     setpoints=TargetSetpoints(target=target, low=low, high=high),
+                    expires_at=expires_at,
                 )
             )
 
@@ -728,6 +744,11 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         # If it's a climate entity, get the attribute
         if state.domain == "climate":
             raw_value = state.attributes.get("current_temperature")
+            if raw_value is not None:
+                try:
+                    raw_value = float(raw_value)
+                except ValueError:
+                    raw_value = None
         else:
             # Assume it's a sensor (state is the value)
             try:
@@ -756,6 +777,13 @@ class ClimateZone(ClimateEntity, RestoreEntity):
     def _async_on_storage_change(self) -> None:
         """Handle storage changes (e.g. Away Mode toggle)."""
         settings = self._storage.settings
+
+        # If Away Mode turned ON, cancel live overrides
+        if settings.get("is_away_mode_on"):
+            _LOGGER.info("Away Mode enabled: Clearing manual overrides for %s", self.name)
+            self._intents = [
+                i for i in self._intents if i.source not in (IntentSource.MANUAL_APP, IntentSource.MANUAL_DIAL)
+            ]
 
         # If Away Mode turned OFF, try to restore schedule
         if not settings.get("is_away_mode_on"):

@@ -106,9 +106,9 @@ class ReconciliationEngine:
         # Sort by IntentSource priority and then age
         priority_map = {
             IntentSource.SAFETY: 0,
-            IntentSource.MANUAL_APP: 1,
-            IntentSource.MANUAL_DIAL: 1,
-            IntentSource.AWAY_MODE: 2,
+            IntentSource.AWAY_MODE: 1,
+            IntentSource.MANUAL_APP: 2,
+            IntentSource.MANUAL_DIAL: 2,
             IntentSource.SCHEDULE: 3,
         }
 

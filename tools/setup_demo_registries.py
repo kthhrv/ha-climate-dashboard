@@ -600,7 +600,7 @@ def seed_dashboard_storage() -> None:
         {
             "unique_id": "zone_guest_room",
             "name": "Guest Room",
-            "temperature_sensor": "sensor.guest_room_temp_sensor",
+            "temperature_sensor": "climate.guest_room_dial",
             "heaters": ["climate.guest_room_trv"],
             "thermostats": ["climate.guest_room_dial"],
             "coolers": ["climate.guest_room_ac"],

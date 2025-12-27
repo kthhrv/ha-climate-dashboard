@@ -1,5 +1,6 @@
 """Isolated Integration tests for Demo Scenarios."""
 
+from typing import cast
 from unittest.mock import patch
 
 import pytest
@@ -12,6 +13,7 @@ from custom_components.climate_dashboard.const import DOMAIN
 from custom_components.climate_dashboard.storage import (
     ClimateDashboardData,
     ClimateZoneConfig,
+    GlobalSettings,
     OverrideType,
 )
 
@@ -33,20 +35,25 @@ GUEST_TRV = "climate.guest_room_trv"
 GUEST_AC = "climate.guest_room_ac"
 
 
-async def setup_scenario(hass: HomeAssistant, zones: list[ClimateZoneConfig]) -> None:
+async def setup_scenario(hass: HomeAssistant, zones: list[ClimateZoneConfig], settings: dict | None = None) -> None:
     """Setup a specific scenario with isolated storage."""
 
+    default_settings: GlobalSettings = {
+        "default_override_type": OverrideType.DURATION,
+        "default_timer_minutes": 60,
+        "window_open_delay_seconds": 0,
+        "home_away_entity_id": None,
+        "away_delay_minutes": 10,
+        "away_temperature": 16.0,
+        "away_temperature_cool": 30.0,
+        "is_away_mode_on": False,
+    }
+
+    if settings:
+        default_settings.update(cast(GlobalSettings, settings))
+
     data = ClimateDashboardData(
-        settings={
-            "default_override_type": OverrideType.DURATION,
-            "default_timer_minutes": 60,
-            "window_open_delay_seconds": 0,
-            "home_away_entity_id": None,
-            "away_delay_minutes": 10,
-            "away_temperature": 16.0,
-            "away_temperature_cool": 30.0,
-            "is_away_mode_on": False,
-        },
+        settings=default_settings,
         circuits=[],
         zones=zones,
     )
@@ -714,3 +721,164 @@ async def test_override_disabled(hass: HomeAssistant) -> None:
 
         # Verify it was IGNORED (Still 18.0)
         assert zone_entity.target_temperature == 18.0, "Manual override should be ignored when disabled"
+
+
+@pytest.mark.asyncio
+async def test_manual_dial_expiration(hass: HomeAssistant) -> None:
+    """Test that MANUAL_DIAL intents expire according to settings."""
+    from datetime import datetime, timedelta
+
+    import homeassistant.util.dt as dt_util
+
+    # Constants
+    ZONE_ID = "climate.zone_test_room"
+    TEMP_SENSOR = "sensor.test_room_temp"
+    DIAL_ID = "climate.test_room_dial"
+
+    # 1. Setup Devices
+    hass.states.async_set(TEMP_SENSOR, "20.0")
+    hass.states.async_set(
+        DIAL_ID,
+        HVACMode.HEAT,
+        {ATTR_TEMPERATURE: 20.0, "hvac_modes": [HVACMode.OFF, HVACMode.HEAT], "current_temperature": 20.0},
+    )
+
+    # 2. Setup Config (Override = 60 mins)
+    config = {
+        "unique_id": "zone_test",
+        "name": "Test Room",
+        "temperature_sensor": TEMP_SENSOR,
+        "heaters": ["climate.dummy_heater"],
+        "thermostats": [DIAL_ID],
+        "coolers": [],
+        "window_sensors": [],
+        "schedule": [{"name": "Day", "days": ["mon"], "start_time": "00:00", "temp_heat": 18.0, "temp_cool": 25.0}],
+    }
+
+    settings_override = {"default_override_type": OverrideType.DURATION, "default_timer_minutes": 60}
+
+    # Start Time: Monday 10:00
+    start_time = datetime(2023, 1, 2, 10, 0, 0, tzinfo=dt_util.UTC)
+
+    with (
+        patch("custom_components.climate_dashboard.climate_zone.dt_util.now", return_value=start_time),
+        patch("homeassistant.core.ServiceRegistry.async_call"),
+    ):
+        await setup_scenario(hass, [config], settings=settings_override)  # type: ignore
+
+        zone = hass.states.get(ZONE_ID)
+        # Should be Schedule (18.0)
+        assert zone.attributes["temperature"] == 18.0
+
+        # 3. Simulate Dial Change (User turns dial to 22.0)
+        # We must trigger the state change on the DIAL entity
+        hass.states.async_set(
+            DIAL_ID,
+            HVACMode.HEAT,
+            {
+                ATTR_TEMPERATURE: 22.0,  # Changed from 20 to 22
+                "hvac_modes": [HVACMode.OFF, HVACMode.HEAT],
+                "current_temperature": 20.0,
+            },
+        )
+        await hass.async_block_till_done()
+
+        # Check Zone accepted override
+        zone = hass.states.get(ZONE_ID)
+        assert zone.attributes["temperature"] == 22.0
+        assert zone.attributes["override_end"] is not None
+
+        # 4. Advance Time < 60 mins
+        mid_time = start_time + timedelta(minutes=30)
+        with patch("custom_components.climate_dashboard.climate_zone.dt_util.now", return_value=mid_time):
+            # Trigger reconcile manually since we can't easily wait for time
+            zone_entity = hass.data["entity_components"]["climate"].get_entity(ZONE_ID)
+            await zone_entity._async_reconcile()
+
+            zone = hass.states.get(ZONE_ID)
+            assert zone.attributes["temperature"] == 22.0  # Still active
+
+        # 5. Advance Time > 60 mins
+        end_time = start_time + timedelta(minutes=61)
+        with patch("custom_components.climate_dashboard.climate_zone.dt_util.now", return_value=end_time):
+            zone_entity = hass.data["entity_components"]["climate"].get_entity(ZONE_ID)
+            await zone_entity._async_reconcile()
+
+            zone = hass.states.get(ZONE_ID)
+            # Should revert to Schedule (18.0)
+            assert zone.attributes["temperature"] == 18.0
+
+
+@pytest.mark.asyncio
+async def test_away_mode_priority(hass: HomeAssistant) -> None:
+    """Test that Away Mode takes priority over active Manual Overrides."""
+    from datetime import datetime
+
+    import homeassistant.util.dt as dt_util
+
+    # Constants
+    ZONE_ID = "climate.zone_test_room"
+    TEMP_SENSOR = "sensor.test_room_temp"
+
+    # 1. Setup Devices
+    hass.states.async_set(TEMP_SENSOR, "18.0")  # Cold
+
+    # 2. Setup Config
+    config = {
+        "unique_id": "zone_test",
+        "name": "Test Room",
+        "temperature_sensor": TEMP_SENSOR,
+        "heaters": ["climate.dummy_heater"],
+        "thermostats": [],
+        "coolers": [],
+        "window_sensors": [],
+        "schedule": [{"name": "Day", "days": ["mon"], "start_time": "00:00", "temp_heat": 20.0, "temp_cool": 25.0}],
+    }
+
+    settings_override = {
+        "default_override_type": OverrideType.PERMANENT,
+        "away_temperature": 10.0,  # Cold Away Temp
+        "is_away_mode_on": False,
+    }
+
+    start_time = datetime(2023, 1, 2, 10, 0, 0, tzinfo=dt_util.UTC)
+
+    with (
+        patch("custom_components.climate_dashboard.climate_zone.dt_util.now", return_value=start_time),
+        patch("homeassistant.core.ServiceRegistry.async_call"),
+    ):
+        await setup_scenario(hass, [config], settings=settings_override)  # type: ignore
+
+        zone_entity = hass.data["entity_components"]["climate"].get_entity(ZONE_ID)
+
+        # 3. Apply Manual Override (25.0)
+        await zone_entity.async_set_temperature(temperature=25.0)
+        await hass.async_block_till_done()
+
+        zone = hass.states.get(ZONE_ID)
+        assert zone.attributes["temperature"] == 25.0
+
+        # 4. Enable Away Mode
+        # This triggers _async_on_storage_change which clears overrides (my fix 2)
+        # AND Engine Priority (my fix 3) ensures Away wins if conflict exists.
+
+        # We need to simulate the storage update.
+        storage = zone_entity._storage
+        storage.settings["is_away_mode_on"] = True
+        storage._async_fire_callbacks()  # Trigger listeners
+        await hass.async_block_till_done()
+
+        # 5. Verify Zone is in Away Mode
+        zone = hass.states.get(ZONE_ID)
+        # Away Temp is 10.0
+        assert zone.attributes["temperature"] == 10.0
+
+        # 6. Verify Intent was cleared (optional internal check)
+        # My fix in climate_zone.py clears the list.
+        # Note: IntentSource enum needs to be imported or accessed from module
+        from custom_components.climate_dashboard.engine import IntentSource
+
+        manual_intents = [
+            i for i in zone_entity._intents if i.source in (IntentSource.MANUAL_APP, IntentSource.MANUAL_DIAL)
+        ]
+        assert len(manual_intents) == 0
