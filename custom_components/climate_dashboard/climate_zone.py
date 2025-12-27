@@ -534,8 +534,16 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             self._attr_hvac_action = desired.action
 
             # Dual Mode Logic: If Auto and Dual Capable, hide single target
-            if self._heaters and self._coolers and desired.mode == HVACMode.AUTO:
-                self._attr_target_temperature = None
+            if desired.mode == HVACMode.AUTO:
+                if self._heaters and self._coolers:
+                    # True Dual Mode -> Use Range
+                    self._attr_target_temperature = None
+                elif self._heaters:
+                    # Single Mode (Heat) -> Map Low to Target
+                    self._attr_target_temperature = desired.setpoints.low
+                elif self._coolers:
+                    # Single Mode (Cool) -> Map High to Target
+                    self._attr_target_temperature = desired.setpoints.high
             else:
                 self._attr_target_temperature = desired.setpoints.target
 
