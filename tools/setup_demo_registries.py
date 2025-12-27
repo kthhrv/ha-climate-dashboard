@@ -617,7 +617,7 @@ def seed_dashboard_storage() -> None:
             "unique_id": "zone_office_dual",
             "name": "Office (Dual)",
             "temperature_sensor": "input_number.office_temp",
-            "heaters": ["input_boolean.office_heater"],
+            "heaters": ["switch.office_heater"],
             "thermostats": [],
             "coolers": ["climate.office_ac"],
             "window_sensors": [],

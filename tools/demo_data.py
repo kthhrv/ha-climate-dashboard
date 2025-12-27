@@ -332,6 +332,12 @@ AREAS = [
                 device_type="input_boolean",
                 params={"icon": "mdi:air-conditioner"},
             ),
+            DemoDevice(
+                unique_id="switch_office_heater",
+                name="Office Heater",
+                device_type="template_switch",
+                params={"source": "input_boolean.office_heater"},
+            ),
         ],
     ),
     DemoArea(
