@@ -671,8 +671,18 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         if self._reconciler.is_echo(new_state.entity_id, new_state):
             return
 
-        if new_state.state != old_state.state:
-            # Mode changed! Trigger control loop to verify/enforce.
+        # Check for meaningful change (Mode or Target Temp)
+        mode_changed = new_state.state != old_state.state
+        temp_changed = new_state.attributes.get(ATTR_TEMPERATURE) != old_state.attributes.get(ATTR_TEMPERATURE)
+
+        if mode_changed or temp_changed:
+            _LOGGER.info(
+                "Heater %s changed externally (Mode=%s, Temp=%s). Triggering Reconcile.",
+                new_state.entity_id,
+                new_state.state,
+                new_state.attributes.get(ATTR_TEMPERATURE),
+            )
+            # Trigger control loop to verify/enforce.
             self.hass.async_create_task(self._async_reconcile())
             self.async_write_ha_state()
 

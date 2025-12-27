@@ -409,3 +409,66 @@ async def test_window_safety(hass: HomeAssistant) -> None:
         # Or set_temp(7) if OFF not supported?
         # We mocked TRV to support OFF.
         assert len(trv_calls) > 0
+
+
+@pytest.mark.asyncio
+async def test_trv_revert_correction(hass: HomeAssistant) -> None:
+    """Scenario: TRV manually changed by user is reverted by Zone."""
+
+    # 1. Setup Devices (Heating active)
+    hass.states.async_set(KITCHEN_SENSOR, "19.0")
+    hass.states.async_set(
+        KITCHEN_TRV,
+        HVACMode.HEAT,
+        {
+            "hvac_modes": [HVACMode.OFF, HVACMode.HEAT],
+            ATTR_TEMPERATURE: 30.0,  # Already forced open
+        },
+    )
+
+    # 2. Setup Config
+    config = {
+        "unique_id": "zone_kitchen",
+        "name": "Kitchen",
+        "temperature_sensor": KITCHEN_SENSOR,
+        "heaters": [KITCHEN_TRV],
+        "thermostats": [],
+        "coolers": [],
+        "window_sensors": [],
+        "schedule": [
+            {
+                "name": "Day",
+                "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+                "start_time": "00:00",
+                "temp_heat": 21.0,
+                "temp_cool": 25.0,
+            }
+        ],
+    }
+
+    with patch("homeassistant.core.ServiceRegistry.async_call") as call_mock:
+        await setup_scenario(hass, [config])  # type: ignore
+
+        # Initial check - Zone should be Heating
+        zone = hass.states.get("climate.zone_kitchen")
+        assert zone.attributes["hvac_action"] == HVACAction.HEATING
+
+        # 3. Simulate TRV changing to 21.0 (User/Internal Schedule interference)
+        # We trigger the state change event on the TRV
+        hass.states.async_set(
+            KITCHEN_TRV, HVACMode.HEAT, {"hvac_modes": [HVACMode.OFF, HVACMode.HEAT], ATTR_TEMPERATURE: 21.0}
+        )
+
+        # Wait for listener to catch it and reconciler to run
+        await hass.async_block_till_done()
+
+        # 4. Verify Reconciler sent correction command (set to 30.0)
+        correction_calls = [
+            c
+            for c in call_mock.call_args_list
+            if c.args[0] == "climate"
+            and c.args[1] == "set_temperature"
+            and c.args[2][ATTR_ENTITY_ID] == KITCHEN_TRV
+            and c.args[2][ATTR_TEMPERATURE] == 30.0
+        ]
+        assert len(correction_calls) > 0, "Reconciler failed to revert TRV change"
