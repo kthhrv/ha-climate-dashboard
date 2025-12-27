@@ -567,7 +567,7 @@ def seed_dashboard_storage() -> None:
         {
             "unique_id": "zone_living_room",
             "name": "Living Room",
-            "temperature_sensor": "input_number.living_room_temp",
+            "temperature_sensor": "sensor.living_room_temp_sensor",
             "heaters": ["climate.trv_living_room"],  # MQTT TRV
             "thermostats": [],
             "coolers": [],
@@ -577,7 +577,7 @@ def seed_dashboard_storage() -> None:
         {
             "unique_id": "zone_kitchen",
             "name": "Kitchen",
-            "temperature_sensor": "input_number.kitchen_temp",
+            "temperature_sensor": "sensor.kitchen_temp_sensor",
             "heaters": ["climate.kitchen"],  # MQTT TRV
             "thermostats": [],
             "coolers": [],
@@ -587,7 +587,7 @@ def seed_dashboard_storage() -> None:
         {
             "unique_id": "zone_master_bedroom",
             "name": "Master Bedroom",
-            "temperature_sensor": "input_number.master_bedroom_temp",
+            "temperature_sensor": "sensor.master_bedroom_temp_sensor",
             "heaters": ["climate.master_bedroom"],  # MQTT TRV
             "thermostats": [],
             "coolers": [],
@@ -597,7 +597,7 @@ def seed_dashboard_storage() -> None:
         {
             "unique_id": "zone_guest_room",
             "name": "Guest Room",
-            "temperature_sensor": "climate.guest_room_dial",
+            "temperature_sensor": "sensor.guest_room_temp_sensor",
             "heaters": ["climate.guest_room_trv"],
             "thermostats": ["climate.guest_room_dial"],
             "coolers": ["climate.guest_room_ac"],
@@ -607,7 +607,7 @@ def seed_dashboard_storage() -> None:
         {
             "unique_id": "zone_office_dual",
             "name": "Office (Dual)",
-            "temperature_sensor": "input_number.office_temp",
+            "temperature_sensor": "sensor.office_temp_sensor",
             "heaters": ["switch.office_heater"],
             "thermostats": [],
             "coolers": ["climate.office_ac"],
@@ -637,7 +637,7 @@ def seed_dashboard_storage() -> None:
         {
             "unique_id": "zone_server_room",
             "name": "Server Room",
-            "temperature_sensor": "input_number.server_room_temp",
+            "temperature_sensor": "sensor.server_room_temp_sensor",
             "heaters": [],
             "thermostats": [],
             "coolers": ["climate.server_room_ac"],

@@ -91,6 +91,12 @@ AREAS = [
                 params={"min": 0, "max": 40, "step": 0.1, "unit": "°C", "icon": "mdi:thermometer", "initial": 19.0},
             ),
             DemoDevice(
+                unique_id="sensor_living_room_temp",
+                name="Living Room Temp Sensor",
+                device_type="template_sensor",
+                params={"source": "input_number.living_room_temp"},
+            ),
+            DemoDevice(
                 unique_id="living_room_heater",
                 name="Living Room Heater",
                 device_type="input_boolean",
@@ -134,6 +140,12 @@ AREAS = [
                 params={"min": 0, "max": 40, "step": 0.1, "unit": "°C", "icon": "mdi:thermometer", "initial": 19.0},
             ),
             DemoDevice(
+                unique_id="sensor_kitchen_temp",
+                name="Kitchen Temp Sensor",
+                device_type="template_sensor",
+                params={"source": "input_number.kitchen_temp"},
+            ),
+            DemoDevice(
                 unique_id="kitchen_heater",
                 name="Kitchen Heater",
                 device_type="input_boolean",
@@ -174,6 +186,12 @@ AREAS = [
                 name="Master Bedroom Temp",
                 device_type="input_number",
                 params={"min": 0, "max": 40, "step": 0.1, "unit": "°C", "icon": "mdi:thermometer", "initial": 19.0},
+            ),
+            DemoDevice(
+                unique_id="sensor_master_bedroom_temp",
+                name="Master Bedroom Temp Sensor",
+                device_type="template_sensor",
+                params={"source": "input_number.master_bedroom_temp"},
             ),
             DemoDevice(
                 unique_id="master_bedroom_heater",
@@ -321,6 +339,12 @@ AREAS = [
                 params={"min": 0, "max": 40, "step": 0.1, "unit": "°C", "icon": "mdi:thermometer", "initial": 19.0},
             ),
             DemoDevice(
+                unique_id="sensor_office_temp",
+                name="Office Temp Sensor",
+                device_type="template_sensor",
+                params={"source": "input_number.office_temp"},
+            ),
+            DemoDevice(
                 unique_id="office_heater",
                 name="Office Heater",
                 device_type="input_boolean",
@@ -362,6 +386,12 @@ AREAS = [
                 name="Bathroom Temp",
                 device_type="input_number",
                 params={"min": 0, "max": 40, "step": 0.1, "unit": "°C", "icon": "mdi:thermometer", "initial": 19.0},
+            ),
+            DemoDevice(
+                unique_id="sensor_bathroom_temp",
+                name="Bathroom Temp Sensor",
+                device_type="template_sensor",
+                params={"source": "input_number.bathroom_temp"},
             ),
             DemoDevice(
                 unique_id="bathroom_heater",
@@ -416,6 +446,12 @@ AREAS = [
                 params={"min": 0, "max": 40, "step": 0.1, "unit": "°C", "icon": "mdi:thermometer", "initial": 19.0},
             ),
             DemoDevice(
+                unique_id="sensor_guest_room_temp",
+                name="Guest Room Temp Sensor",
+                device_type="template_sensor",
+                params={"source": "input_number.guest_room_temp"},
+            ),
+            DemoDevice(
                 unique_id="guest_room_heater",
                 name="Guest Room Heater",
                 device_type="input_boolean",
@@ -462,6 +498,12 @@ AREAS = [
                 name="Server Room Temp",
                 device_type="input_number",
                 params={"min": 10, "max": 40, "step": 0.1, "unit": "°C", "icon": "mdi:thermometer", "initial": 20.0},
+            ),
+            DemoDevice(
+                unique_id="sensor_server_room_temp",
+                name="Server Room Temp Sensor",
+                device_type="template_sensor",
+                params={"source": "input_number.server_room_temp"},
             ),
         ],
     ),
