@@ -9,6 +9,8 @@ from typing import Any, cast
 
 import homeassistant.util.dt as dt_util
 from homeassistant.components.climate import (
+    ATTR_TARGET_TEMP_HIGH,
+    ATTR_TARGET_TEMP_LOW,
     ClimateEntity,
     ClimateEntityFeature,
     HVACAction,
@@ -295,8 +297,31 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                 else:
                     self._attr_hvac_mode = HVACMode.AUTO
 
+                # Restore Temperatures
+                target = None
+                low = None
+                high = None
                 if last_state.attributes.get(ATTR_TEMPERATURE):
-                    self._attr_target_temperature = float(last_state.attributes[ATTR_TEMPERATURE])
+                    target = float(last_state.attributes[ATTR_TEMPERATURE])
+                if last_state.attributes.get(ATTR_TARGET_TEMP_LOW):
+                    low = float(last_state.attributes[ATTR_TARGET_TEMP_LOW])
+                if last_state.attributes.get(ATTR_TARGET_TEMP_HIGH):
+                    high = float(last_state.attributes[ATTR_TARGET_TEMP_HIGH])
+
+                self._attr_target_temperature = target
+                self._attr_target_temperature_low = low
+                self._attr_target_temperature_high = high
+
+                # Restore Manual Intent if not Auto
+                # This ensures that if the user left it in HEAT/COOL, it stays there.
+                if self._attr_hvac_mode != HVACMode.AUTO:
+                    self._intents.append(
+                        ClimateIntent(
+                            source=IntentSource.MANUAL_APP,
+                            mode=self._attr_hvac_mode,
+                            setpoints=TargetSetpoints(target=target, low=low, high=high),
+                        )
+                    )
 
                 _LOGGER.info("Zone %s restored state: %s", self.name, self._attr_hvac_mode)
         else:
