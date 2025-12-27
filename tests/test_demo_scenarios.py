@@ -228,6 +228,123 @@ async def test_guest_dial_sync(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
+async def test_guest_room_actuation(hass: HomeAssistant) -> None:
+    """Scenario: Guest Room TRV and AC triggering based on Dial temp."""
+    # 1. Setup Devices
+    # Dial starts at 22.0 (Deadband 21-25)
+    hass.states.async_set(
+        GUEST_DIAL,
+        HVACMode.HEAT,
+        {
+            ATTR_TEMPERATURE: 21.0,
+            "current_temperature": 22.0,
+            "hvac_modes": [HVACMode.OFF, HVACMode.HEAT, HVACMode.COOL],
+            "supported_features": ClimateEntityFeature.TARGET_TEMPERATURE,
+        },
+    )
+    hass.states.async_set(GUEST_TRV, HVACMode.OFF, {"hvac_modes": [HVACMode.OFF, HVACMode.HEAT, HVACMode.AUTO]})
+    hass.states.async_set(GUEST_AC, HVACMode.OFF, {"hvac_modes": [HVACMode.OFF, HVACMode.COOL, HVACMode.AUTO]})
+
+    # 2. Setup Config
+    guest_config = {
+        "unique_id": "zone_guest_act",
+        "name": "Guest Act",
+        "temperature_sensor": GUEST_DIAL,
+        "heaters": [GUEST_TRV],
+        "thermostats": [GUEST_DIAL],
+        "coolers": [GUEST_AC],
+        "window_sensors": [],
+        "schedule": [
+            {
+                "name": "Day",
+                "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+                "start_time": "00:00",
+                "temp_heat": 21.0,
+                "temp_cool": 25.0,
+            }
+        ],
+    }
+
+    # 3. Launch
+    with patch("homeassistant.core.ServiceRegistry.async_call") as call_mock:
+        await setup_scenario(hass, [guest_config])  # type: ignore
+
+        ENTITY_ID = "climate.zone_guest_act"
+
+        # --- HEATING ---
+        # Drop temp to 19.0
+        hass.states.async_set(
+            GUEST_DIAL,
+            HVACMode.HEAT,
+            {
+                ATTR_TEMPERATURE: 21.0,
+                "current_temperature": 19.0,
+                "hvac_modes": [HVACMode.OFF, HVACMode.HEAT, HVACMode.COOL],
+                "supported_features": ClimateEntityFeature.TARGET_TEMPERATURE,
+            },
+        )
+        await hass.async_block_till_done()
+
+        zone = hass.states.get(ENTITY_ID)
+        assert zone.attributes["hvac_action"] == HVACAction.HEATING
+
+        # Verify TRV ON (Heat mode 30C)
+        trv_heat_calls = [
+            c
+            for c in call_mock.call_args_list
+            if c.args[0] == "climate"
+            and c.args[2][ATTR_ENTITY_ID] == GUEST_TRV
+            and c.args[1] in ("set_hvac_mode", "set_temperature")
+        ]
+        assert len(trv_heat_calls) > 0
+
+        # Simulate TRV responding and turning ON
+        hass.states.async_set(GUEST_TRV, HVACMode.HEAT, {"hvac_modes": [HVACMode.OFF, HVACMode.HEAT]})
+
+        # --- COOLING ---
+        # Raise temp to 27.0
+        call_mock.reset_mock()
+        hass.states.async_set(
+            GUEST_DIAL,
+            HVACMode.COOL,
+            {
+                ATTR_TEMPERATURE: 25.0,
+                "current_temperature": 27.0,
+                "hvac_modes": [HVACMode.OFF, HVACMode.HEAT, HVACMode.COOL],
+                "supported_features": ClimateEntityFeature.TARGET_TEMPERATURE,
+            },
+        )
+        await hass.async_block_till_done()
+
+        zone = hass.states.get(ENTITY_ID)
+        assert zone.attributes["hvac_action"] == HVACAction.COOLING
+
+        # Verify AC ON (Cool mode 16C)
+        ac_cool_calls = [
+            c
+            for c in call_mock.call_args_list
+            if c.args[0] == "climate"
+            and c.args[2][ATTR_ENTITY_ID] == GUEST_AC
+            and c.args[1] in ("set_hvac_mode", "set_temperature")
+        ]
+        assert len(ac_cool_calls) > 0
+
+        # Simulate AC responding
+        hass.states.async_set(GUEST_AC, HVACMode.COOL, {"hvac_modes": [HVACMode.OFF, HVACMode.COOL]})
+
+        # Verify TRV OFF
+        trv_off_calls = [
+            c
+            for c in call_mock.call_args_list
+            if c.args[0] == "climate"
+            and c.args[2][ATTR_ENTITY_ID] == GUEST_TRV
+            and c.args[1] == "set_hvac_mode"
+            and c.args[2]["hvac_mode"] == HVACMode.OFF
+        ]
+        assert len(trv_off_calls) > 0
+
+
+@pytest.mark.asyncio
 async def test_window_safety(hass: HomeAssistant) -> None:
     """Scenario: Window Sensor forces Zone OFF."""
     WINDOW_SENSOR = "binary_sensor.window"
