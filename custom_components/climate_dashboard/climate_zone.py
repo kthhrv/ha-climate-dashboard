@@ -551,7 +551,11 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             self._attr_open_window_sensor = self._safety_monitor.open_window_sensor
 
             desired = self._engine.calculate_desired_state(
-                intents=all_intents, current_temp=self._attr_current_temperature, now=now, is_window_open=is_window_open
+                intents=all_intents,
+                current_temp=self._attr_current_temperature,
+                now=now,
+                current_action=self._attr_hvac_action,
+                is_window_open=is_window_open,
             )
 
             # 3. Update Zone Entity State

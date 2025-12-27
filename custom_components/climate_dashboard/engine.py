@@ -74,6 +74,7 @@ class ReconciliationEngine:
         intents: list[ClimateIntent],
         current_temp: float | None,
         now: datetime,
+        current_action: HVACAction = HVACAction.IDLE,
         is_window_open: bool = False,
     ) -> DesiredState:
         """
@@ -115,22 +116,52 @@ class ReconciliationEngine:
         )
         winner = sorted_intents[0]
 
-        # 3. Calculate Action based on Current Temp
+        # 3. Calculate Action based on Current Temp and Hysteresis
         action = HVACAction.IDLE
         if current_temp is not None:
             if winner.mode == HVACMode.HEAT:
-                if winner.setpoints.target and current_temp < (winner.setpoints.target - self.tolerance):
-                    action = HVACAction.HEATING
+                target = winner.setpoints.target
+                if target is not None:
+                    if current_action == HVACAction.HEATING:
+                        # Keep heating until we reach target
+                        if current_temp < target:
+                            action = HVACAction.HEATING
+                    else:
+                        # Start heating if below threshold
+                        if current_temp < (target - self.tolerance):
+                            action = HVACAction.HEATING
+
             elif winner.mode == HVACMode.COOL:
-                if winner.setpoints.target and current_temp > (winner.setpoints.target + self.tolerance):
-                    action = HVACAction.COOLING
+                target = winner.setpoints.target
+                if target is not None:
+                    if current_action == HVACAction.COOLING:
+                        # Keep cooling until we reach target
+                        if current_temp > target:
+                            action = HVACAction.COOLING
+                    else:
+                        # Start cooling if above threshold
+                        if current_temp > (target + self.tolerance):
+                            action = HVACAction.COOLING
+
             elif winner.mode == HVACMode.AUTO:
                 low = winner.setpoints.low
                 high = winner.setpoints.high
-                if low is not None and current_temp < (low - self.tolerance):
-                    action = HVACAction.HEATING
-                elif high is not None and current_temp > (high + self.tolerance):
-                    action = HVACAction.COOLING
+
+                # Heating Side
+                if low is not None:
+                    if current_action == HVACAction.HEATING:
+                        if current_temp < low:
+                            action = HVACAction.HEATING
+                    elif current_temp < (low - self.tolerance):
+                        action = HVACAction.HEATING
+
+                # Cooling Side (Only if not heating)
+                if high is not None and action != HVACAction.HEATING:
+                    if current_action == HVACAction.COOLING:
+                        if current_temp > high:
+                            action = HVACAction.COOLING
+                    elif current_temp > (high + self.tolerance):
+                        action = HVACAction.COOLING
 
         return DesiredState(
             mode=winner.mode, setpoints=winner.setpoints, action=action, reason=f"Intent: {winner.source.value}"
