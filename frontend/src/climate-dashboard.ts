@@ -134,6 +134,12 @@ export class ClimateDashboard extends LitElement {
 
   public disconnectedCallback() {
     super.disconnectedCallback();
+
+    if (this._unsubSettings) {
+      this._unsubSettings();
+      this._unsubSettings = undefined;
+    }
+
     // NOTE: We intentionally DO NOT remove the visibility listener here.
     // If the component is disconnected while the tab is hidden, we need this listener
     // to fire when the tab becomes visible again to detect the "zombie" state
@@ -179,10 +185,31 @@ export class ClimateDashboard extends LitElement {
     }
   };
 
+  private _unsubSettings: any;
+
   protected updated(
     changedProps: Map<string | number | symbol, unknown>,
   ): void {
     super.updated(changedProps);
+    if (changedProps.has("hass") && this.hass && !this._unsubSettings) {
+      this._subscribeSettings();
+    }
+  }
+
+  private async _subscribeSettings() {
+    if (!this.hass) return;
+    try {
+      this._unsubSettings = await this.hass.connection.subscribeEvents(
+        (event: any) => {
+          if (event.data.is_away_mode_on !== undefined) {
+            this._isAwayMode = event.data.is_away_mode_on;
+          }
+        },
+        "climate_dashboard_settings_updated",
+      );
+    } catch (e) {
+      console.error("Failed to subscribe to settings updates", e);
+    }
   }
 
   protected firstUpdated(): void {

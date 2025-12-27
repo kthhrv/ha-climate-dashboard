@@ -258,6 +258,7 @@ class ClimateDashboardStorage:
         self._data.settings.update(settings)
         await self._async_save_data()
         self._async_fire_callbacks()
+        self.hass.bus.async_fire("climate_dashboard_settings_updated", self._data.settings)
 
     async def async_update_circuits(self, circuits: list[CircuitConfig]) -> None:
         """Update circuits list."""
