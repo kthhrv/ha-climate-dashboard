@@ -308,18 +308,6 @@ AREAS = [
         floor_id="ground_floor",
         devices=[
             DemoDevice(
-                unique_id="climate_office",
-                name="Office",
-                device_type="generic_thermostat",
-                params={
-                    "heater": "input_boolean.office_heater",
-                    "target_sensor": "input_number.office_temp",
-                    "min_temp": 5,
-                    "max_temp": 30,
-                    "target_temp": 21,
-                },
-            ),
-            DemoDevice(
                 unique_id="climate_office_ac",
                 name="Office AC",
                 device_type="generic_thermostat",
@@ -369,18 +357,6 @@ AREAS = [
         name="Bathroom",
         floor_id="first_floor",
         devices=[
-            DemoDevice(
-                unique_id="climate_bathroom",
-                name="Bathroom",
-                device_type="generic_thermostat",
-                params={
-                    "heater": "input_boolean.bathroom_heater",
-                    "target_sensor": "input_number.bathroom_temp",
-                    "min_temp": 5,
-                    "max_temp": 30,
-                    "target_temp": 22,
-                },
-            ),
             DemoDevice(
                 unique_id="bathroom_temp",
                 name="Bathroom Temp",

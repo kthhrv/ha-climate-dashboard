@@ -77,9 +77,10 @@ def setup_lovelace() -> None:
         "master_bedroom": ["climate.zone_master_bedroom"],
         "guest_room": ["climate.zone_guest_room"],
         "office": ["climate.zone_office_dual"],
+        "bathroom": ["climate.zone_bathroom"],
         "server_room": ["climate.zone_server_room"],
-        "bedroom_2": ["climate.zone_fallback"],
-        "bedroom_3": ["climate.zone_safety"],
+        "bedroom_2": ["climate.zone_fallback_room"],
+        "bedroom_3": ["climate.zone_safety_room"],
     }
 
     # Home View
@@ -486,10 +487,11 @@ def setup_entities(config_entry_map: dict[str, str]) -> None:
         "climate.zone_living_room": "living_room",
         "climate.zone_kitchen": "kitchen",
         "climate.zone_office_dual": "office",
+        "climate.zone_bathroom": "bathroom",
         "climate.zone_guest_room": "guest_room",
         "climate.zone_server_room": "server_room",
-        "climate.zone_fallback": "bedroom_2",
-        "climate.zone_safety": "bedroom_3",
+        "climate.zone_fallback_room": "bedroom_2",
+        "climate.zone_safety_room": "bedroom_3",
         "climate.zone_master_bedroom": "master_bedroom",
     }
     for eid, target_area_id in zone_map.items():
@@ -642,6 +644,16 @@ def seed_dashboard_storage() -> None:
             "heaters": [],
             "thermostats": [],
             "coolers": ["climate.server_room_ac"],
+            "window_sensors": [],
+            "schedule": default_schedule,
+        },
+        {
+            "unique_id": "zone_bathroom",
+            "name": "Bathroom",
+            "temperature_sensor": "sensor.bathroom_temp_sensor",
+            "heaters": ["input_boolean.bathroom_heater"],
+            "thermostats": [],
+            "coolers": [],
             "window_sensors": [],
             "schedule": default_schedule,
         },

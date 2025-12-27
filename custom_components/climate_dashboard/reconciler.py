@@ -66,18 +66,14 @@ class Reconciler:
         if desired.mode == HVACMode.AUTO and HVACMode.AUTO not in valid_modes:
             # WINDOWING LOGIC:
             # If the zone is AUTO but dial is single-mode, show the relevant side.
-            use_cool = False
-
-            if desired.action == HVACAction.COOLING:
+            # Preference: If Dial is already in a mode that matches a side, stick to it.
+            if state.state == HVACMode.COOL:
                 use_cool = True
-            elif desired.action == HVACAction.HEATING:
+            elif state.state == HVACMode.HEAT:
                 use_cool = False
             else:
-                # IDLE: Stick to current state if possible
-                if state.state == HVACMode.COOL:
-                    use_cool = True
-                else:
-                    use_cool = False
+                # Fallback to Zone Action if Dial is OFF or other
+                use_cool = desired.action == HVACAction.COOLING
 
             if use_cool:
                 target_mode = HVACMode.COOL
