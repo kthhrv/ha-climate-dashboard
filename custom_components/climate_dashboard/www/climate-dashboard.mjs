@@ -3131,7 +3131,7 @@ const Ce = class Ce extends A {
   }
   _getEditorCandidates() {
     if (!this.hass) return [];
-    const e = ["climate", "switch", "sensor", "binary_sensor"];
+    const e = ["climate", "switch", "sensor", "binary_sensor", "input_number"];
     return Object.values(this.hass.states).filter(
       (t) => e.includes(t.entity_id.split(".")[0]) && !t.attributes.is_climate_dashboard_zone && !t.entity_id.startsWith("climate.zone_")
     ).map((t) => {

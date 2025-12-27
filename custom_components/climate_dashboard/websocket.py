@@ -525,7 +525,7 @@ async def ws_scan_unmanaged(
     Returns a list of potential entities to use.
     """
     # We scan for: climate (for heaters/coolers), switch (for heaters), binary_sensor (for windows), sensor (for temp)
-    domains = ["climate", "switch", "binary_sensor", "sensor"]
+    domains = ["climate", "switch", "binary_sensor", "sensor", "input_number"]
     candidates = []
 
     # Get list of used entities to optionally filter or mark them?
