@@ -315,6 +315,12 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                 # Restore Manual Intent if not Auto
                 # This ensures that if the user left it in HEAT/COOL, it stays there.
                 if self._attr_hvac_mode != HVACMode.AUTO:
+                    # Apply defaults if missing
+                    if self._attr_hvac_mode == HVACMode.HEAT and target is None:
+                        target = self._default_temp_heat
+                    elif self._attr_hvac_mode == HVACMode.COOL and target is None:
+                        target = self._default_temp_cool
+
                     self._intents.append(
                         ClimateIntent(
                             source=IntentSource.MANUAL_APP,
