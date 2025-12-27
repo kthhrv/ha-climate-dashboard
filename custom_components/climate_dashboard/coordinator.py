@@ -45,13 +45,21 @@ class ClimateDashboardCoordinator:
             # Subscribe to state changes
             self._remove_listener = async_track_state_change_event(self.hass, [entity_id], self._handle_presence_change)
 
+            # Check current state immediately
+            current_state = self.hass.states.get(entity_id)
+            if current_state:
+                self._process_presence_state(current_state)
+
     @callback
     def _handle_presence_change(self, event: Any) -> None:
         """Handle presence entity state change."""
         new_state = event.data.get("new_state")
-        if new_state is None:
-            return
+        if new_state:
+            self._process_presence_state(new_state)
 
+    @callback
+    def _process_presence_state(self, state: Any) -> None:
+        """Process presence state."""
         settings = self._storage.settings
         is_away = settings.get("is_away_mode_on", False)
         delay_minutes = settings.get("away_delay_minutes", 10)
@@ -60,10 +68,10 @@ class ClimateDashboardCoordinator:
         # Support device_tracker (home/not_home) and boolean/binary_sensor (on/off) or person (home/not_home)
         # Also support zone entities (numeric count of persons, where > 0 is Home)
 
-        is_presence_home = new_state.state in [STATE_HOME, STATE_ON]
+        is_presence_home = state.state in [STATE_HOME, STATE_ON]
         if not is_presence_home:
             try:
-                if float(new_state.state) > 0:
+                if float(state.state) > 0:
                     is_presence_home = True
             except ValueError:
                 pass
