@@ -648,3 +648,69 @@ async def test_heating_circuit_logic(hass: HomeAssistant) -> None:
             if c.args[0] == "homeassistant" and c.args[1] == "turn_off" and c.args[2][ATTR_ENTITY_ID] == BOILER_ID
         ]
         assert len(boiler_off_calls) > 0
+
+
+@pytest.mark.asyncio
+async def test_override_disabled(hass: HomeAssistant) -> None:
+    """Scenario: Manual overrides are ignored when disabled."""
+    # 1. Setup Devices
+    hass.states.async_set(KITCHEN_SENSOR, "20.0")
+
+    # 2. Setup Config (Override = DISABLED)
+    data = ClimateDashboardData(
+        settings={
+            "default_override_type": OverrideType.DISABLED,
+            "default_timer_minutes": 60,
+            "window_open_delay_seconds": 0,
+            "home_away_entity_id": None,
+            "away_delay_minutes": 10,
+            "away_temperature": 16.0,
+            "away_temperature_cool": 30.0,
+            "is_away_mode_on": False,
+        },
+        circuits=[],
+        zones=[
+            {
+                "unique_id": "zone_locked",
+                "name": "Locked Zone",
+                "temperature_sensor": KITCHEN_SENSOR,
+                "heaters": [KITCHEN_TRV],
+                "thermostats": [],
+                "coolers": [],
+                "window_sensors": [],
+                "schedule": [
+                    {"name": "Day", "days": ["mon"], "start_time": "00:00", "temp_heat": 18.0, "temp_cool": 25.0}
+                ],
+            }
+        ],
+    )
+
+    from datetime import datetime
+
+    import homeassistant.util.dt as dt_util
+
+    start_time = datetime(2023, 1, 2, 10, 0, 0, tzinfo=dt_util.UTC)  # Monday
+
+    with (
+        patch(
+            "custom_components.climate_dashboard.storage.ClimateDashboardStorage._async_load_data", return_value=data
+        ),
+        patch("custom_components.climate_dashboard.climate_zone.dt_util.now", return_value=start_time),
+        patch("homeassistant.core.ServiceRegistry.async_call"),
+    ):
+        entry = MockConfigEntry(domain=DOMAIN)
+        entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        zone_entity = hass.data["entity_components"]["climate"].get_entity("climate.zone_locked_zone")
+
+        # Initial: 18.0 (Schedule)
+        assert zone_entity.target_temperature == 18.0
+
+        # Attempt Manual Override (22.0)
+        await zone_entity.async_set_temperature(temperature=22.0)
+        await hass.async_block_till_done()
+
+        # Verify it was IGNORED (Still 18.0)
+        assert zone_entity.target_temperature == 18.0, "Manual override should be ignored when disabled"

@@ -785,11 +785,32 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                 high = self._default_temp_cool
             target = None
 
+        # Determine Intent Source and Expiration
+        settings = self._storage.settings
+        override_type = settings.get("default_override_type", OverrideType.PERMANENT)
+
+        if override_type == OverrideType.DISABLED:
+            _LOGGER.warning("Manual mode override ignored: Overrides are disabled.")
+            self.hass.async_create_task(self._async_reconcile())
+            return
+
+        expires_at = None
+        now = dt_util.now()
+
+        if override_type == OverrideType.DURATION:
+            minutes = settings.get("default_timer_minutes", 60)
+            expires_at = now + timedelta(minutes=minutes)
+        elif override_type == OverrideType.NEXT_BLOCK:
+            next_change = self._schedule_manager.get_next_change(now)
+            if next_change:
+                expires_at = next_change.time
+
         self._intents.append(
             ClimateIntent(
                 source=IntentSource.MANUAL_APP,
                 mode=hvac_mode,
                 setpoints=TargetSetpoints(target=target, low=low, high=high),
+                expires_at=expires_at,
             )
         )
 
@@ -821,6 +842,12 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         # Determine Intent Source and Expiration
         settings = self._storage.settings
         override_type = settings.get("default_override_type", OverrideType.PERMANENT)
+
+        if override_type == OverrideType.DISABLED:
+            _LOGGER.warning("Manual temperature override ignored: Overrides are disabled.")
+            self.hass.async_create_task(self._async_reconcile())
+            return
+
         expires_at = None
         now = dt_util.now()
 
