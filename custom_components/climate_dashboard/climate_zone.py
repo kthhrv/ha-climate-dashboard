@@ -673,16 +673,31 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set new target hvac mode."""
+        target = self._attr_target_temperature
+        low = self._attr_target_temperature_low
+        high = self._attr_target_temperature_high
+
+        # Populate defaults if switching modes
+        if hvac_mode == HVACMode.HEAT:
+            if target is None:
+                target = low if low else self._default_temp_heat
+        elif hvac_mode == HVACMode.COOL:
+            if target is None:
+                target = high if high else self._default_temp_cool
+        elif hvac_mode == HVACMode.AUTO:
+            if low is None:
+                low = target if target else self._default_temp_heat
+            if high is None:
+                high = self._default_temp_cool
+            target = None
+
         self._intents.append(
             ClimateIntent(
                 source=IntentSource.MANUAL_APP,
                 mode=hvac_mode,
-                setpoints=TargetSetpoints(),  # Mode change reset?
+                setpoints=TargetSetpoints(target=target, low=low, high=high),
             )
         )
-        # If the mode is changed, we usually want to retain the 'current' setpoints
-        # but the logic for that is complex. For now, let's assume the Engine
-        # will handle "None" setpoints by looking at the Schedule or Defaults.
 
         self.hass.async_create_task(self._async_reconcile())
 
