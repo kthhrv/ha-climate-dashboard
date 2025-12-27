@@ -337,10 +337,11 @@ def setup_config_entries() -> dict[str, str]:
             tmpl_type = dev.device_type.replace("template_", "")
             conf: Dict[str, Any] = {"template_type": tmpl_type}
             if tmpl_type == "binary_sensor":
+                state_expr = "{{ states('" + dev.params["source"] + "') }}"
                 conf.update(
                     {
                         "name": dev.name,
-                        "state": dev.params["source"],
+                        "state": state_expr,
                         "device_class": dev.params.get("device_class"),
                     }
                 )
