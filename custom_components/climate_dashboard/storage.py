@@ -24,6 +24,7 @@ class OverrideType(StrEnum):
     NEXT_BLOCK = "next_block"
     DURATION = "duration"
     DISABLED = "disabled"
+    PERMANENT = "permanent"
 
 
 class GlobalSettings(TypedDict, total=False):

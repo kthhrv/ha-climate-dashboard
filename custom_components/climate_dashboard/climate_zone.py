@@ -36,7 +36,7 @@ from .engine import ClimateIntent, IntentSource, ReconciliationEngine, TargetSet
 from .reconciler import Reconciler
 from .safety import SafetyMonitor
 from .schedule_manager import ScheduleManager
-from .storage import ClimateDashboardStorage, ScheduleBlock
+from .storage import ClimateDashboardStorage, OverrideType, ScheduleBlock
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -118,6 +118,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self._engine = ReconciliationEngine(tolerance=DEFAULT_TOLERANCE)
         self._reconciler = Reconciler(self.hass)
         self._intents: list[ClimateIntent] = []
+        self._active_intent: ClimateIntent | None = None
 
         # Initialize schedule state
         self._next_schedule_block: ScheduleBlock | None = None
@@ -274,9 +275,18 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             "next_scheduled_change": self._attr_next_scheduled_change,
             "next_scheduled_temp_heat": self._attr_next_scheduled_temp_heat,
             "next_scheduled_temp_cool": self._attr_next_scheduled_temp_cool,
-            # Show active intent info
-            "active_intents_count": len(self._intents),
-            "latest_intent": self._intents[-1].source.value if self._intents else None,
+            # Legacy Override Attributes for UI
+            "override_type": (
+                OverrideType.PERMANENT
+                if self._active_intent
+                and self._active_intent.source in (IntentSource.MANUAL_APP, IntentSource.MANUAL_DIAL)
+                else None
+            ),
+            "override_end": (
+                self._active_intent.expires_at.isoformat()
+                if self._active_intent and self._active_intent.expires_at
+                else None
+            ),
             "open_window_sensor": self._attr_open_window_sensor,
             "safety_mode": self._attr_safety_mode,
             "using_fallback_sensor": self._attr_using_fallback_sensor,
@@ -565,6 +575,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             )
 
             # 3. Update Zone Entity State
+            self._active_intent = desired.intent
             self._attr_hvac_mode = desired.mode
             self._attr_hvac_action = desired.action
 

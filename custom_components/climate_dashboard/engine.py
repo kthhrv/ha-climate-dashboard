@@ -61,6 +61,7 @@ class DesiredState:
     setpoints: TargetSetpoints
     action: HVACAction = HVACAction.OFF
     reason: str = ""
+    intent: ClimateIntent | None = None
 
 
 class ReconciliationEngine:
@@ -164,5 +165,9 @@ class ReconciliationEngine:
                         action = HVACAction.COOLING
 
         return DesiredState(
-            mode=winner.mode, setpoints=winner.setpoints, action=action, reason=f"Intent: {winner.source.value}"
+            mode=winner.mode,
+            setpoints=winner.setpoints,
+            action=action,
+            reason=f"Intent: {winner.source.value}",
+            intent=winner,
         )
