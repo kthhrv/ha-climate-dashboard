@@ -285,8 +285,8 @@ L.elementStyles = [], L.shadowRootOptions = { mode: "open" }, L[J("elementProper
  * SPDX-License-Identifier: BSD-3-Clause
  */
 const K = globalThis, ae = K.trustedTypes, Ne = ae ? ae.createPolicy("lit-html", { createHTML: (a) => a }) : void 0, je = "$lit$", D = `lit$${Math.random().toFixed(9).slice(2)}$`, Le = "?" + D, tt = `<${Le}>`, B = document, X = () => B.createComment(""), Y = (a) => a === null || typeof a != "object" && typeof a != "function", ye = Array.isArray, it = (a) => ye(a) || typeof (a == null ? void 0 : a[Symbol.iterator]) == "function", ue = `[ 	
-\f\r]`, V = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Te = /-->/g, Oe = />/g, O = RegExp(`>|${ue}(?:([^\\s"'>=/]+)(${ue}*=${ue}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`, "g"), Me = /'/g, Pe = /"/g, Ze = /^(?:script|style|textarea|title)$/i, st = (a) => (e, ...t) => ({ _$litType$: a, strings: e, values: t }), n = st(1), Z = Symbol.for("lit-noChange"), f = Symbol.for("lit-nothing"), Be = /* @__PURE__ */ new WeakMap(), M = B.createTreeWalker(B, 129);
+\f\r]`, V = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Te = /-->/g, Me = />/g, M = RegExp(`>|${ue}(?:([^\\s"'>=/]+)(${ue}*=${ue}*(?:[^ 	
+\f\r"'\`<>=]|("|')|))|$)`, "g"), Oe = /'/g, Pe = /"/g, Ze = /^(?:script|style|textarea|title)$/i, st = (a) => (e, ...t) => ({ _$litType$: a, strings: e, values: t }), n = st(1), Z = Symbol.for("lit-noChange"), f = Symbol.for("lit-nothing"), Be = /* @__PURE__ */ new WeakMap(), O = B.createTreeWalker(B, 129);
 function Re(a, e) {
   if (!ye(a) || !a.hasOwnProperty("raw")) throw Error("invalid template strings array");
   return Ne !== void 0 ? Ne.createHTML(e) : e;
@@ -297,8 +297,8 @@ const ot = (a, e) => {
   for (let c = 0; c < t; c++) {
     const l = a[c];
     let h, u, p = -1, _ = 0;
-    for (; _ < l.length && (o.lastIndex = _, u = o.exec(l), u !== null); ) _ = o.lastIndex, o === V ? u[1] === "!--" ? o = Te : u[1] !== void 0 ? o = Oe : u[2] !== void 0 ? (Ze.test(u[2]) && (s = RegExp("</" + u[2], "g")), o = O) : u[3] !== void 0 && (o = O) : o === O ? u[0] === ">" ? (o = s ?? V, p = -1) : u[1] === void 0 ? p = -2 : (p = o.lastIndex - u[2].length, h = u[1], o = u[3] === void 0 ? O : u[3] === '"' ? Pe : Me) : o === Pe || o === Me ? o = O : o === Te || o === Oe ? o = V : (o = O, s = void 0);
-    const b = o === O && a[c + 1].startsWith("/>") ? " " : "";
+    for (; _ < l.length && (o.lastIndex = _, u = o.exec(l), u !== null); ) _ = o.lastIndex, o === V ? u[1] === "!--" ? o = Te : u[1] !== void 0 ? o = Me : u[2] !== void 0 ? (Ze.test(u[2]) && (s = RegExp("</" + u[2], "g")), o = M) : u[3] !== void 0 && (o = M) : o === M ? u[0] === ">" ? (o = s ?? V, p = -1) : u[1] === void 0 ? p = -2 : (p = o.lastIndex - u[2].length, h = u[1], o = u[3] === void 0 ? M : u[3] === '"' ? Pe : Oe) : o === Pe || o === Oe ? o = M : o === Te || o === Me ? o = V : (o = M, s = void 0);
+    const b = o === M && a[c + 1].startsWith("/>") ? " " : "";
     r += o === V ? l + tt : p >= 0 ? (i.push(h), l.slice(0, p) + je + l.slice(p) + D + b) : l + D + (p === -2 ? c : b);
   }
   return [Re(a, r + (a[t] || "<?>") + (e === 2 ? "</svg>" : e === 3 ? "</math>" : "")), i];
@@ -309,11 +309,11 @@ class Q {
     this.parts = [];
     let r = 0, o = 0;
     const c = e.length - 1, l = this.parts, [h, u] = ot(e, t);
-    if (this.el = Q.createElement(h, i), M.currentNode = this.el.content, t === 2 || t === 3) {
+    if (this.el = Q.createElement(h, i), O.currentNode = this.el.content, t === 2 || t === 3) {
       const p = this.el.content.firstChild;
       p.replaceWith(...p.childNodes);
     }
-    for (; (s = M.nextNode()) !== null && l.length < c; ) {
+    for (; (s = O.nextNode()) !== null && l.length < c; ) {
       if (s.nodeType === 1) {
         if (s.hasAttributes()) for (const p of s.getAttributeNames()) if (p.endsWith(je)) {
           const _ = u[o++], b = s.getAttribute(p).split(D), w = /([.?@])?(.*)/.exec(_);
@@ -323,7 +323,7 @@ class Q {
           const p = s.textContent.split(D), _ = p.length - 1;
           if (_ > 0) {
             s.textContent = ae ? ae.emptyScript : "";
-            for (let b = 0; b < _; b++) s.append(p[b], X()), M.nextNode(), l.push({ type: 2, index: ++r });
+            for (let b = 0; b < _; b++) s.append(p[b], X()), O.nextNode(), l.push({ type: 2, index: ++r });
             s.append(p[_], X());
           }
         }
@@ -359,16 +359,16 @@ class rt {
   }
   u(e) {
     const { el: { content: t }, parts: i } = this._$AD, s = ((e == null ? void 0 : e.creationScope) ?? B).importNode(t, !0);
-    M.currentNode = s;
-    let r = M.nextNode(), o = 0, c = 0, l = i[0];
+    O.currentNode = s;
+    let r = O.nextNode(), o = 0, c = 0, l = i[0];
     for (; l !== void 0; ) {
       if (o === l.index) {
         let h;
         l.type === 2 ? h = new te(r, r.nextSibling, this, e) : l.type === 1 ? h = new l.ctor(r, l.name, l.strings, this, e) : l.type === 6 && (h = new ct(r, this, e)), this._$AV.push(h), l = i[++c];
       }
-      o !== (l == null ? void 0 : l.index) && (r = M.nextNode(), o++);
+      o !== (l == null ? void 0 : l.index) && (r = O.nextNode(), o++);
     }
-    return M.currentNode = B, s;
+    return O.currentNode = B, s;
   }
   p(e) {
     let t = 0;
@@ -618,7 +618,7 @@ const xe = class xe extends A {
   }
   _getSensors() {
     let e = this.entities.filter(
-      (t) => t.domain === "sensor" && t.device_class === "temperature" || t.domain === "climate"
+      (t) => t.domain === "sensor" && t.device_class === "temperature" || t.domain === "climate" || t.domain === "input_number"
     );
     return this._filterByArea && this._targetAreaId && (e = e.filter((t) => t.area_id === this._targetAreaId)), e;
   }
@@ -2372,7 +2372,7 @@ const Ae = class Ae extends A {
     if (this._error) return n`<div class="card">Error: ${this._error}</div>`;
     const e = this._getEntityList(["climate", "switch"]), t = this._getEntityList(["climate"]), i = this._getEntityList(["climate"]), s = this._getEntityList(["binary_sensor"]);
     let r = this.allEntities.filter(
-      (o) => o.domain === "sensor" && o.device_class === "temperature" || o.domain === "climate"
+      (o) => o.domain === "sensor" && o.device_class === "temperature" || o.domain === "climate" || o.domain === "input_number"
     );
     return this._filterByArea && this._zoneAreaId && (r = r.filter(
       (o) => o.area_id === this._zoneAreaId
@@ -3084,10 +3084,23 @@ const Ce = class Ce extends A {
     super.connectedCallback(), document.addEventListener("visibilitychange", this._handleVisibilityChange);
   }
   disconnectedCallback() {
-    super.disconnectedCallback();
+    super.disconnectedCallback(), this._unsubSettings && (this._unsubSettings(), this._unsubSettings = void 0);
   }
   updated(e) {
-    super.updated(e);
+    super.updated(e), e.has("hass") && this.hass && !this._unsubSettings && this._subscribeSettings();
+  }
+  async _subscribeSettings() {
+    if (this.hass)
+      try {
+        this._unsubSettings = await this.hass.connection.subscribeEvents(
+          (e) => {
+            e.data.is_away_mode_on !== void 0 && (this._isAwayMode = e.data.is_away_mode_on);
+          },
+          "climate_dashboard_settings_updated"
+        );
+      } catch (e) {
+        console.error("Failed to subscribe to settings updates", e);
+      }
   }
   firstUpdated() {
     this._scanForBadge(), this._fetchGlobalSettings();

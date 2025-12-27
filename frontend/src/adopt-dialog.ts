@@ -204,7 +204,8 @@ export class AdoptDialog extends LitElement {
     let list = this.entities.filter(
       (e) =>
         (e.domain === "sensor" && e.device_class === "temperature") ||
-        e.domain === "climate",
+        e.domain === "climate" ||
+        e.domain === "input_number",
     );
     if (this._filterByArea && this._targetAreaId) {
       list = list.filter((e) => e.area_id === this._targetAreaId);
