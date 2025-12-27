@@ -1,0 +1,294 @@
+"""Isolated Integration tests for Demo Scenarios."""
+
+from unittest.mock import patch
+
+import pytest
+from homeassistant.components.climate import ATTR_TEMPERATURE, ClimateEntityFeature, HVACAction, HVACMode
+from homeassistant.const import ATTR_ENTITY_ID
+from homeassistant.core import HomeAssistant
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+from custom_components.climate_dashboard.const import DOMAIN
+from custom_components.climate_dashboard.storage import (
+    ClimateDashboardData,
+    ClimateZoneConfig,
+    OverrideType,
+)
+
+# Kitchen (Heater Only)
+KITCHEN_ZONE_ID = "climate.zone_kitchen"
+KITCHEN_SENSOR = "input_number.kitchen_temp"
+KITCHEN_TRV = "climate.kitchen"
+
+# Office (Dual)
+OFFICE_DUAL_ZONE_ID = "climate.zone_office_dual"
+OFFICE_SENSOR = "input_number.office_temp"
+OFFICE_HEATER = "switch.office_heater"
+OFFICE_AC = "climate.office_ac"
+
+# Guest Room (Dial)
+GUEST_ZONE_ID = "climate.zone_guest_room"
+GUEST_DIAL = "climate.guest_room_dial"
+GUEST_TRV = "climate.guest_room_trv"
+GUEST_AC = "climate.guest_room_ac"
+
+
+async def setup_scenario(hass: HomeAssistant, zones: list[ClimateZoneConfig]) -> None:
+    """Setup a specific scenario with isolated storage."""
+
+    data = ClimateDashboardData(
+        settings={
+            "default_override_type": OverrideType.DURATION,
+            "default_timer_minutes": 60,
+            "window_open_delay_seconds": 0,
+            "home_away_entity_id": None,
+            "away_delay_minutes": 10,
+            "away_temperature": 16.0,
+            "away_temperature_cool": 30.0,
+            "is_away_mode_on": False,
+        },
+        circuits=[],
+        zones=zones,
+    )
+
+    with patch(
+        "custom_components.climate_dashboard.storage.ClimateDashboardStorage._async_load_data", return_value=data
+    ):
+        entry = MockConfigEntry(domain=DOMAIN)
+        entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+
+@pytest.mark.asyncio
+async def test_kitchen_heater(hass: HomeAssistant) -> None:
+    """Scenario: Single Mode Heater Only (Kitchen)."""
+
+    # 1. Setup Devices
+    hass.states.async_set("sensor.kitchen_temp", "19.0")
+    hass.states.async_set(
+        "climate.kitchen_trv",
+        HVACMode.OFF,
+        {
+            "hvac_modes": [HVACMode.OFF, HVACMode.HEAT, HVACMode.AUTO],
+            "supported_features": ClimateEntityFeature.TARGET_TEMPERATURE,
+            "min_temp": 7,
+            "max_temp": 30,
+        },
+    )
+
+    # 2. Setup Config
+    kitchen_config = {
+        "unique_id": "zone_kitchen",
+        "name": "Kitchen",
+        "temperature_sensor": "sensor.kitchen_temp",
+        "heaters": ["climate.kitchen_trv"],
+        "thermostats": [],
+        "coolers": [],
+        "window_sensors": [],
+        "schedule": [
+            {
+                "name": "Day",
+                "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+                "start_time": "00:00",
+                "temp_heat": 21.0,
+                "temp_cool": 25.0,
+            }
+        ],
+    }
+
+    # 3. Launch
+    await setup_scenario(hass, [kitchen_config])  # type: ignore
+
+    # 4. Verify
+    zone = hass.states.get("climate.zone_kitchen")
+    assert zone is not None
+    assert zone.state == HVACMode.AUTO
+    assert zone.attributes["current_temperature"] == 19.0
+    assert zone.attributes["temperature"] == 21.0
+    assert zone.attributes["hvac_action"] == HVACAction.HEATING
+
+
+@pytest.mark.asyncio
+async def test_office_dual(hass: HomeAssistant) -> None:
+    """Scenario: Dual Mode (Heater + AC) (Office)."""
+
+    # 1. Setup Devices
+    hass.states.async_set("sensor.office_temp", "22.0")  # Deadband
+    hass.states.async_set("switch.office_heater", "off")
+    hass.states.async_set(
+        "climate.office_ac",
+        HVACMode.OFF,
+        {"hvac_modes": [HVACMode.OFF, HVACMode.COOL], "supported_features": ClimateEntityFeature.TARGET_TEMPERATURE},
+    )
+
+    # 2. Setup Config
+    office_config = {
+        "unique_id": "zone_office",
+        "name": "Office",
+        "temperature_sensor": "sensor.office_temp",
+        "heaters": ["switch.office_heater"],
+        "thermostats": [],
+        "coolers": ["climate.office_ac"],
+        "window_sensors": [],
+        "schedule": [
+            {
+                "name": "Day",
+                "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+                "start_time": "00:00",
+                "temp_heat": 20.0,
+                "temp_cool": 24.0,
+            }
+        ],
+    }
+
+    # 3. Launch & Capture Calls
+    with patch("homeassistant.core.ServiceRegistry.async_call") as call_mock:
+        await setup_scenario(hass, [office_config])  # type: ignore
+
+        # Initial: Idle
+        zone = hass.states.get("climate.zone_office")
+        assert zone.state == HVACMode.AUTO
+        assert zone.attributes["hvac_action"] == HVACAction.IDLE
+        assert zone.attributes.get("temperature") is None  # Range
+        assert zone.attributes["target_temp_low"] == 20.0
+        assert zone.attributes["target_temp_high"] == 24.0
+
+        # Heat Up -> Cool
+        hass.states.async_set("sensor.office_temp", "25.0")
+        await hass.async_block_till_done()
+
+        zone = hass.states.get("climate.zone_office")
+        assert zone.attributes["hvac_action"] == HVACAction.COOLING
+
+        # Check AC ON
+        ac_calls = [
+            c
+            for c in call_mock.call_args_list
+            if c.args[0] == "climate" and c.args[2][ATTR_ENTITY_ID] == "climate.office_ac"
+        ]
+        assert len(ac_calls) > 0
+
+
+@pytest.mark.asyncio
+async def test_guest_dial_sync(hass: HomeAssistant) -> None:
+    """Scenario: Dial acts as Sensor and Thermostat (Guest)."""
+
+    # 1. Setup Devices
+    hass.states.async_set(
+        "climate.guest_dial",
+        HVACMode.HEAT,
+        {
+            ATTR_TEMPERATURE: 20.0,
+            "current_temperature": 19.0,
+            "hvac_modes": [HVACMode.OFF, HVACMode.HEAT, HVACMode.COOL],
+            "supported_features": ClimateEntityFeature.TARGET_TEMPERATURE,
+        },
+    )
+    hass.states.async_set("climate.guest_trv", HVACMode.OFF, {"hvac_modes": [HVACMode.OFF, HVACMode.HEAT]})
+
+    # 2. Setup Config
+    guest_config = {
+        "unique_id": "zone_guest",
+        "name": "Guest",
+        "temperature_sensor": "climate.guest_dial",
+        "heaters": ["climate.guest_trv"],
+        "thermostats": ["climate.guest_dial"],
+        "coolers": [],
+        "window_sensors": [],
+        "schedule": [
+            {
+                "name": "Day",
+                "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+                "start_time": "00:00",
+                "temp_heat": 21.0,
+                "temp_cool": 25.0,
+            }
+        ],
+    }
+
+    # 3. Launch
+    with patch("homeassistant.core.ServiceRegistry.async_call") as call_mock:
+        await setup_scenario(hass, [guest_config])  # type: ignore
+
+        # Verify Zone State
+        # Dial (19) < Sched (21) -> Heating
+        zone = hass.states.get("climate.zone_guest")
+        assert zone.attributes["hvac_action"] == HVACAction.HEATING
+        assert zone.attributes["temperature"] == 21.0
+
+        # Verify Sync: Zone should force Dial to 21.0
+        dial_calls = [
+            c
+            for c in call_mock.call_args_list
+            if c.args[0] == "climate" and c.args[2][ATTR_ENTITY_ID] == "climate.guest_dial"
+        ]
+        assert len(dial_calls) > 0
+        assert dial_calls[-1].args[2][ATTR_TEMPERATURE] == 21.0
+
+
+@pytest.mark.asyncio
+async def test_window_safety(hass: HomeAssistant) -> None:
+    """Scenario: Window Sensor forces Zone OFF."""
+    WINDOW_SENSOR = "binary_sensor.window"
+
+    # 1. Setup Devices
+    hass.states.async_set(KITCHEN_SENSOR, "10.0")  # Cold
+    hass.states.async_set(KITCHEN_TRV, HVACMode.OFF, {"hvac_modes": [HVACMode.OFF, HVACMode.HEAT]})
+    hass.states.async_set(WINDOW_SENSOR, "off")
+
+    # 2. Setup Config
+    config = {
+        "unique_id": "zone_window",
+        "name": "Window Zone",
+        "temperature_sensor": KITCHEN_SENSOR,
+        "heaters": [KITCHEN_TRV],
+        "thermostats": [],
+        "coolers": [],
+        "window_sensors": [WINDOW_SENSOR],
+        "schedule": [],  # Default OFF/Idle if no schedule? No, default is empty list.
+        # But we need a schedule or manual intent to trigger heating.
+        # Let's set manual intent via API later.
+    }
+
+    with patch("homeassistant.core.ServiceRegistry.async_call") as call_mock:
+        await setup_scenario(hass, [config])  # type: ignore
+        # Get Entity Instance
+        component = hass.data["entity_components"]["climate"]
+        ENTITY_ID = "climate.zone_window_zone"
+        zone_entity = component.get_entity(ENTITY_ID)
+        assert zone_entity is not None
+
+        # Turn ON Heating (Direct Call)
+        await zone_entity.async_set_hvac_mode(HVACMode.HEAT)
+        await zone_entity.async_set_temperature(temperature=20.0)
+        await hass.async_block_till_done()
+
+        zone = hass.states.get(ENTITY_ID)
+        assert zone.state == HVACMode.HEAT
+        assert zone.attributes["hvac_action"] == HVACAction.HEATING
+
+        # Simulate TRV responding to HEAT command
+        hass.states.async_set(KITCHEN_TRV, HVACMode.HEAT, {"hvac_modes": [HVACMode.OFF, HVACMode.HEAT]})
+
+        # OPEN WINDOW
+        hass.states.async_set(WINDOW_SENSOR, "on")
+        await hass.async_block_till_done()
+
+        # Verify Zone OFF
+        zone = hass.states.get(ENTITY_ID)
+        assert zone.state == HVACMode.OFF
+        assert zone.attributes["hvac_action"] == HVACAction.OFF
+
+        # Verify TRV OFF Command
+        trv_calls = [
+            c
+            for c in call_mock.call_args_list
+            if c.args[0] == "climate"
+            and c.args[2][ATTR_ENTITY_ID] == KITCHEN_TRV
+            and c.args[1] == "set_hvac_mode"
+            and c.args[2]["hvac_mode"] == HVACMode.OFF
+        ]
+        # Or set_temp(7) if OFF not supported?
+        # We mocked TRV to support OFF.
+        assert len(trv_calls) > 0
