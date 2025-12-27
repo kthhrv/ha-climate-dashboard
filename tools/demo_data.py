@@ -410,12 +410,6 @@ AREAS = [
                 },
             ),
             DemoDevice(
-                unique_id="mqtt_guest_room_window",
-                name="Guest Room Window",
-                device_type="mqtt_window",
-                params={"topic_slug": "guest_room_window", "default_entity_id": "binary_sensor.guest_room_window"},
-            ),
-            DemoDevice(
                 unique_id="guest_room_temp",
                 name="Guest Room Temp",
                 device_type="input_number",
