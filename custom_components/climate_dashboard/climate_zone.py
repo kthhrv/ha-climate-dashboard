@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, cast
 
 import homeassistant.util.dt as dt_util
@@ -788,11 +788,26 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                     high = target
                     target = None
 
-        # Determine Intent Source
-        # If this call came from a service call by a user, it's MANUAL_APP.
+        # Determine Intent Source and Expiration
+        settings = self._storage.settings
+        override_type = settings.get("default_override_type", OverrideType.PERMANENT)
+        expires_at = None
+        now = dt_util.now()
+
+        if override_type == OverrideType.DURATION:
+            minutes = settings.get("default_timer_minutes", 60)
+            expires_at = now + timedelta(minutes=minutes)
+        elif override_type == OverrideType.NEXT_BLOCK:
+            next_change = self._schedule_manager.get_next_change(now)
+            if next_change:
+                expires_at = next_change.time
+
         self._intents.append(
             ClimateIntent(
-                source=IntentSource.MANUAL_APP, mode=mode, setpoints=TargetSetpoints(target=target, low=low, high=high)
+                source=IntentSource.MANUAL_APP,
+                mode=mode,
+                setpoints=TargetSetpoints(target=target, low=low, high=high),
+                expires_at=expires_at,
             )
         )
 

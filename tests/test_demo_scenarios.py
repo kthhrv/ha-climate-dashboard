@@ -472,3 +472,58 @@ async def test_trv_revert_correction(hass: HomeAssistant) -> None:
             and c.args[2][ATTR_TEMPERATURE] == 30.0
         ]
         assert len(correction_calls) > 0, "Reconciler failed to revert TRV change"
+
+
+@pytest.mark.asyncio
+async def test_override_expiration(hass: HomeAssistant) -> None:
+    """Scenario: Manual override expires and reverts to schedule."""
+    # 1. Setup Device
+    hass.states.async_set(KITCHEN_SENSOR, "20.0")
+
+    # 2. Setup Config (Override = 60 mins)
+    config = {
+        "unique_id": "zone_expire",
+        "name": "Expire Zone",
+        "temperature_sensor": KITCHEN_SENSOR,
+        "heaters": [KITCHEN_TRV],
+        "thermostats": [],
+        "coolers": [],
+        "window_sensors": [],
+        "schedule": [{"name": "Day", "days": ["mon"], "start_time": "00:00", "temp_heat": 18.0, "temp_cool": 25.0}],
+    }
+
+    from datetime import datetime, timedelta
+
+    import homeassistant.util.dt as dt_util
+
+    start_time = datetime(2023, 1, 2, 10, 0, 0, tzinfo=dt_util.UTC)  # Monday
+
+    with (
+        patch("custom_components.climate_dashboard.climate_zone.dt_util.now", return_value=start_time),
+        patch("homeassistant.core.ServiceRegistry.async_call"),
+    ):
+        await setup_scenario(hass, [config])  # type: ignore
+        ENTITY_ID = "climate.zone_expire_zone"
+        zone_entity = hass.data["entity_components"]["climate"].get_entity(ENTITY_ID)
+
+        # Initial: 18.0 (Schedule)
+        assert zone_entity.target_temperature == 18.0
+
+        # Set Manual Override (22.0)
+        await zone_entity.async_set_temperature(temperature=22.0)
+        await hass.async_block_till_done()
+        assert zone_entity.target_temperature == 22.0
+
+        # Advance Time by 30 mins (Still active)
+        mid_time = start_time + timedelta(minutes=30)
+        with patch("custom_components.climate_dashboard.climate_zone.dt_util.now", return_value=mid_time):
+            # Trigger reconciliation (simulating heartbeat or sensor update)
+            await zone_entity._async_reconcile()
+            assert zone_entity.target_temperature == 22.0
+
+        # Advance Time by 61 mins (Expired)
+        end_time = start_time + timedelta(minutes=61)
+        with patch("custom_components.climate_dashboard.climate_zone.dt_util.now", return_value=end_time):
+            await zone_entity._async_reconcile()
+            # Should revert to 18.0
+            assert zone_entity.target_temperature == 18.0
