@@ -765,11 +765,21 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         low = kwargs.get("target_temp_low")
         high = kwargs.get("target_temp_high")
 
+        # AUTO Mode Logic: Map 'target' to 'low' or 'high' if strictly single mode
+        if mode == HVACMode.AUTO:
+            if self._heaters and not self._coolers:
+                # Single Mode (Heat) -> Map target to low
+                if target is not None:
+                    low = target
+                    target = None
+            elif self._coolers and not self._heaters:
+                # Single Mode (Cool) -> Map target to high
+                if target is not None:
+                    high = target
+                    target = None
+
         # Determine Intent Source
         # If this call came from a service call by a user, it's MANUAL_APP.
-        # But wait, how do we distinguish?
-        # Standard HA behavior is that UI calls this.
-
         self._intents.append(
             ClimateIntent(
                 source=IntentSource.MANUAL_APP, mode=mode, setpoints=TargetSetpoints(target=target, low=low, high=high)
