@@ -247,13 +247,7 @@ export class ClimateDashboard extends LitElement {
 
   private _getEditorCandidates() {
     if (!this.hass) return [];
-    const domains = [
-      "climate",
-      "switch",
-      "sensor",
-      "binary_sensor",
-      "input_number",
-    ];
+    const domains = ["climate", "switch", "sensor", "binary_sensor"];
     return Object.values(this.hass.states)
       .filter(
         (s: any) =>

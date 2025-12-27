@@ -618,7 +618,7 @@ const xe = class xe extends A {
   }
   _getSensors() {
     let e = this.entities.filter(
-      (t) => t.domain === "sensor" && t.device_class === "temperature" || t.domain === "climate" || t.domain === "input_number"
+      (t) => t.domain === "sensor" && t.device_class === "temperature" || t.domain === "climate"
     );
     return this._filterByArea && this._targetAreaId && (e = e.filter((t) => t.area_id === this._targetAreaId)), e;
   }
@@ -2372,7 +2372,7 @@ const Ae = class Ae extends A {
     if (this._error) return n`<div class="card">Error: ${this._error}</div>`;
     const e = this._getEntityList(["climate", "switch"]), t = this._getEntityList(["climate"]), i = this._getEntityList(["climate"]), s = this._getEntityList(["binary_sensor"]);
     let r = this.allEntities.filter(
-      (o) => o.domain === "sensor" && o.device_class === "temperature" || o.domain === "climate" || o.domain === "input_number"
+      (o) => o.domain === "sensor" && o.device_class === "temperature" || o.domain === "climate"
     );
     return this._filterByArea && this._zoneAreaId && (r = r.filter(
       (o) => o.area_id === this._zoneAreaId
@@ -3131,7 +3131,7 @@ const Ce = class Ce extends A {
   }
   _getEditorCandidates() {
     if (!this.hass) return [];
-    const e = ["climate", "switch", "sensor", "binary_sensor", "input_number"];
+    const e = ["climate", "switch", "sensor", "binary_sensor"];
     return Object.values(this.hass.states).filter(
       (t) => e.includes(t.entity_id.split(".")[0]) && !t.attributes.is_climate_dashboard_zone && !t.entity_id.startsWith("climate.zone_")
     ).map((t) => {

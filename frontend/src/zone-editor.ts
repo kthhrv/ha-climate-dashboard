@@ -334,8 +334,7 @@ export class ZoneEditor extends LitElement {
     let sensorCandidates = this.allEntities.filter(
       (e) =>
         (e.domain === "sensor" && e.device_class === "temperature") ||
-        e.domain === "climate" ||
-        e.domain === "input_number",
+        e.domain === "climate",
     );
 
     if (this._filterByArea && this._zoneAreaId) {
