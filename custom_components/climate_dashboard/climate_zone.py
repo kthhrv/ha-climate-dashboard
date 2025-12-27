@@ -250,6 +250,26 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         return self._attr_target_temperature
 
     @property
+    def target_temperature_high(self) -> float | None:
+        """Return the upper bound temperature."""
+        return self._attr_target_temperature_high
+
+    def _has_heating_capability(self) -> bool:
+        """Check if this zone has any heating capability (local or circuit)."""
+        if self._heaters:
+            return True
+        # Check circuits
+        for circuit in self._storage.circuits:
+            if self.unique_id in circuit.get("member_zones", []) and circuit.get("heaters"):
+                return True
+        return False
+
+    def _has_cooling_capability(self) -> bool:
+        """Check if this zone has any cooling capability."""
+        # Note: We don't currently have "Cooling Circuits", so just check local coolers
+        return bool(self._coolers)
+
+    @property
     def supported_features(self) -> ClimateEntityFeature:
         """Return the list of supported features."""
         # Dynamic Feature Flags
@@ -577,6 +597,12 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                 current_action=self._attr_hvac_action,
                 is_window_open=is_window_open,
             )
+
+            # Validate Action against Hardware (Engine doesn't know about hardware/circuits)
+            if desired.action == HVACAction.HEATING and not self._has_heating_capability():
+                desired.action = HVACAction.IDLE
+            elif desired.action == HVACAction.COOLING and not self._has_cooling_capability():
+                desired.action = HVACAction.IDLE
 
             # 3. Update Zone Entity State
             self._active_intent = desired.intent
