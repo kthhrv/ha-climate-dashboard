@@ -441,6 +441,30 @@ AREAS = [
             ),
         ],
     ),
+    DemoArea(
+        id="server_room",
+        name="Server Room",
+        floor_id="ground_floor",
+        devices=[
+            DemoDevice(
+                unique_id="server_room_ac",
+                name="Server Room AC",
+                device_type="mqtt_ac",
+                params={
+                    "modes": ["off", "cool"],
+                    "default_entity_id": "climate.server_room_ac",
+                    "topic_slug": "server_room_ac",
+                    "optimistic": True,
+                },
+            ),
+            DemoDevice(
+                unique_id="server_room_temp",
+                name="Server Room Temp",
+                device_type="input_number",
+                params={"min": 10, "max": 40, "step": 0.1, "unit": "°C", "icon": "mdi:thermometer", "initial": 20.0},
+            ),
+        ],
+    ),
 ]
 
 # Global/System Devices not attached to specific area in same way
