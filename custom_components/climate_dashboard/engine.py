@@ -119,7 +119,9 @@ class ReconciliationEngine:
 
         # 3. Calculate Action based on Current Temp and Hysteresis
         action = HVACAction.IDLE
-        if current_temp is not None:
+        if winner.mode == HVACMode.OFF:
+            action = HVACAction.OFF
+        elif current_temp is not None:
             if winner.mode == HVACMode.HEAT:
                 target = winner.setpoints.target
                 if target is not None:

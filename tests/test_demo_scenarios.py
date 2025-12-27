@@ -527,3 +527,124 @@ async def test_override_expiration(hass: HomeAssistant) -> None:
             await zone_entity._async_reconcile()
             # Should revert to 18.0
             assert zone_entity.target_temperature == 18.0
+
+
+@pytest.mark.asyncio
+async def test_heating_circuit_logic(hass: HomeAssistant) -> None:
+    """Scenario: Heating Circuit (Boiler) responds to aggregated demand."""
+    BOILER_ID = "switch.boiler"
+
+    # 1. Setup Devices
+    hass.states.async_set("sensor.z1_temp", "19.0")
+    hass.states.async_set("sensor.z2_temp", "19.0")
+    hass.states.async_set(BOILER_ID, "off")
+
+    # 2. Setup Config (2 Zones + 1 Circuit)
+    z1_config = {
+        "unique_id": "z1",
+        "name": "Zone 1",
+        "temperature_sensor": "sensor.z1_temp",
+        "heaters": [],
+        "thermostats": [],
+        "coolers": [],
+        "window_sensors": [],
+        "schedule": [],
+    }
+    z2_config = {
+        "unique_id": "z2",
+        "name": "Zone 2",
+        "temperature_sensor": "sensor.z2_temp",
+        "heaters": [],
+        "thermostats": [],
+        "coolers": [],
+        "window_sensors": [],
+        "schedule": [],
+    }
+    circuit_config = {
+        "id": "c1",
+        "name": "Boiler Circuit",
+        "heaters": [BOILER_ID],
+        "member_zones": ["z1", "z2"],
+    }
+
+    data = ClimateDashboardData(
+        settings={
+            "default_override_type": OverrideType.PERMANENT,
+            "default_timer_minutes": 60,
+            "window_open_delay_seconds": 0,
+            "home_away_entity_id": None,
+            "away_delay_minutes": 10,
+            "away_temperature": 16.0,
+            "away_temperature_cool": 30.0,
+            "is_away_mode_on": False,
+        },
+        circuits=[circuit_config],  # type: ignore
+        zones=[z1_config, z2_config],  # type: ignore
+    )
+
+    with (
+        patch(
+            "custom_components.climate_dashboard.storage.ClimateDashboardStorage._async_load_data",
+            return_value=data,
+        ),
+        patch("homeassistant.core.ServiceRegistry.async_call") as call_mock,
+    ):
+        entry = MockConfigEntry(domain=DOMAIN)
+        entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        z1 = hass.data["entity_components"]["climate"].get_entity("climate.zone_zone_1")
+        z2 = hass.data["entity_components"]["climate"].get_entity("climate.zone_zone_2")
+
+        # --- STEP 1: No Demand ---
+        assert hass.states.get(BOILER_ID).state == "off"
+
+        # --- STEP 2: Zone 1 Calls for Heat ---
+        await z1.async_set_hvac_mode(HVACMode.HEAT)
+        await z1.async_set_temperature(temperature=21.0)
+        await hass.async_block_till_done()
+
+        assert z1.hvac_action == HVACAction.HEATING
+        # Boiler should turn ON
+        boiler_on_calls = [
+            c
+            for c in call_mock.call_args_list
+            if c.args[0] == "homeassistant" and c.args[1] == "turn_on" and c.args[2][ATTR_ENTITY_ID] == BOILER_ID
+        ]
+        assert len(boiler_on_calls) > 0
+        # Update mock state to reflect success
+        hass.states.async_set(BOILER_ID, "on")
+
+        # --- STEP 3: Zone 2 Calls for Heat ---
+        call_mock.reset_mock()
+        await z2.async_set_hvac_mode(HVACMode.HEAT)
+        await z2.async_set_temperature(temperature=21.0)
+        await hass.async_block_till_done()
+
+        assert z2.hvac_action == HVACAction.HEATING
+        # Boiler already ON, should not be called again (if using demand state)
+        boiler_on_calls = [c for c in call_mock.call_args_list if c.args[1] == "turn_on"]
+        assert len(boiler_on_calls) == 0
+
+        # --- STEP 4: Zone 1 Stops Demand ---
+        await z1.async_set_hvac_mode(HVACMode.OFF)
+        await hass.async_block_till_done()
+
+        assert z1.hvac_action == HVACAction.OFF
+        # Boiler should stay ON (Z2 still heating)
+        boiler_off_calls = [c for c in call_mock.call_args_list if c.args[1] == "turn_off"]
+        assert len(boiler_off_calls) == 0
+
+        # --- STEP 5: Zone 2 Stops Demand ---
+        await z2.async_set_hvac_mode(HVACMode.OFF)
+        await hass.async_block_till_done()
+
+        assert z2.hvac_action == HVACAction.OFF
+        # Boiler should turn OFF
+        boiler_off_calls = [
+            c
+            for c in call_mock.call_args_list
+            if c.args[0] == "homeassistant" and c.args[1] == "turn_off" and c.args[2][ATTR_ENTITY_ID] == BOILER_ID
+        ]
+        assert len(boiler_off_calls) > 0
