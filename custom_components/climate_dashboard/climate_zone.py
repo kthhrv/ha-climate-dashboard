@@ -135,9 +135,13 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             self.hass, self._storage, unique_id, self._window_sensors, self._temperature_sensor
         )
 
-        self._attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT, HVACMode.AUTO]
+        self._attr_hvac_modes = [HVACMode.OFF]
+        if self._heaters:
+            self._attr_hvac_modes.append(HVACMode.HEAT)
         if self._coolers:
             self._attr_hvac_modes.append(HVACMode.COOL)
+        if self._heaters or self._coolers:
+            self._attr_hvac_modes.append(HVACMode.AUTO)
 
         self._attr_next_scheduled_change: str | None = None
         self._attr_next_scheduled_temp_heat: float | None = None
