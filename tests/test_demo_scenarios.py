@@ -7,6 +7,8 @@ import pytest
 from homeassistant.components.climate import ATTR_TEMPERATURE, ClimateEntityFeature, HVACAction, HVACMode
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.climate_dashboard.const import DOMAIN
@@ -499,6 +501,21 @@ async def test_override_expiration(hass: HomeAssistant) -> None:
         "schedule": [{"name": "Day", "days": ["mon"], "start_time": "00:00", "temp_heat": 18.0, "temp_cool": 25.0}],
     }
 
+    data = ClimateDashboardData(
+        settings={
+            "default_override_type": OverrideType.DURATION,
+            "default_timer_minutes": 60,
+            "window_open_delay_seconds": 0,
+            "home_away_entity_id": None,
+            "away_delay_minutes": 10,
+            "away_temperature": 16.0,
+            "away_temperature_cool": 30.0,
+            "is_away_mode_on": False,
+        },
+        circuits=[],
+        zones=[config],  # type: ignore
+    )
+
     from datetime import datetime, timedelta
 
     import homeassistant.util.dt as dt_util
@@ -506,6 +523,9 @@ async def test_override_expiration(hass: HomeAssistant) -> None:
     start_time = datetime(2023, 1, 2, 10, 0, 0, tzinfo=dt_util.UTC)  # Monday
 
     with (
+        patch(
+            "custom_components.climate_dashboard.storage.ClimateDashboardStorage._async_load_data", return_value=data
+        ),
         patch("custom_components.climate_dashboard.climate_zone.dt_util.now", return_value=start_time),
         patch("homeassistant.core.ServiceRegistry.async_call"),
     ):
@@ -744,7 +764,7 @@ async def test_manual_dial_expiration(hass: HomeAssistant) -> None:
     )
 
     # 2. Setup Config (Override = 60 mins)
-    config = {
+    config: ClimateZoneConfig = {
         "unique_id": "zone_test",
         "name": "Test Room",
         "temperature_sensor": TEMP_SENSOR,
@@ -764,7 +784,7 @@ async def test_manual_dial_expiration(hass: HomeAssistant) -> None:
         patch("custom_components.climate_dashboard.climate_zone.dt_util.now", return_value=start_time),
         patch("homeassistant.core.ServiceRegistry.async_call"),
     ):
-        await setup_scenario(hass, [config], settings=settings_override)  # type: ignore
+        await setup_scenario(hass, [config], settings=settings_override)
 
         zone = hass.states.get(ZONE_ID)
         # Should be Schedule (18.0)
@@ -824,7 +844,7 @@ async def test_away_mode_priority(hass: HomeAssistant) -> None:
     hass.states.async_set(TEMP_SENSOR, "18.0")  # Cold
 
     # 2. Setup Config
-    config = {
+    config: ClimateZoneConfig = {
         "unique_id": "zone_test",
         "name": "Test Room",
         "temperature_sensor": TEMP_SENSOR,
@@ -847,7 +867,7 @@ async def test_away_mode_priority(hass: HomeAssistant) -> None:
         patch("custom_components.climate_dashboard.climate_zone.dt_util.now", return_value=start_time),
         patch("homeassistant.core.ServiceRegistry.async_call"),
     ):
-        await setup_scenario(hass, [config], settings=settings_override)  # type: ignore
+        await setup_scenario(hass, [config], settings=settings_override)
 
         zone_entity = hass.data["entity_components"]["climate"].get_entity(ZONE_ID)
 
@@ -948,3 +968,108 @@ async def test_dial_setpoint_conflict(hass: HomeAssistant) -> None:
         zone = hass.states.get("climate.zone_conflict_zone")
         assert zone.attributes["target_temp_high"] == 20.0
         assert zone.attributes["target_temp_low"] == 19.0
+
+
+@pytest.mark.asyncio
+async def test_fallback_logic(
+    hass: HomeAssistant, entity_registry: er.EntityRegistry, area_registry: ar.AreaRegistry
+) -> None:
+    """Test that a zone falls back to another sensor in the same area."""
+
+    # 1. Create an Area
+    area = area_registry.async_get_or_create("Test Area")
+
+    # 2. Setup Sensors
+    # Register sensors in Area
+    p_entry = entity_registry.async_get_or_create("sensor", "test", "primary_uid", suggested_object_id="primary")
+    primary_sensor = p_entry.entity_id
+    entity_registry.async_update_entity(primary_sensor, area_id=area.id)
+
+    f_entry = entity_registry.async_get_or_create("sensor", "test", "fallback_uid", suggested_object_id="fallback")
+    fallback_sensor = f_entry.entity_id
+    entity_registry.async_update_entity(fallback_sensor, area_id=area.id)
+
+    hass.states.async_set(primary_sensor, "unavailable")
+    hass.states.async_set(fallback_sensor, "22.5", {"unit_of_measurement": "°C", "device_class": "temperature"})
+
+    # 3. Setup Zone Config
+    config: ClimateZoneConfig = {
+        "unique_id": "zone_fallback_test",
+        "name": "Fallback Test Room",
+        "temperature_sensor": primary_sensor,
+        "heaters": ["climate.dummy"],
+        "thermostats": [],
+        "coolers": [],
+        "window_sensors": [],
+        "schedule": [],
+    }
+
+    # 4. Setup Scenario
+    with patch("custom_components.climate_dashboard.climate_zone.ClimateZone._async_initial_control"):
+        await setup_scenario(hass, [config])
+
+    # Ensure Zone is registered in Area
+    zone_id = "climate.zone_fallback_test_room"
+    entity_registry.async_update_entity(zone_id, area_id=area.id)
+
+    # 5. Trigger Reconcile (to run update_temp)
+    zone_entity = hass.data["entity_components"]["climate"].get_entity(zone_id)
+
+    # End grace period (since we skipped initial control)
+    zone_entity._startup_grace_period = False
+
+    await zone_entity._async_reconcile()
+
+    # 6. Verify Fallback
+    state = hass.states.get(zone_id)
+    assert state.attributes["current_temperature"] == 22.5
+    assert state.attributes["using_fallback_sensor"] == fallback_sensor
+    assert state.attributes["safety_mode"] is False
+
+
+@pytest.mark.asyncio
+async def test_fallback_safety_mode(
+    hass: HomeAssistant, entity_registry: er.EntityRegistry, area_registry: ar.AreaRegistry
+) -> None:
+    """Test that a zone enters safety mode if no fallback sensor is found."""
+
+    # 1. Create an Area
+    area = area_registry.async_get_or_create("Test Area")
+
+    # 2. Setup Sensors (Only broken one)
+    p_entry = entity_registry.async_get_or_create("sensor", "test", "primary_uid", suggested_object_id="primary")
+    primary_sensor = p_entry.entity_id
+    entity_registry.async_update_entity(primary_sensor, area_id=area.id)
+
+    hass.states.async_set(primary_sensor, "unavailable")
+
+    # 3. Setup Zone Config
+    config: ClimateZoneConfig = {
+        "unique_id": "zone_safety_test",
+        "name": "Safety Test Room",
+        "temperature_sensor": primary_sensor,
+        "heaters": ["climate.dummy"],
+        "thermostats": [],
+        "coolers": [],
+        "window_sensors": [],
+        "schedule": [],
+    }
+
+    with patch("custom_components.climate_dashboard.climate_zone.ClimateZone._async_initial_control"):
+        await setup_scenario(hass, [config])
+
+    zone_id = "climate.zone_safety_test_room"
+    entity_registry.async_update_entity(zone_id, area_id=area.id)
+
+    zone_entity = hass.data["entity_components"]["climate"].get_entity(zone_id)
+    # Cancel startup loop logic removed as we patched it out
+
+    zone_entity._startup_grace_period = False
+
+    await zone_entity._async_reconcile()
+
+    # 6. Verify Safety Mode
+    state = hass.states.get(zone_id)
+    assert state.attributes["current_temperature"] is None
+    assert state.attributes["using_fallback_sensor"] is None
+    assert state.attributes["safety_mode"] is True

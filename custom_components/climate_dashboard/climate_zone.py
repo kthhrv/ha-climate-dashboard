@@ -741,9 +741,27 @@ class ClimateZone(ClimateEntity, RestoreEntity):
     def _async_update_temp(self) -> None:
         """Update sensor temperature."""
         state = self.hass.states.get(self._temperature_sensor)
+
+        # 1. Primary Sensor Check
         if not state or state.state in ("unknown", "unavailable"):
+            # Try Fallback
+            fallback = self._safety_monitor.get_fallback_temperature()
+            if fallback:
+                val, eid = fallback
+                self._attr_current_temperature = val
+                self._attr_using_fallback_sensor = eid
+                self._attr_safety_mode = False
+                return
+
+            # No Fallback -> Safety Mode
             self._attr_current_temperature = None
+            self._attr_using_fallback_sensor = None
+            if not self._startup_grace_period:
+                self._attr_safety_mode = True
             return
+
+        self._attr_using_fallback_sensor = None
+        self._attr_safety_mode = False
 
         raw_value = None
         # If it's a climate entity, get the attribute

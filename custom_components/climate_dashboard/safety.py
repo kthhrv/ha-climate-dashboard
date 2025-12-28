@@ -110,6 +110,7 @@ class SafetyMonitor:
             if d_class == "temperature" or uom in (UnitOfTemperature.CELSIUS, UnitOfTemperature.FAHRENHEIT):
                 try:
                     val = float(state.state)
+                    _LOGGER.info("SafetyMonitor: Falling back to %s (Value: %f)", cand.entity_id, val)
                     return (val, cand.entity_id)
                 except ValueError:
                     continue
