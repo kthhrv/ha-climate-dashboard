@@ -882,3 +882,69 @@ async def test_away_mode_priority(hass: HomeAssistant) -> None:
             i for i in zone_entity._intents if i.source in (IntentSource.MANUAL_APP, IntentSource.MANUAL_DIAL)
         ]
         assert len(manual_intents) == 0
+
+
+@pytest.mark.asyncio
+async def test_dial_setpoint_conflict(hass: HomeAssistant) -> None:
+    """Test that adjusting one setpoint pushes the other to maintain min_diff."""
+    DIAL_ID = "climate.conflict_dial"
+
+    # 1. Setup Devices
+    hass.states.async_set(
+        DIAL_ID,
+        HVACMode.HEAT,
+        {
+            ATTR_TEMPERATURE: 21.0,
+            "current_temperature": 22.0,
+            "hvac_modes": [HVACMode.OFF, HVACMode.HEAT, HVACMode.COOL],
+            "supported_features": ClimateEntityFeature.TARGET_TEMPERATURE,
+        },
+    )
+
+    # 2. Setup Config (Auto Mode, Low=21, High=24)
+    config = {
+        "unique_id": "zone_conflict",
+        "name": "Conflict Zone",
+        "temperature_sensor": DIAL_ID,
+        "heaters": ["climate.dummy"],
+        "thermostats": [DIAL_ID],
+        "coolers": ["climate.dummy"],
+        "window_sensors": [],
+        "schedule": [{"name": "Day", "days": ["mon"], "start_time": "00:00", "temp_heat": 21.0, "temp_cool": 24.0}],
+    }
+
+    with patch("homeassistant.core.ServiceRegistry.async_call"):
+        await setup_scenario(hass, [config])  # type: ignore
+        zone = hass.states.get("climate.zone_conflict_zone")
+        assert zone.attributes["target_temp_low"] == 21.0
+        assert zone.attributes["target_temp_high"] == 24.0
+
+        # 3. User switches to COOL (24.0)
+        hass.states.async_set(
+            DIAL_ID,
+            HVACMode.COOL,
+            {
+                ATTR_TEMPERATURE: 24.0,
+                "hvac_modes": [HVACMode.OFF, HVACMode.HEAT, HVACMode.COOL],
+                "supported_features": ClimateEntityFeature.TARGET_TEMPERATURE,
+            },
+        )
+        await hass.async_block_till_done()
+
+        # 4. User lowers Cool Setpoint to 20.0 (Below Low=21.0)
+        hass.states.async_set(
+            DIAL_ID,
+            HVACMode.COOL,
+            {
+                ATTR_TEMPERATURE: 20.0,
+                "hvac_modes": [HVACMode.OFF, HVACMode.HEAT, HVACMode.COOL],
+                "supported_features": ClimateEntityFeature.TARGET_TEMPERATURE,
+            },
+        )
+        await hass.async_block_till_done()
+
+        # 5. Verify Low Setpoint was pushed down
+        # High=20.0. Low should be High - 1.0 = 19.0
+        zone = hass.states.get("climate.zone_conflict_zone")
+        assert zone.attributes["target_temp_high"] == 20.0
+        assert zone.attributes["target_temp_low"] == 19.0

@@ -518,12 +518,17 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             # Only update setpoints if mode DID NOT change (i.e. user turned the dial)
             # If mode changed, we assume user just switched context, so we preserve current setpoints.
             if not mode_changed:
+                min_diff = 1.0
                 if new_mode == HVACMode.COOL:
                     high = new_temp
+                    if low is not None and high < (low + min_diff):
+                        low = high - min_diff
                 else:
                     # If we are in AUTO but switched to HEAT side, update LOW
                     if intent_mode == HVACMode.AUTO:
                         low = new_temp
+                        if high is not None and low > (high - min_diff):
+                            high = low + min_diff
                     else:
                         target = new_temp
 
