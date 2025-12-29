@@ -64,9 +64,22 @@ export class DataEngine {
       if (floorId && hass.floors?.[floorId]) {
         const floor = hass.floors[floorId];
         if (!floorMap[floorId]) {
+          // If icon is missing, try to derive from level
+          let derivedIcon = floor.icon;
+          if (
+            !derivedIcon &&
+            floor.level !== undefined &&
+            floor.level !== null
+          ) {
+            const lvl = floor.level;
+            if (lvl === 0) derivedIcon = "mdi:home-floor-0";
+            else if (lvl > 0) derivedIcon = `mdi:home-floor-${lvl}`;
+            else derivedIcon = `mdi:home-floor-negative-${Math.abs(lvl)}`;
+          }
+
           floorMap[floorId] = {
             floorName: floor.name,
-            floorIcon: floor.icon,
+            floorIcon: derivedIcon,
             level: floor.level,
             zones: [],
           };
