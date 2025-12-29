@@ -13,6 +13,7 @@ class IntentSource(Enum):
     """Source of a user intent."""
 
     SCHEDULE = "schedule"
+    OCCUPANCY_SETBACK = "occupancy_setback"
     MANUAL_APP = "manual_app"
     MANUAL_DIAL = "manual_dial"
     SAFETY = "safety"
@@ -85,7 +86,8 @@ class ReconciliationEngine:
         1. Safety/Window (Force OFF)
         2. Manual Overrides (Most recent first)
         3. Global Away Mode
-        4. Schedule (Default)
+        4. Occupancy Setback
+        5. Schedule (Default)
         """
 
         # 1. Hard Constraints
@@ -107,9 +109,10 @@ class ReconciliationEngine:
         priority_map = {
             IntentSource.SAFETY: 0,
             IntentSource.AWAY_MODE: 1,
-            IntentSource.MANUAL_APP: 2,
-            IntentSource.MANUAL_DIAL: 2,
-            IntentSource.SCHEDULE: 3,
+            IntentSource.OCCUPANCY_SETBACK: 2,
+            IntentSource.MANUAL_APP: 3,
+            IntentSource.MANUAL_DIAL: 3,
+            IntentSource.SCHEDULE: 4,
         }
 
         sorted_intents = sorted(

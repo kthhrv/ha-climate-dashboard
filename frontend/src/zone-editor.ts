@@ -27,6 +27,9 @@ export class ZoneEditor extends LitElement {
   @state() private _thermostats: Set<string> = new Set();
   @state() private _coolers: Set<string> = new Set();
   @state() private _windowSensors: Set<string> = new Set();
+  @state() private _presenceSensors: Set<string> = new Set();
+  @state() private _occupancyTimeout = 30;
+  @state() private _occupancySetbackTemp = 18.0;
 
   // Filter State
   @state() private _filterByArea = true;
@@ -232,12 +235,23 @@ export class ZoneEditor extends LitElement {
     const windows = attrs.window_sensors || [];
     this._windowSensors = new Set(windows);
 
+    // Occupancy
+    const presence = attrs.presence_sensors || [];
+    this._presenceSensors = new Set(presence);
+    if (attrs.occupancy_timeout_minutes !== undefined) {
+      this._occupancyTimeout = attrs.occupancy_timeout_minutes;
+    }
+    if (attrs.occupancy_setback_temp !== undefined) {
+      this._occupancySetbackTemp = attrs.occupancy_setback_temp;
+    }
+
     console.log("Loaded Config:", {
       name: this._name,
       temp: this._temperatureSensor,
       heaters: this._heaters,
       thermostats: this._thermostats,
       coolers: this._coolers,
+      presence: this._presenceSensors,
     });
 
     // 4. Load Circuits
@@ -294,6 +308,9 @@ export class ZoneEditor extends LitElement {
         thermostats: Array.from(this._thermostats),
         coolers: Array.from(this._coolers),
         window_sensors: Array.from(this._windowSensors),
+        presence_sensors: Array.from(this._presenceSensors),
+        occupancy_timeout_minutes: this._occupancyTimeout,
+        occupancy_setback_temp: this._occupancySetbackTemp,
         circuit_ids: this._selectedCircuitId ? [this._selectedCircuitId] : [],
       });
       this._goBack();
@@ -488,6 +505,49 @@ export class ZoneEditor extends LitElement {
                 </div>
               `,
             )}
+          </div>
+        </div>
+
+        <h3>Occupancy Setback</h3>
+        <div class="field">
+          <label>Presence Sensors</label>
+          <div class="checkbox-list">
+            ${windowCandidates.map(
+              (e) => html`
+                <div class="checkbox-item">
+                  <input
+                    type="checkbox"
+                    ?checked=${this._presenceSensors.has(e.entity_id)}
+                    @change=${() =>
+                      this._toggleSet(this._presenceSensors, e.entity_id)}
+                  />
+                  <span>${e.name || e.entity_id}</span>
+                </div>
+              `,
+            )}
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 16px;">
+          <div class="field" style="flex: 1;">
+            <label>Timeout (Minutes)</label>
+            <input
+              type="number"
+              min="1"
+              .value=${this._occupancyTimeout}
+              @input=${(e: any) =>
+                (this._occupancyTimeout = parseInt(e.target.value))}
+            />
+          </div>
+          <div class="field" style="flex: 1;">
+            <label>Setback Temp (°C)</label>
+            <input
+              type="number"
+              step="0.5"
+              .value=${this._occupancySetbackTemp}
+              @input=${(e: any) =>
+                (this._occupancySetbackTemp = parseFloat(e.target.value))}
+            />
           </div>
         </div>
 

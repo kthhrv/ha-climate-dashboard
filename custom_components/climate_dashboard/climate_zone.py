@@ -69,6 +69,9 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         thermostats: list[str],
         coolers: list[str],
         window_sensors: list[str],
+        presence_sensors: list[str],
+        occupancy_timeout_minutes: int,
+        occupancy_setback_temp: float,
         schedule: list[ScheduleBlock] | None = None,
     ) -> None:
         """Initialize the climate zone.
@@ -83,6 +86,9 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             thermostats: List of thermostat entity IDs (climate active sync).
             coolers: List of cooler entity IDs (climate).
             window_sensors: List of window binary_sensor entity IDs.
+            presence_sensors: List of presence binary_sensor entity IDs.
+            occupancy_timeout_minutes: Minutes to wait before setback.
+            occupancy_setback_temp: Temperature for setback.
             schedule: List of schedule blocks.
         """
         self.hass = hass
@@ -128,6 +134,10 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self._thermostats = thermostats
         self._coolers = coolers
         self._window_sensors = window_sensors
+        self._presence_sensors = presence_sensors
+        self._occupancy_timeout_minutes = occupancy_timeout_minutes
+        self._occupancy_setback_temp = occupancy_setback_temp
+        self._last_presence_timestamp: datetime | None = None
 
         # Initialize Managers
         self._schedule_manager = ScheduleManager(schedule or [])
@@ -186,6 +196,9 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         thermostats: list[str],
         coolers: list[str],
         window_sensors: list[str],
+        presence_sensors: list[str],
+        occupancy_timeout_minutes: int,
+        occupancy_setback_temp: float,
         schedule: list[ScheduleBlock] | None = None,
     ) -> None:
         """Update configuration dynamically.
@@ -196,6 +209,9 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             heaters: New list of heaters.
             coolers: New list of coolers.
             window_sensors: New list of window sensors.
+            presence_sensors: New list of presence sensors.
+            occupancy_timeout_minutes: New timeout.
+            occupancy_setback_temp: New setback temperature.
             schedule: New schedule list (optional).
         """
         self._attr_name = name
@@ -227,10 +243,18 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self._thermostats = thermostats
         self._coolers = coolers
         self._window_sensors = window_sensors
+        self._presence_sensors = presence_sensors
+        self._occupancy_timeout_minutes = occupancy_timeout_minutes
+        self._occupancy_setback_temp = occupancy_setback_temp
         self._schedule = schedule or []
         self._schedule_manager = ScheduleManager(self._schedule)
         self._safety_monitor = SafetyMonitor(
             self.hass, self._storage, self.unique_id, self._window_sensors, self._temperature_sensor
+        )
+
+        # Re-setup listeners
+        self.async_on_remove(
+            async_track_state_change_event(self.hass, self._presence_sensors, self._async_presence_changed)
         )
 
         # Re-apply schedule if auto
@@ -296,9 +320,13 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             "thermostats": self._thermostats,
             "coolers": self._coolers,
             "window_sensors": self._window_sensors,
+            "presence_sensors": self._presence_sensors,
+            "occupancy_timeout_minutes": self._occupancy_timeout_minutes,
+            "occupancy_setback_temp": self._occupancy_setback_temp,
             "next_scheduled_change": self._attr_next_scheduled_change,
             "next_scheduled_temp_heat": self._attr_next_scheduled_temp_heat,
             "next_scheduled_temp_cool": self._attr_next_scheduled_temp_cool,
+            "active_intent_source": (self._active_intent.source.value if self._active_intent else None),
             # Legacy Override Attributes for UI
             "override_type": (
                 OverrideType.PERMANENT
@@ -378,6 +406,12 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                 async_track_state_change_event(self.hass, self._window_sensors, self._async_window_changed)
             )
 
+        # Track presence sensor changes
+        if self._presence_sensors:
+            self.async_on_remove(
+                async_track_state_change_event(self.hass, self._presence_sensors, self._async_presence_changed)
+            )
+
         # Track thermostat changes (Upstream Sync)
         if self._thermostats:
             self.async_on_remove(
@@ -389,6 +423,13 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             # Only track those that are NOT also the sensor (to avoid double tracking)
             # Actually, tracking twice is fine, we just need to handle it.
             self.async_on_remove(async_track_state_change_event(self.hass, self._heaters, self._async_heater_changed))
+
+        # Initialize last presence timestamp
+        for eid in self._presence_sensors:
+            state = self.hass.states.get(eid)
+            if state and state.state == "on":
+                self._last_presence_timestamp = dt_util.now()
+                break
 
         # Track time for schedule (every minute)
         self.async_on_remove(async_track_time_change(self.hass, self._on_time_change, second=0))
@@ -439,9 +480,9 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
     @callback
     def _on_time_change(self, now: datetime) -> None:
-        """Check schedule on time change."""
-        if self._attr_hvac_mode == HVACMode.AUTO:
-            self._apply_schedule()
+        """Check schedule and occupancy on time change."""
+        if self._attr_hvac_mode != HVACMode.OFF:
+            self.hass.async_create_task(self._async_reconcile())
 
     def _apply_schedule(self) -> None:
         """Apply the current schedule block.
@@ -558,9 +599,11 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
             self.hass.async_create_task(self._async_reconcile())
 
+    @callback
     async def _async_reconcile(self) -> None:
         """The heartbeat of the Reconciliation Engine."""
         async with self._control_lock:
+            now = dt_util.now()
             # 1. Collect Active Intents
             all_intents = list(self._intents)
 
@@ -569,30 +612,45 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             if settings.get("is_away_mode_on"):
                 away_temp = float(settings.get("away_temperature", 16.0))
                 away_cool_temp = float(settings.get("away_temperature_cool", 30.0))
-
-                # Check for Dual Mode capability (implied by having coolers)
-                # Or just provide both targets and let Engine decide?
-                # Engine priority logic will pick this intent.
-                # Mode? Away Mode forces a specific temp. Does it force HVAC Mode?
-                # Usually keeps current mode but shifts temp.
-                # Or forces HEAT if Winter / COOL if Summer?
-                # Let's assume AUTO if dual, or current mode.
-
-                # Simple Logic: Add intent for AUTO with range.
                 all_intents.append(
                     ClimateIntent(
                         source=IntentSource.AWAY_MODE,
-                        mode=HVACMode.AUTO,  # Engine will map this to HEAT/COOL action
+                        mode=HVACMode.AUTO,
                         setpoints=TargetSetpoints(
-                            target=away_temp,  # For Single Mode
+                            target=away_temp,
                             low=away_temp,
                             high=away_cool_temp,
                         ),
                     )
                 )
 
+            # Add Occupancy Setback Intent
+            if self._presence_sensors:
+                is_occupied = False
+                for eid in self._presence_sensors:
+                    state = self.hass.states.get(eid)
+                    if state and state.state == "on":
+                        is_occupied = True
+                        self._last_presence_timestamp = now
+                        break
+
+                if not is_occupied and self._last_presence_timestamp:
+                    elapsed = (now - self._last_presence_timestamp).total_seconds() / 60
+                    if elapsed >= self._occupancy_timeout_minutes:
+                        _LOGGER.debug("Zone %s: Adding Occupancy Setback intent (elapsed %.1fm)", self.name, elapsed)
+                        all_intents.append(
+                            ClimateIntent(
+                                source=IntentSource.OCCUPANCY_SETBACK,
+                                mode=HVACMode.AUTO,
+                                setpoints=TargetSetpoints(
+                                    target=self._occupancy_setback_temp,
+                                    low=self._occupancy_setback_temp,
+                                    high=self._occupancy_setback_temp + 10.0,
+                                ),
+                            )
+                        )
+
             # Add Schedule Intent
-            now = dt_util.now()
             schedule_setting = self._schedule_manager.get_active_setting(now)
             if schedule_setting:
                 all_intents.append(
@@ -606,9 +664,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             # 2. Calculate Desired State
             self._async_update_temp()
 
-            # Check Window Timeout (Updates internal safety monitor state)
             is_window_open = self._safety_monitor.check_window_timeout(now)
-            # Update public attribute for UI
             self._attr_open_window_sensor = self._safety_monitor.open_window_sensor
 
             desired = self._engine.calculate_desired_state(
@@ -629,6 +685,8 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             self._active_intent = desired.intent
             self._attr_hvac_mode = desired.mode
             self._attr_hvac_action = desired.action
+
+            # ... (rest of logic)
 
             # Dual Mode Logic: If Auto and Dual Capable, hide single target
             if desired.mode == HVACMode.AUTO:
@@ -701,6 +759,17 @@ class ClimateZone(ClimateEntity, RestoreEntity):
     def _async_window_changed(self, event: Any) -> None:
         """Handle window sensor state changes."""
         self.hass.async_create_task(self._async_reconcile())
+        self.async_write_ha_state()
+
+    @callback
+    def _async_presence_changed(self, event: Any) -> None:
+        """Handle presence sensor state changes."""
+        new_state = event.data.get("new_state")
+        if new_state and new_state.state == "on":
+            self._last_presence_timestamp = dt_util.now()
+            _LOGGER.info("Presence detected in %s: Triggering reconciliation", self.name)
+            self.hass.async_create_task(self._async_reconcile())
+
         self.async_write_ha_state()
 
     @callback

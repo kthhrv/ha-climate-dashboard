@@ -66,6 +66,9 @@ async def async_setup_entry(
                         thermostats=zone_config.get("thermostats", []),
                         coolers=zone_config["coolers"],
                         window_sensors=zone_config["window_sensors"],
+                        presence_sensors=zone_config.get("presence_sensors", []),
+                        occupancy_timeout_minutes=zone_config.get("occupancy_timeout_minutes", 30),
+                        occupancy_setback_temp=zone_config.get("occupancy_setback_temp", 18.0),
                         schedule=zone_config.get("schedule"),
                     )
                 )
@@ -81,6 +84,9 @@ async def async_setup_entry(
                     thermostats=zone_config.get("thermostats", []),
                     coolers=zone_config["coolers"],
                     window_sensors=zone_config["window_sensors"],
+                    presence_sensors=zone_config.get("presence_sensors", []),
+                    occupancy_timeout_minutes=zone_config.get("occupancy_timeout_minutes", 30),
+                    occupancy_setback_temp=zone_config.get("occupancy_setback_temp", 18.0),
                     schedule=zone_config.get("schedule"),
                 )
                 loaded_entities[uid] = entity

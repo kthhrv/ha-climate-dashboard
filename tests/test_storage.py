@@ -38,6 +38,9 @@ async def test_load_existing(hass: HomeAssistant, mock_store: Any) -> None:
                 "heaters": ["switch.h1"],
                 "coolers": [],
                 "window_sensors": [],
+                "presence_sensors": [],
+                "occupancy_timeout_minutes": 30,
+                "occupancy_setback_temp": 18.0,
             }
         ]
     }
@@ -65,6 +68,9 @@ async def test_add_zone(hass: HomeAssistant, mock_store: Any) -> None:
             "heaters": ["climate.c1"],
             "coolers": ["climate.c1"],
             "window_sensors": ["binary_sensor.w1"],
+            "presence_sensors": ["binary_sensor.p1"],
+            "occupancy_timeout_minutes": 15,
+            "occupancy_setback_temp": 19.0,
         },
     )
 

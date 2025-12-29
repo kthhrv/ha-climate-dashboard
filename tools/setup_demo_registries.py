@@ -578,6 +578,9 @@ def seed_dashboard_storage() -> None:
             "thermostats": [],
             "coolers": [],
             "window_sensors": [],
+            "presence_sensors": ["binary_sensor.living_room_presence"],
+            "occupancy_timeout_minutes": 5,
+            "occupancy_setback_temp": 17.0,
             "schedule": default_schedule,
         },
         {

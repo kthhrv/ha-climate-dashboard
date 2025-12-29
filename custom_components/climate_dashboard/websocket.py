@@ -66,6 +66,9 @@ async def _async_adopt_zone(hass: HomeAssistant, connection: ActiveConnection, m
         "thermostats": msg["thermostats"],
         "coolers": coolers,
         "window_sensors": window_sensors,
+        "presence_sensors": msg.get("presence_sensors", []),
+        "occupancy_timeout_minutes": msg.get("occupancy_timeout_minutes", 30),
+        "occupancy_setback_temp": msg.get("occupancy_setback_temp", 18.0),
         "schedule": get_default_schedule(room_type),
         "restore_delay_minutes": msg.get("restore_delay_minutes", 0),
     }
@@ -172,6 +175,13 @@ async def _async_update_zone(hass: HomeAssistant, connection: ActiveConnection, 
             "window_sensors": msg["window_sensors"],
         }
     )
+
+    if "presence_sensors" in msg:
+        updated_config["presence_sensors"] = msg["presence_sensors"]
+    if "occupancy_timeout_minutes" in msg:
+        updated_config["occupancy_timeout_minutes"] = msg["occupancy_timeout_minutes"]
+    if "occupancy_setback_temp" in msg:
+        updated_config["occupancy_setback_temp"] = msg["occupancy_setback_temp"]
 
     if "schedule" in msg:
         updated_config["schedule"] = msg["schedule"]
@@ -396,6 +406,9 @@ def async_register_api(hass: HomeAssistant) -> None:
                 vol.Optional("thermostats", default=[]): [str],
                 vol.Optional("coolers", default=[]): [str],
                 vol.Optional("window_sensors", default=[]): [str],
+                vol.Optional("presence_sensors", default=[]): [str],
+                vol.Optional("occupancy_timeout_minutes", default=30): int,
+                vol.Optional("occupancy_setback_temp", default=18.0): vol.Coerce(float),
                 vol.Optional("restore_delay_minutes", default=0): int,
                 vol.Optional("room_type", default="generic"): str,
                 vol.Optional("circuit_ids", default=[]): [str],
@@ -416,6 +429,9 @@ def async_register_api(hass: HomeAssistant) -> None:
                 vol.Optional("thermostats", default=[]): [str],
                 vol.Optional("coolers", default=[]): [str],
                 vol.Optional("window_sensors", default=[]): [str],
+                vol.Optional("presence_sensors"): [str],
+                vol.Optional("occupancy_timeout_minutes"): int,
+                vol.Optional("occupancy_setback_temp"): vol.Coerce(float),
                 vol.Optional("schedule"): list,
                 vol.Optional("restore_delay_minutes"): int,
                 vol.Optional("circuit_ids"): [str],

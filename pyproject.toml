@@ -18,6 +18,7 @@ dev = [
     "pytest-homeassistant-custom-component",
     "pycares<5",
     "invoke",
+    "aiodns>=3.2.0",
 ]
 
 [tool.ruff]

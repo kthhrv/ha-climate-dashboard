@@ -62,6 +62,9 @@ class ClimateZoneConfig(TypedDict):
     thermostats: list[str]
     coolers: list[str]
     window_sensors: list[str]
+    presence_sensors: list[str]
+    occupancy_timeout_minutes: int
+    occupancy_setback_temp: float
     schedule: list[ScheduleBlock]
 
 

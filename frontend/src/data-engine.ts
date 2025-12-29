@@ -273,6 +273,16 @@ export class DataEngine {
       };
     }
 
+    // Priority 3.5: Occupancy Setback
+    if (attrs.active_intent_source === "occupancy_setback") {
+      return {
+        icon: "mdi:leaf",
+        color: "var(--success-color, #4caf50)",
+        text: "Occupancy Setback",
+        subtext: "Room Unoccupied",
+      };
+    }
+
     // Priority 4: Manual Override
     if (attrs.override_end) {
       const endObj = new Date(attrs.override_end);

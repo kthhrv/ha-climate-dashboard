@@ -115,6 +115,18 @@ AREAS = [
                 device_type="template_sensor",
                 params={"source": "input_number.living_room_standalone_temp_source"},
             ),
+            DemoDevice(
+                unique_id="living_room_presence_boolean",
+                name="Living Room Presence Boolean",
+                device_type="input_boolean",
+                params={"icon": "mdi:motion-sensor"},
+            ),
+            DemoDevice(
+                unique_id="binary_sensor_living_room_presence",
+                name="Living Room Presence",
+                device_type="template_binary_sensor",
+                params={"device_class": "motion", "source": "input_boolean.living_room_presence_boolean"},
+            ),
         ],
     ),
     DemoArea(

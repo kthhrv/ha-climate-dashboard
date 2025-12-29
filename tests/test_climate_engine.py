@@ -70,3 +70,21 @@ def test_expiration(engine: ReconciliationEngine, now: datetime) -> None:
     # Manual expired, Schedule should win
     desired = engine.calculate_desired_state(intents, 20.0, now)
     assert desired.setpoints.target == 20.0
+
+
+def test_occupancy_setback_priority(engine: ReconciliationEngine, now: datetime) -> None:
+    intents = [
+        ClimateIntent(IntentSource.SCHEDULE, HVACMode.HEAT, TargetSetpoints(target=22.0)),
+        ClimateIntent(IntentSource.OCCUPANCY_SETBACK, HVACMode.AUTO, TargetSetpoints(target=18.0)),
+    ]
+    # Occupancy should win over Schedule
+    desired = engine.calculate_desired_state(intents, 20.0, now)
+    assert desired.setpoints.target == 18.0
+    assert "occupancy_setback" in desired.reason
+
+    # Adding a Manual Override
+    intents.append(ClimateIntent(IntentSource.MANUAL_APP, HVACMode.HEAT, TargetSetpoints(target=25.0)))
+    # Occupancy should still win over Manual (Priority 2 vs 3)
+    desired = engine.calculate_desired_state(intents, 20.0, now)
+    assert desired.setpoints.target == 18.0
+    assert "occupancy_setback" in desired.reason
