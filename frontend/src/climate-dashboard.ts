@@ -5,6 +5,7 @@ import "./timeline-view";
 import "./zones-view";
 import "./zone-editor";
 import "./schedule-editor";
+import "./history-view";
 
 export class ClimateDashboard extends LitElement {
   @property({ attribute: false }) public hass!: any;
@@ -16,7 +17,8 @@ export class ClimateDashboard extends LitElement {
     | "timeline"
     | "setup"
     | "editor"
-    | "schedule" = "zones";
+    | "schedule"
+    | "history" = "zones";
   @state() private _editingZoneId: string | null = null;
   @state() private _unmanagedCount = 0;
   @state() private _isAwayMode = false;
@@ -310,6 +312,14 @@ export class ClimateDashboard extends LitElement {
               <ha-icon icon="mdi:chart-timeline"></ha-icon>
             </button>
 
+            <!-- History Toggle -->
+            <button
+              class="icon-btn ${this._view === "history" ? "active" : ""}"
+              @click=${() => (this._view = "history")}
+            >
+              <ha-icon icon="mdi:chart-line"></ha-icon>
+            </button>
+
             <!-- Setup Toggle (Badge) -->
             <button
               class="icon-btn ${this._view === "setup" ? "active" : ""}"
@@ -376,6 +386,9 @@ export class ClimateDashboard extends LitElement {
                   this._view = "schedule";
                 }}
               ></timeline-view>`
+            : ""}
+          ${this._view === "history"
+            ? html`<history-view .hass=${this.hass}></history-view>`
             : ""}
           ${this._view === "editor" && this._editingZoneId
             ? html`
