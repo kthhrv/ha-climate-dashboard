@@ -509,6 +509,9 @@ def seed_restore_state() -> None:
     for dev in all_devices:
         if dev.device_type in ["input_number", "input_boolean"]:
             state = "19.0" if dev.device_type == "input_number" else "off"
+            if dev.unique_id == "family_home":
+                state = "on"
+
             data["data"].append(
                 {
                     "state": {

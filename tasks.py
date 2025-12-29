@@ -82,4 +82,4 @@ def dev(c: Context) -> None:
 def setup_demo(c: Context) -> None:
     """Re-initialize the demo registries (Areas, Entities, Helpers)."""
     print("Setting up Demo Registries...")
-    c.run("python3 tools/setup_demo_registries.py")
+    c.run("python3 tools/teardown.py && python3 tools/setup_demo_registries.py && python3 tools/setup_mqtt_device.py")
