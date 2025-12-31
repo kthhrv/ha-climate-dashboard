@@ -328,7 +328,7 @@ async def _async_update_circuit(hass: HomeAssistant, connection: ActiveConnectio
         return
 
     storage = hass.data[DOMAIN]["storage"]
-    circuit_id = msg["id"]
+    circuit_id = msg["circuit_id"]
 
     existing = next((c for c in storage.circuits if c["id"] == circuit_id), None)
     if not existing:
@@ -507,7 +507,7 @@ def async_register_api(hass: HomeAssistant) -> None:
         schema=websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
             {
                 vol.Required("type"): "climate_dashboard/circuit/update",
-                vol.Required("id"): str,
+                vol.Required("circuit_id"): vol.Any(str, int),
                 vol.Optional("name"): str,
                 vol.Optional("heaters"): [str],
                 vol.Optional("member_zones"): [str],
@@ -521,7 +521,7 @@ def async_register_api(hass: HomeAssistant) -> None:
         schema=websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
             {
                 vol.Required("type"): "climate_dashboard/circuit/delete",
-                vol.Required("circuit_id"): str,
+                vol.Required("circuit_id"): vol.Any(str, int),
             }
         ),
     )

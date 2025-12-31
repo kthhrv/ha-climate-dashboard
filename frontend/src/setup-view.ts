@@ -182,8 +182,9 @@ export class SetupView extends LitElement {
         circuit_id: id,
       });
       this._fetchCircuits();
-    } catch (e) {
-      alert("Failed to delete: " + e);
+    } catch (e: any) {
+      console.error(e);
+      alert("Failed to delete: " + (e.message || e.code || JSON.stringify(e)));
     }
   }
 
@@ -211,7 +212,7 @@ export class SetupView extends LitElement {
     try {
       if (this._editingCircuit) {
         payload.type = "climate_dashboard/circuit/update";
-        payload.id = this._editingCircuit.id;
+        payload.circuit_id = this._editingCircuit.id;
         // Preserver members? Not editing members here yet
       } else {
         payload.type = "climate_dashboard/circuit/create";
@@ -220,8 +221,9 @@ export class SetupView extends LitElement {
       await this.hass.callWS(payload);
       this._circuitDialogOpen = false;
       this._fetchCircuits();
-    } catch (e) {
-      alert("Error: " + e);
+    } catch (e: any) {
+      console.error(e);
+      alert("Error: " + (e.message || e.code || JSON.stringify(e)));
     }
   }
 

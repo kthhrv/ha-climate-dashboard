@@ -285,8 +285,8 @@ ie.elementStyles = [], ie.shadowRootOptions = { mode: "open" }, ie[le("elementPr
  * SPDX-License-Identifier: BSD-3-Clause
  */
 const ce = globalThis, ye = ce.trustedTypes, Ze = ye ? ye.createPolicy("lit-html", { createHTML: (a) => a }) : void 0, Xe = "$lit$", j = `lit$${Math.random().toFixed(9).slice(2)}$`, Ye = "?" + j, pt = `<${Ye}>`, Y = document, de = () => Y.createComment(""), he = (a) => a === null || typeof a != "object" && typeof a != "function", Ee = Array.isArray, ut = (a) => Ee(a) || typeof (a == null ? void 0 : a[Symbol.iterator]) == "function", $e = `[ 	
-\f\r]`, ne = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, qe = /-->/g, We = />/g, J = RegExp(`>|${$e}(?:([^\\s"'>=/]+)(${$e}*=${$e}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`, "g"), Fe = /'/g, Ge = /"/g, Qe = /^(?:script|style|textarea|title)$/i, mt = (a) => (e, ...t) => ({ _$litType$: a, strings: e, values: t }), n = mt(1), se = Symbol.for("lit-noChange"), w = Symbol.for("lit-nothing"), Ve = /* @__PURE__ */ new WeakMap(), K = Y.createTreeWalker(Y, 129);
+\f\r]`, ne = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, qe = /-->/g, We = />/g, V = RegExp(`>|${$e}(?:([^\\s"'>=/]+)(${$e}*=${$e}*(?:[^ 	
+\f\r"'\`<>=]|("|')|))|$)`, "g"), Fe = /'/g, Ge = /"/g, Qe = /^(?:script|style|textarea|title)$/i, mt = (a) => (e, ...t) => ({ _$litType$: a, strings: e, values: t }), n = mt(1), se = Symbol.for("lit-noChange"), w = Symbol.for("lit-nothing"), Je = /* @__PURE__ */ new WeakMap(), K = Y.createTreeWalker(Y, 129);
 function et(a, e) {
   if (!Ee(a) || !a.hasOwnProperty("raw")) throw Error("invalid template strings array");
   return Ze !== void 0 ? Ze.createHTML(e) : e;
@@ -297,8 +297,8 @@ const _t = (a, e) => {
   for (let c = 0; c < t; c++) {
     const l = a[c];
     let p, u, h = -1, m = 0;
-    for (; m < l.length && (o.lastIndex = m, u = o.exec(l), u !== null); ) m = o.lastIndex, o === ne ? u[1] === "!--" ? o = qe : u[1] !== void 0 ? o = We : u[2] !== void 0 ? (Qe.test(u[2]) && (s = RegExp("</" + u[2], "g")), o = J) : u[3] !== void 0 && (o = J) : o === J ? u[0] === ">" ? (o = s ?? ne, h = -1) : u[1] === void 0 ? h = -2 : (h = o.lastIndex - u[2].length, p = u[1], o = u[3] === void 0 ? J : u[3] === '"' ? Ge : Fe) : o === Ge || o === Fe ? o = J : o === qe || o === We ? o = ne : (o = J, s = void 0);
-    const g = o === J && a[c + 1].startsWith("/>") ? " " : "";
+    for (; m < l.length && (o.lastIndex = m, u = o.exec(l), u !== null); ) m = o.lastIndex, o === ne ? u[1] === "!--" ? o = qe : u[1] !== void 0 ? o = We : u[2] !== void 0 ? (Qe.test(u[2]) && (s = RegExp("</" + u[2], "g")), o = V) : u[3] !== void 0 && (o = V) : o === V ? u[0] === ">" ? (o = s ?? ne, h = -1) : u[1] === void 0 ? h = -2 : (h = o.lastIndex - u[2].length, p = u[1], o = u[3] === void 0 ? V : u[3] === '"' ? Ge : Fe) : o === Ge || o === Fe ? o = V : o === qe || o === We ? o = ne : (o = V, s = void 0);
+    const g = o === V && a[c + 1].startsWith("/>") ? " " : "";
     r += o === ne ? l + pt : h >= 0 ? (i.push(p), l.slice(0, h) + Xe + l.slice(h) + j + g) : l + j + (h === -2 ? c : g);
   }
   return [et(a, r + (a[t] || "<?>") + (e === 2 ? "</svg>" : e === 3 ? "</math>" : "")), i];
@@ -416,8 +416,8 @@ class _e {
     }
   }
   _$AC(e) {
-    let t = Ve.get(e.strings);
-    return t === void 0 && Ve.set(e.strings, t = new pe(e)), t;
+    let t = Je.get(e.strings);
+    return t === void 0 && Je.set(e.strings, t = new pe(e)), t;
   }
   k(e) {
     Ee(this._$AH) || (this._$AH = [], this._$AR());
@@ -546,8 +546,8 @@ class D extends ie {
     return se;
   }
 }
-var Je;
-D._$litElement$ = !0, D.finalized = !0, (Je = X.litElementHydrateSupport) == null || Je.call(X, { LitElement: D });
+var Ve;
+D._$litElement$ = !0, D.finalized = !0, (Ve = X.litElementHydrateSupport) == null || Ve.call(X, { LitElement: D });
 const ke = X.litElementPolyfillSupport;
 ke == null || ke({ LitElement: D });
 (X.litElementVersions ?? (X.litElementVersions = [])).push("4.2.1");
@@ -957,7 +957,7 @@ k([
   d()
 ], x.prototype, "_selectedCircuit");
 customElements.get("adopt-dialog") || customElements.define("adopt-dialog", x);
-var St = Object.defineProperty, M = (a, e, t, i) => {
+var St = Object.defineProperty, N = (a, e, t, i) => {
   for (var s = void 0, r = a.length - 1, o; r >= 0; r--)
     (o = a[r]) && (s = o(e, t, s) || s);
   return s && St(e, t, s), s;
@@ -996,7 +996,7 @@ const Te = class Te extends D {
           circuit_id: e
         }), this._fetchCircuits();
       } catch (t) {
-        alert("Failed to delete: " + t);
+        console.error(t), alert("Failed to delete: " + (t.message || t.code || JSON.stringify(t)));
       }
   }
   _openCircuitDialog(e) {
@@ -1009,9 +1009,9 @@ const Te = class Te extends D {
       heaters: this._tempCircuitHeaters
     };
     try {
-      this._editingCircuit ? (e.type = "climate_dashboard/circuit/update", e.id = this._editingCircuit.id) : e.type = "climate_dashboard/circuit/create", await this.hass.callWS(e), this._circuitDialogOpen = !1, this._fetchCircuits();
+      this._editingCircuit ? (e.type = "climate_dashboard/circuit/update", e.circuit_id = this._editingCircuit.id) : e.type = "climate_dashboard/circuit/create", await this.hass.callWS(e), this._circuitDialogOpen = !1, this._fetchCircuits();
     } catch (t) {
-      alert("Error: " + t);
+      console.error(t), alert("Error: " + (t.message || t.code || JSON.stringify(t)));
     }
   }
   async _fetchSettings() {
@@ -1442,40 +1442,40 @@ Te.styles = q`
     }
   `;
 let C = Te;
-M([
+N([
   $({ attribute: !1 })
 ], C.prototype, "hass");
-M([
+N([
   d()
 ], C.prototype, "_devices");
-M([
+N([
   d()
 ], C.prototype, "_loading");
-M([
+N([
   d()
 ], C.prototype, "_settings");
-M([
+N([
   d()
 ], C.prototype, "_circuits");
-M([
+N([
   d()
 ], C.prototype, "_circuitDialogOpen");
-M([
+N([
   d()
 ], C.prototype, "_editingCircuit");
-M([
+N([
   d()
 ], C.prototype, "_tempCircuitName");
-M([
+N([
   d()
 ], C.prototype, "_tempCircuitHeaters");
-M([
+N([
   d()
 ], C.prototype, "_dialogOpen");
-M([
+N([
   d()
 ], C.prototype, "_selectedEntity");
-M([
+N([
   d()
 ], C.prototype, "_filterText");
 customElements.get("setup-view") || customElements.define("setup-view", C);
@@ -1572,19 +1572,19 @@ class ue {
       }
       const y = S - g, f = g / 1440 * 100, I = y / 1440 * 100;
       let z = "";
-      const H = p.temp_heat ?? 20, W = p.temp_cool ?? 24, N = 16, A = 24;
+      const H = p.temp_heat ?? 20, W = p.temp_cool ?? 24, O = 16, A = 24;
       let b = 1;
       if (o === "heat") {
         z = `${H}°`;
-        const T = (H - N) / (A - N);
+        const T = (H - O) / (A - O);
         b = 0.4 + 0.6 * Math.min(Math.max(T, 0), 1);
       } else if (o === "cool") {
         z = `${W}°`;
-        const T = (W - N) / (A - N);
+        const T = (W - O) / (A - O);
         b = 0.4 + 0.6 * Math.min(Math.max(T, 0), 1);
       } else if (o === "auto") {
         z = `${H}-${W}°`;
-        const T = (H - N) / (A - N), B = 0.4 + 0.6 * Math.min(Math.max(T, 0), 1), F = (W - N) / (A - N), U = 0.4 + 0.6 * Math.min(Math.max(F, 0), 1);
+        const T = (H - O) / (A - O), B = 0.4 + 0.6 * Math.min(Math.max(T, 0), 1), F = (W - O) / (A - O), U = 0.4 + 0.6 * Math.min(Math.max(F, 0), 1);
         b = Math.max(B, U);
       } else
         z = `${H}°`, b = 0.5;
@@ -2031,7 +2031,7 @@ var Ct = Object.defineProperty, tt = (a, e, t, i) => {
     (o = a[r]) && (s = o(e, t, s) || s);
   return s && Ct(e, t, s), s;
 };
-const Me = class Me extends D {
+const Ne = class Ne extends D {
   constructor() {
     super(...arguments), this.isAwayMode = !1;
   }
@@ -2140,7 +2140,7 @@ const Me = class Me extends D {
     );
   }
 };
-Me.styles = q`
+Ne.styles = q`
     :host {
       display: block;
       padding: 16px;
@@ -2264,7 +2264,7 @@ Me.styles = q`
       --mdc-icon-size: 14px;
     }
   `;
-let me = Me;
+let me = Ne;
 tt([
   $({ attribute: !1 })
 ], me.prototype, "hass");
@@ -2277,7 +2277,7 @@ var Et = Object.defineProperty, v = (a, e, t, i) => {
     (o = a[r]) && (s = o(e, t, s) || s);
   return s && Et(e, t, s), s;
 };
-const Ne = class Ne extends D {
+const Oe = class Oe extends D {
   constructor() {
     super(...arguments), this.allEntities = [], this._uniqueId = "", this._name = "", this._temperatureSensor = "", this._heaters = /* @__PURE__ */ new Set(), this._thermostats = /* @__PURE__ */ new Set(), this._coolers = /* @__PURE__ */ new Set(), this._windowSensors = /* @__PURE__ */ new Set(), this._presenceSensors = /* @__PURE__ */ new Set(), this._occupancyTimeout = 30, this._occupancySetbackTemp = 18, this._filterByArea = !0, this._zoneAreaId = null, this._zoneAreaName = null, this._circuits = [], this._selectedCircuitId = "", this._loading = !1, this._error = "", this._showDeleteDialog = !1;
   }
@@ -2623,7 +2623,7 @@ const Ne = class Ne extends D {
     `;
   }
 };
-Ne.styles = q`
+Oe.styles = q`
     :host {
       display: block;
       padding: 16px;
@@ -2723,7 +2723,7 @@ Ne.styles = q`
       margin-right: auto;
     }
   `;
-let _ = Ne;
+let _ = Oe;
 v([
   $({ attribute: !1 })
 ], _.prototype, "hass");
@@ -2793,7 +2793,7 @@ var It = Object.defineProperty, ae = (a, e, t, i) => {
     (o = a[r]) && (s = o(e, t, s) || s);
   return s && It(e, t, s), s;
 };
-const zt = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], Oe = class Oe extends D {
+const zt = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], Me = class Me extends D {
   constructor() {
     super(...arguments), this._schedule = [], this._loading = !1, this._uniqueId = "", this._config = {};
   }
@@ -2978,7 +2978,7 @@ const zt = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], Oe = class Oe exte
     `;
   }
 };
-Oe.styles = q`
+Me.styles = q`
     :host {
       display: block;
       padding: 16px;
@@ -3102,7 +3102,7 @@ Oe.styles = q`
       padding: 4px;
     }
   `;
-let P = Oe;
+let P = Me;
 ae([
   $({ attribute: !1 })
 ], P.prototype, "hass");
@@ -3154,7 +3154,7 @@ const Pe = class Pe extends D {
         `history/period/${r.toISOString()}?filter_entity_id=${t.join(",")}&end_time=${i.toISOString()}`
       ), p = {};
       l.forEach((u) => {
-        var H, W, N;
+        var H, W, O;
         if (!u || u.length === 0) return;
         const h = u[0].entity_id, m = ((W = (H = this.hass.states[h]) == null ? void 0 : H.attributes) == null ? void 0 : W.friendly_name) || h, g = [], S = [];
         let y = 100, f = -100;
@@ -3178,8 +3178,8 @@ const Pe = class Pe extends D {
             else if (Be === "cooling")
               E = "color-cool", L = `Cooling (${b.state})`;
             else {
-              const V = String(b.state).toLowerCase();
-              V === "heat" ? E = "color-heat" : V === "cool" ? E = "color-cool" : V === "off" ? E = "color-off" : V === "auto" ? E = "color-auto" : V === "idle" ? E = "color-idle" : V === "unavailable" && (E = "color-unknown");
+              const J = String(b.state).toLowerCase();
+              J === "heat" ? E = "color-heat" : J === "cool" ? E = "color-cool" : J === "off" ? E = "color-off" : J === "auto" ? E = "color-auto" : J === "idle" ? E = "color-idle" : J === "unavailable" && (E = "color-unknown");
             }
             const G = g[g.length - 1];
             if (G && G.color === E && G.tooltip === L)
@@ -3196,7 +3196,7 @@ const Pe = class Pe extends D {
               });
             }
           }
-          const ee = parseFloat((N = b.attributes) == null ? void 0 : N.current_temperature);
+          const ee = parseFloat((O = b.attributes) == null ? void 0 : O.current_temperature);
           isNaN(ee) || (I.push({ t: B, v: ee }), ee < y && (y = ee), ee > f && (f = ee));
         }
         y > f ? (y = 18, f = 24) : (y = Math.floor(y - 1), f = Math.ceil(f + 1));
@@ -3951,29 +3951,29 @@ He.styles = q`
       overflow-y: auto;
     }
   `;
-let O = He;
+let M = He;
 Q([
   $({ attribute: !1 })
-], O.prototype, "hass");
+], M.prototype, "hass");
 Q([
   $({ attribute: !1 })
-], O.prototype, "narrow");
+], M.prototype, "narrow");
 Q([
   $({ attribute: !1 })
-], O.prototype, "panel");
+], M.prototype, "panel");
 Q([
   d()
-], O.prototype, "_view");
+], M.prototype, "_view");
 Q([
   d()
-], O.prototype, "_editingZoneId");
+], M.prototype, "_editingZoneId");
 Q([
   d()
-], O.prototype, "_unmanagedCount");
+], M.prototype, "_unmanagedCount");
 Q([
   d()
-], O.prototype, "_isAwayMode");
-customElements.get("climate-dashboard") || customElements.define("climate-dashboard", O);
+], M.prototype, "_isAwayMode");
+customElements.get("climate-dashboard") || customElements.define("climate-dashboard", M);
 console.info(
   "%c CLIMATE-DASHBOARD %c 0.0.1 ",
   "color: white; background: #03a9f4; font-weight: 700;",

@@ -301,14 +301,25 @@ class ClimateDashboardStorage:
             return
 
         circuits = self._data.circuits
+        target_id = circuit_config["id"]
+
+        # Try exact match first
         for i, circuit in enumerate(circuits):
-            if circuit["id"] == circuit_config["id"]:
+            if circuit["id"] == target_id:
                 circuits[i] = circuit_config
                 await self._async_save_data()
                 self._async_fire_callbacks()
                 return
 
-        raise ValueError(f"Circuit {circuit_config['id']} not found")
+        # Try string comparison fallback
+        for i, circuit in enumerate(circuits):
+            if str(circuit["id"]) == str(target_id):
+                circuits[i] = circuit_config
+                await self._async_save_data()
+                self._async_fire_callbacks()
+                return
+
+        raise ValueError(f"Circuit {target_id} not found")
 
     async def async_delete_circuit(self, circuit_id: str) -> None:
         """Delete a circuit."""
