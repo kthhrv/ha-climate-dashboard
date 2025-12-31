@@ -29,7 +29,7 @@ export class ZoneEditor extends LitElement {
   @state() private _windowSensors: Set<string> = new Set();
   @state() private _presenceSensors: Set<string> = new Set();
   @state() private _occupancyTimeout = 30;
-  @state() private _occupancySetbackTemp = 18.0;
+  @state() private _occupancySetbackTemp = 2.0;
 
   // Filter State
   @state() private _filterByArea = true;
@@ -540,7 +540,7 @@ export class ZoneEditor extends LitElement {
             />
           </div>
           <div class="field" style="flex: 1;">
-            <label>Setback Temp (°C)</label>
+            <label>Setback Offset (°C)</label>
             <input
               type="number"
               step="0.5"
