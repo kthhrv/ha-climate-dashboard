@@ -624,6 +624,17 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                     )
                 )
 
+            # Add Schedule Intent
+            schedule_setting = self._schedule_manager.get_active_setting(now)
+            if schedule_setting:
+                all_intents.append(
+                    ClimateIntent(
+                        source=IntentSource.SCHEDULE,
+                        mode=HVACMode.AUTO,
+                        setpoints=TargetSetpoints(low=schedule_setting.temp_heat, high=schedule_setting.temp_cool),
+                    )
+                )
+
             # Add Occupancy Setback Intent
             if self._presence_sensors:
                 is_occupied = False
@@ -638,28 +649,30 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                     elapsed = (now - self._last_presence_timestamp).total_seconds() / 60
                     if elapsed >= self._occupancy_timeout_minutes:
                         _LOGGER.debug("Zone %s: Adding Occupancy Setback intent (elapsed %.1fm)", self.name, elapsed)
+
+                        # Calculate Setback (Offset)
+                        # Default to absolute if no schedule (fallback)
+                        sb_target = self._occupancy_setback_temp
+                        sb_low = self._occupancy_setback_temp
+                        sb_high = self._occupancy_setback_temp + 10.0
+
+                        if schedule_setting:
+                            # Use as offset: Heat - Offset, Cool + Offset
+                            sb_low = schedule_setting.temp_heat - self._occupancy_setback_temp
+                            sb_high = schedule_setting.temp_cool + self._occupancy_setback_temp
+                            sb_target = sb_low  # Map target to low for display in single mode
+
                         all_intents.append(
                             ClimateIntent(
                                 source=IntentSource.OCCUPANCY_SETBACK,
                                 mode=HVACMode.AUTO,
                                 setpoints=TargetSetpoints(
-                                    target=self._occupancy_setback_temp,
-                                    low=self._occupancy_setback_temp,
-                                    high=self._occupancy_setback_temp + 10.0,
+                                    target=sb_target,
+                                    low=sb_low,
+                                    high=sb_high,
                                 ),
                             )
                         )
-
-            # Add Schedule Intent
-            schedule_setting = self._schedule_manager.get_active_setting(now)
-            if schedule_setting:
-                all_intents.append(
-                    ClimateIntent(
-                        source=IntentSource.SCHEDULE,
-                        mode=HVACMode.AUTO,
-                        setpoints=TargetSetpoints(low=schedule_setting.temp_heat, high=schedule_setting.temp_cool),
-                    )
-                )
 
             # 2. Calculate Desired State
             self._async_update_temp()

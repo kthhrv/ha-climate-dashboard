@@ -68,7 +68,7 @@ async def _async_adopt_zone(hass: HomeAssistant, connection: ActiveConnection, m
         "window_sensors": window_sensors,
         "presence_sensors": msg.get("presence_sensors", []),
         "occupancy_timeout_minutes": msg.get("occupancy_timeout_minutes", 30),
-        "occupancy_setback_temp": msg.get("occupancy_setback_temp", 18.0),
+        "occupancy_setback_temp": msg.get("occupancy_setback_temp", 2.0),
         "schedule": get_default_schedule(room_type),
         "restore_delay_minutes": msg.get("restore_delay_minutes", 0),
     }
@@ -408,7 +408,7 @@ def async_register_api(hass: HomeAssistant) -> None:
                 vol.Optional("window_sensors", default=[]): [str],
                 vol.Optional("presence_sensors", default=[]): [str],
                 vol.Optional("occupancy_timeout_minutes", default=30): int,
-                vol.Optional("occupancy_setback_temp", default=18.0): vol.Coerce(float),
+                vol.Optional("occupancy_setback_temp", default=2.0): vol.Coerce(float),
                 vol.Optional("restore_delay_minutes", default=0): int,
                 vol.Optional("room_type", default="generic"): str,
                 vol.Optional("circuit_ids", default=[]): [str],

@@ -195,7 +195,7 @@ async def test_occupancy_setback(hass: HomeAssistant, hass_ws_client: Any, freez
             "window_sensors": [],
             "presence_sensors": [PRESENCE_ID],
             "occupancy_timeout_minutes": 1,
-            "occupancy_setback_temp": 15.0,
+            "occupancy_setback_temp": 5.0,
         }
     )
     await client.receive_json()

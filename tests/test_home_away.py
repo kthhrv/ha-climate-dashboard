@@ -36,7 +36,7 @@ async def test_home_away_manual_toggle(hass: HomeAssistant) -> None:
         window_sensors=[],
         presence_sensors=[],
         occupancy_timeout_minutes=30,
-        occupancy_setback_temp=18.0,
+        occupancy_setback_temp=2.0,
     )
 
     # Mock services correctly
@@ -98,7 +98,7 @@ async def test_home_away_dual_mode(hass: Any) -> None:
         window_sensors=[],
         presence_sensors=[],
         occupancy_timeout_minutes=30,
-        occupancy_setback_temp=18.0,
+        occupancy_setback_temp=2.0,
     )
 
     # Mock Sensor State

@@ -68,7 +68,7 @@ async def async_setup_entry(
                         window_sensors=zone_config["window_sensors"],
                         presence_sensors=zone_config.get("presence_sensors", []),
                         occupancy_timeout_minutes=zone_config.get("occupancy_timeout_minutes", 30),
-                        occupancy_setback_temp=zone_config.get("occupancy_setback_temp", 18.0),
+                        occupancy_setback_temp=zone_config.get("occupancy_setback_temp", 2.0),
                         schedule=zone_config.get("schedule"),
                     )
                 )
@@ -86,7 +86,7 @@ async def async_setup_entry(
                     window_sensors=zone_config["window_sensors"],
                     presence_sensors=zone_config.get("presence_sensors", []),
                     occupancy_timeout_minutes=zone_config.get("occupancy_timeout_minutes", 30),
-                    occupancy_setback_temp=zone_config.get("occupancy_setback_temp", 18.0),
+                    occupancy_setback_temp=zone_config.get("occupancy_setback_temp", 2.0),
                     schedule=zone_config.get("schedule"),
                 )
                 loaded_entities[uid] = entity
