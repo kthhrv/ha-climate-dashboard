@@ -1,5 +1,6 @@
 import { LitElement, html, css, TemplateResult } from "lit";
 import { property, state } from "lit/decorators.js";
+import { DataEngine } from "./data-engine";
 
 interface HistorySegment {
   state: string;
@@ -17,6 +18,7 @@ interface TempPoint {
 }
 
 interface ZoneHistory {
+  entity_id: string;
   name: string;
   segments: HistorySegment[];
   tempPoints: TempPoint[];
@@ -24,10 +26,16 @@ interface ZoneHistory {
   maxTemp: number;
 }
 
+interface HistoryGroup {
+  floorName: string | null;
+  floorIcon: string | null;
+  zones: ZoneHistory[];
+}
+
 export class HistoryView extends LitElement {
   @property({ attribute: false }) public hass!: any;
 
-  @state() private _zonesHistory: ZoneHistory[] = [];
+  @state() private _historyGroups: HistoryGroup[] = [];
   @state() private _isLoading = false;
   @state() private _error: string | null = null;
   @state() private _duration = 3; // hours (default 3 hours)
@@ -110,18 +118,34 @@ export class HistoryView extends LitElement {
       overflow-y: auto;
       padding-right: 8px;
     }
+    .floor-header {
+      margin-top: 24px;
+      margin-bottom: 12px;
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: var(--primary-text-color);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid var(--divider-color, #eee);
+      padding-bottom: 4px;
+    }
+    .floor-header:first-child {
+      margin-top: 0;
+    }
     .zone-row {
-      margin-bottom: 32px;
+      margin-bottom: 24px;
+      padding-left: 8px;
     }
     .zone-name {
       font-weight: 500;
       margin-bottom: 8px;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       display: flex;
       justify-content: space-between;
     }
     .timeline-track {
-      height: 40px;
+      height: 36px;
       background: #f5f5f5;
       border-radius: 6px;
       position: relative;
@@ -244,16 +268,20 @@ export class HistoryView extends LitElement {
     this._isLoading = true;
     this._error = null;
     try {
-      const zones = Object.values(this.hass.states).filter(
-        (s: any) => s.attributes.is_climate_dashboard_zone,
-      );
+      const groupedZones = DataEngine.getGroupedZones(this.hass);
 
-      if (zones.length === 0) {
+      if (groupedZones.length === 0) {
         this._isLoading = false;
+        this._historyGroups = [];
         return;
       }
 
-      const entityIds = zones.map((z: any) => z.entity_id);
+      // Collect all entity IDs in order
+      const entityIds: string[] = [];
+      groupedZones.forEach((g) => {
+        g.zones.forEach((z) => entityIds.push(z.entity_id));
+      });
+
       const end = new Date();
       const endTime = end.getTime();
       const start = new Date(endTime - this._duration * 60 * 60 * 1000);
@@ -265,132 +293,138 @@ export class HistoryView extends LitElement {
         `history/period/${start.toISOString()}?filter_entity_id=${entityIds.join(",")}&end_time=${end.toISOString()}`,
       );
 
-      // Transform data manually
-      this._zonesHistory = data
-        .map((states: any[]) => {
-          if (!states || states.length === 0) return null;
+      // Map raw history data back to entities
+      const historyMap: Record<string, ZoneHistory> = {};
 
-          const entityId = states[0].entity_id;
-          const name =
-            this.hass.states[entityId]?.attributes?.friendly_name || entityId;
+      data.forEach((entityStates: any[]) => {
+        if (!entityStates || entityStates.length === 0) return;
 
-          const segments: HistorySegment[] = [];
-          const tempPoints: TempPoint[] = [];
+        const entityId = entityStates[0].entity_id;
+        const name =
+          this.hass.states[entityId]?.attributes?.friendly_name || entityId;
 
-          // Temperature Bounds
-          let minTemp = 100;
-          let maxTemp = -100;
-          const rawPoints: { t: number; v: number }[] = [];
+        const segments: HistorySegment[] = [];
+        const tempPoints: TempPoint[] = [];
 
-          // Iterate states to build segments and collect temps
-          for (let i = 0; i < states.length; i++) {
-            const s = states[i];
-            const nextS = states[i + 1];
-            const sTime = new Date(s.last_changed).getTime();
+        let minTemp = 100;
+        let maxTemp = -100;
+        const rawPoints: { t: number; v: number }[] = [];
 
-            // --- Segment Logic ---
-            const segmentStart = Math.max(sTime, startTime);
-            let segmentEnd = nextS
-              ? new Date(nextS.last_changed).getTime()
-              : endTime;
-            segmentEnd = Math.min(segmentEnd, endTime);
+        for (let i = 0; i < entityStates.length; i++) {
+          const s = entityStates[i];
+          const nextS = entityStates[i + 1];
+          const sTime = new Date(s.last_changed).getTime();
 
-            if (segmentEnd > segmentStart) {
-              // Determine Properties
-              let colorClass = "color-unknown";
-              let tooltipState = String(s.state);
-              const attrs = s.attributes || {};
-              const action = attrs.hvac_action;
+          const segmentStart = Math.max(sTime, startTime);
+          let segmentEnd = nextS
+            ? new Date(nextS.last_changed).getTime()
+            : endTime;
+          segmentEnd = Math.min(segmentEnd, endTime);
 
-              if (attrs.safety_mode) {
-                colorClass = "color-safety";
-                tooltipState = "Safety Mode";
-              } else if (attrs.active_intent_source === "away_mode") {
-                colorClass = "color-away";
-                tooltipState = "Global Away Mode";
-              } else if (attrs.open_window_sensor) {
-                colorClass = "color-window";
-                tooltipState = `Window Open (${attrs.open_window_sensor})`;
-              } else if (attrs.active_intent_source === "occupancy_setback") {
-                colorClass = "color-occupancy";
-                tooltipState = "Occupancy Setback";
-              } else if (action === "heating") {
-                colorClass = "color-heat";
-                tooltipState = `Heating (${s.state})`;
-              } else if (action === "cooling") {
-                colorClass = "color-cool";
-                tooltipState = `Cooling (${s.state})`;
-              } else {
-                const stateLower = String(s.state).toLowerCase();
-                if (stateLower === "heat") colorClass = "color-heat";
-                else if (stateLower === "cool") colorClass = "color-cool";
-                else if (stateLower === "off") colorClass = "color-off";
-                else if (stateLower === "auto") colorClass = "color-auto";
-                else if (stateLower === "idle") colorClass = "color-idle";
-                else if (stateLower === "unavailable")
-                  colorClass = "color-unknown";
-              }
+          if (segmentEnd > segmentStart) {
+            let colorClass = "color-unknown";
+            let tooltipState = String(s.state);
+            const attrs = s.attributes || {};
+            const action = attrs.hvac_action;
 
-              // Merge or Push
-              const lastSeg = segments[segments.length - 1];
-              if (
-                lastSeg &&
-                lastSeg.color === colorClass &&
-                lastSeg.tooltip === tooltipState
-              ) {
-                lastSeg.end = segmentEnd;
-                lastSeg.width =
-                  ((lastSeg.end - lastSeg.start) / totalDuration) * 100;
-              } else {
-                const duration = segmentEnd - segmentStart;
-                const width = (duration / totalDuration) * 100;
-                segments.push({
-                  state: s.state,
-                  tooltip: tooltipState,
-                  start: segmentStart,
-                  end: segmentEnd,
-                  width,
-                  color: colorClass,
-                });
-              }
+            if (attrs.safety_mode) {
+              colorClass = "color-safety";
+              tooltipState = "Safety Mode";
+            } else if (attrs.active_intent_source === "away_mode") {
+              colorClass = "color-away";
+              tooltipState = "Global Away Mode";
+            } else if (attrs.open_window_sensor) {
+              colorClass = "color-window";
+              tooltipState = `Window Open (${attrs.open_window_sensor})`;
+            } else if (attrs.active_intent_source === "occupancy_setback") {
+              colorClass = "color-occupancy";
+              tooltipState = "Occupancy Setback";
+            } else if (action === "heating") {
+              colorClass = "color-heat";
+              tooltipState = `Heating (${s.state})`;
+            } else if (action === "cooling") {
+              colorClass = "color-cool";
+              tooltipState = `Cooling (${s.state})`;
+            } else {
+              const stateLower = String(s.state).toLowerCase();
+              if (stateLower === "heat") colorClass = "color-heat";
+              else if (stateLower === "cool") colorClass = "color-cool";
+              else if (stateLower === "off") colorClass = "color-off";
+              else if (stateLower === "auto") colorClass = "color-auto";
+              else if (stateLower === "idle") colorClass = "color-idle";
+              else if (stateLower === "unavailable")
+                colorClass = "color-unknown";
             }
 
-            // --- Temperature Logic ---
-            const val = parseFloat(s.attributes?.current_temperature);
-            if (!isNaN(val)) {
-              rawPoints.push({ t: sTime, v: val });
-              if (val < minTemp) minTemp = val;
-              if (val > maxTemp) maxTemp = val;
+            const lastSeg = segments[segments.length - 1];
+            if (
+              lastSeg &&
+              lastSeg.color === colorClass &&
+              lastSeg.tooltip === tooltipState
+            ) {
+              lastSeg.end = segmentEnd;
+              lastSeg.width =
+                ((lastSeg.end - lastSeg.start) / totalDuration) * 100;
+            } else {
+              const duration = segmentEnd - segmentStart;
+              const width = (duration / totalDuration) * 100;
+              segments.push({
+                state: s.state,
+                tooltip: tooltipState,
+                start: segmentStart,
+                end: segmentEnd,
+                width,
+                color: colorClass,
+              });
             }
           }
 
-          // Normalize Temp Range
-          if (minTemp > maxTemp) {
-            minTemp = 18;
-            maxTemp = 24;
-          } else {
-            minTemp = Math.floor(minTemp - 1);
-            maxTemp = Math.ceil(maxTemp + 1);
+          const val = parseFloat(s.attributes?.current_temperature);
+          if (!isNaN(val)) {
+            rawPoints.push({ t: sTime, v: val });
+            if (val < minTemp) minTemp = val;
+            if (val > maxTemp) maxTemp = val;
           }
-          const yRange = maxTemp - minTemp || 1;
+        }
 
-          // Process Temp Points for SVG
-          rawPoints.sort((a, b) => a.t - b.t);
+        if (minTemp > maxTemp) {
+          minTemp = 18;
+          maxTemp = 24;
+        } else {
+          minTemp = Math.floor(minTemp - 1);
+          maxTemp = Math.ceil(maxTemp + 1);
+        }
+        const yRange = maxTemp - minTemp || 1;
 
-          for (const p of rawPoints) {
-            const t = Math.max(p.t, startTime);
-            if (t > endTime) break;
+        rawPoints.sort((a, b) => a.t - b.t);
+        for (const p of rawPoints) {
+          const t = Math.max(p.t, startTime);
+          if (t > endTime) break;
+          const x = ((t - startTime) / totalDuration) * 100;
+          const y = 100 - ((p.v - minTemp) / yRange) * 100;
+          tempPoints.push({ x, y, val: p.v });
+        }
 
-            const x = ((t - startTime) / totalDuration) * 100;
-            // Invert Y because SVG 0 is top
-            const y = 100 - ((p.v - minTemp) / yRange) * 100;
+        historyMap[entityId] = {
+          entity_id: entityId,
+          name,
+          segments,
+          tempPoints,
+          minTemp,
+          maxTemp,
+        };
+      });
 
-            tempPoints.push({ x, y, val: p.v });
-          }
-
-          return { name, segments, tempPoints, minTemp, maxTemp };
-        })
-        .filter(Boolean);
+      // Build final groups
+      this._historyGroups = groupedZones
+        .map((g) => ({
+          floorName: g.floorName,
+          floorIcon: g.floorIcon,
+          zones: g.zones
+            .map((z) => historyMap[z.entity_id])
+            .filter((zh) => zh !== undefined),
+        }))
+        .filter((g) => g.zones.length > 0);
     } catch (e: any) {
       console.error("History fetch error:", e);
       this._error = "Failed to load history data.";
@@ -479,33 +513,47 @@ export class HistoryView extends LitElement {
             : ""}
           ${this._error ? html`<div class="error">${this._error}</div>` : ""}
           ${!this._isLoading && !this._error
-            ? this._zonesHistory.map(
-                (zone) => html`
-                  <div class="zone-row">
-                    <div class="zone-name">
-                      <span>${zone.name}</span>
-                    </div>
-                    <div style="position: relative; margin-right: 30px;">
-                      <!-- wrapper for labels -->
-                      <div class="timeline-track">
-                        ${zone.segments.map(
-                          (seg) => html`
-                            <div
-                              class="segment ${seg.color}"
-                              style="width: ${seg.width}%"
-                              title="${seg.tooltip} (${this._formatDuration(
-                                seg.end - seg.start,
-                              )})
+            ? this._historyGroups.map(
+                (group) => html`
+                  ${group.floorName
+                    ? html`
+                        <div class="floor-header">
+                          <ha-icon
+                            .icon=${group.floorIcon || "mdi:home-floor-1"}
+                          ></ha-icon>
+                          ${group.floorName}
+                        </div>
+                      `
+                    : ""}
+                  ${group.zones.map(
+                    (zone) => html`
+                      <div class="zone-row">
+                        <div class="zone-name">
+                          <span>${zone.name}</span>
+                        </div>
+                        <div style="position: relative; margin-right: 30px;">
+                          <!-- wrapper for labels -->
+                          <div class="timeline-track">
+                            ${zone.segments.map(
+                              (seg) => html`
+                                <div
+                                  class="segment ${seg.color}"
+                                  style="width: ${seg.width}%"
+                                  title="${seg.tooltip} (${this._formatDuration(
+                                    seg.end - seg.start,
+                                  )})
 ${new Date(seg.start).toLocaleTimeString()} - ${new Date(
-                                seg.end,
-                              ).toLocaleTimeString()}"
-                            ></div>
-                          `,
-                        )}
-                        ${this._renderTemperatureOverlay(zone)}
+                                    seg.end,
+                                  ).toLocaleTimeString()}"
+                                ></div>
+                              `,
+                            )}
+                            ${this._renderTemperatureOverlay(zone)}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    `,
+                  )}
                 `,
               )
             : ""}
@@ -546,7 +594,7 @@ ${new Date(seg.start).toLocaleTimeString()} - ${new Date(
           </div>
           <div class="legend-item">
             <div
-              style="width: 20px; height: 2px; background: var(--primary-text-color); opacity: 0.7;"
+              style="width: 20px; height: 2px; background: #000; opacity: 1;"
             ></div>
             Temp
           </div>
