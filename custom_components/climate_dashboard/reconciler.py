@@ -163,8 +163,11 @@ class Reconciler:
 
         # Execute
         commands = []
+        latch = self.get_latch(entity_id)
+
         if state.state != target_mode:
             commands.append(("set_hvac_mode", {"hvac_mode": target_mode}))
+            latch.mode = target_mode
 
         if target_temp is not None:
             # Check bounds
@@ -178,13 +181,12 @@ class Reconciler:
             current_temp_setting = state.attributes.get(ATTR_TEMPERATURE)
             if current_temp_setting is None or abs(float(current_temp_setting) - target_temp) > 0.1:
                 commands.append(("set_temperature", {ATTR_TEMPERATURE: target_temp}))
+                latch.target = target_temp
 
         for service, data in commands:
             data[ATTR_ENTITY_ID] = entity_id
             _LOGGER.debug("Reconciler: Actuator %s -> %s %s", entity_id, service, data)
-            # We don't latch actuators because we own them exclusively?
-            # Actually, we should probably latch if we want to avoid fighting manual overrides?
-            # But the premise is we own them.
+            latch.timestamp = datetime.now()
             await self.hass.services.async_call("climate", service, data)
 
     def is_echo(self, entity_id: str, new_state: Any) -> bool:
@@ -196,7 +198,7 @@ class Reconciler:
             return False
 
         # Expiry: If the report is very old, it's not an echo of a recent command
-        if datetime.now() - latch.timestamp > timedelta(seconds=10):
+        if datetime.now() - latch.timestamp > timedelta(seconds=30):
             return False
 
         # Hard Ignore Period (e.g. 5 seconds)
