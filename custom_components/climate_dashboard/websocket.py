@@ -386,7 +386,28 @@ def websocket_list_circuits(
         return
 
     storage = hass.data[DOMAIN]["storage"]
-    connection.send_result(msg["id"], storage.circuits)
+    active_circuits = hass.data[DOMAIN].get("circuits", [])
+
+    # Enhance circuit data with runtime state
+    response = []
+    for circuit_conf in storage.circuits:
+        data = circuit_conf.copy()
+
+        # Find active instance
+        active = next((c for c in active_circuits if c.id == data["id"]), None)
+        data["is_active"] = active.is_active if active else False
+
+        # Resolve Member Zone Names
+        zone_names = []
+        for z_id in data.get("member_zones", []):
+            z = next((z for z in storage.zones if z["unique_id"] == z_id), None)
+            if z:
+                zone_names.append(z["name"])
+
+        data["member_zone_names"] = zone_names
+        response.append(data)
+
+    connection.send_result(msg["id"], response)
 
 
 @callback

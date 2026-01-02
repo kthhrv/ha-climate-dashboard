@@ -58,6 +58,11 @@ class HeatingCircuit:
         """Return list of member zone unique IDs."""
         return self._config["member_zones"]
 
+    @property
+    def is_active(self) -> bool:
+        """Return True if circuit is currently active (heating)."""
+        return self._is_active
+
     async def async_initialize(self) -> None:
         """Initialize by finding zone entities and starting listeners."""
         # Listen for storage changes to handle dynamic updates (e.g. adding zones)

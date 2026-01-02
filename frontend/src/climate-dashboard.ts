@@ -22,6 +22,7 @@ export class ClimateDashboard extends LitElement {
   @state() private _editingZoneId: string | null = null;
   @state() private _unmanagedCount = 0;
   @state() private _isAwayMode = false;
+  @state() private _circuits: any[] = [];
 
   static styles = css`
     :host {
@@ -71,6 +72,7 @@ export class ClimateDashboard extends LitElement {
     }
     .center-toggle {
       display: flex;
+      align-items: center;
       background: var(--card-background-color, white);
       border-radius: 24px;
       padding: 4px;
@@ -105,6 +107,28 @@ export class ClimateDashboard extends LitElement {
     }
     .toggle-option.away.active {
       background: var(--warning-color, #ff9800);
+    }
+    .circuit-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-left: 12px;
+      padding-right: 12px;
+      border-left: 1px solid var(--divider-color, #eee);
+      height: 32px;
+    }
+    .circuit-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background-color: var(--disabled-text-color, #bdbdbd);
+      cursor: help;
+      transition: all 0.3s ease;
+    }
+    .circuit-indicator.active {
+      background-color: var(--success-color, #4caf50);
+      box-shadow: 0 0 6px var(--success-color, #4caf50);
+      transform: scale(1.1);
     }
     .badge {
       position: absolute;
@@ -217,6 +241,7 @@ export class ClimateDashboard extends LitElement {
   protected firstUpdated(): void {
     this._scanForBadge();
     this._fetchGlobalSettings();
+    this._fetchCircuits();
   }
 
   private async _fetchGlobalSettings() {
@@ -228,6 +253,17 @@ export class ClimateDashboard extends LitElement {
       this._isAwayMode = settings.is_away_mode_on;
     } catch (e) {
       console.error("Failed to fetch settings", e);
+    }
+  }
+
+  private async _fetchCircuits() {
+    if (!this.hass) return;
+    try {
+      this._circuits = await this.hass.callWS({
+        type: "climate_dashboard/circuit/list",
+      });
+    } catch (e) {
+      console.error("Failed to fetch circuits", e);
     }
   }
 
@@ -356,6 +392,24 @@ export class ClimateDashboard extends LitElement {
                     <ha-icon icon="mdi:walk"></ha-icon>
                     <span>Away</span>
                   </button>
+                  ${this._circuits.length > 0
+                    ? html`
+                        <div class="circuit-container">
+                          ${this._circuits.map(
+                            (c) => html`
+                              <div
+                                class="circuit-indicator ${c.is_active
+                                  ? "active"
+                                  : ""}"
+                                title="${c.name}: ${c.member_zone_names.join(
+                                  ", ",
+                                ) || "No zones"}"
+                              ></div>
+                            `,
+                          )}
+                        </div>
+                      `
+                    : ""}
                 </div>
               `
             : ""}
