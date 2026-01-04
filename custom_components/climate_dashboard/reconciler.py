@@ -136,17 +136,17 @@ class Reconciler:
         target_temp = None
 
         if should_heat:
-            if HVACMode.AUTO in valid_modes:
-                target_mode = HVACMode.AUTO
-            elif HVACMode.HEAT in valid_modes:
+            if HVACMode.HEAT in valid_modes:
                 target_mode = HVACMode.HEAT
+            elif HVACMode.AUTO in valid_modes:
+                target_mode = HVACMode.AUTO
             target_temp = 30.0  # Force Open
 
         elif should_cool:
-            if HVACMode.AUTO in valid_modes:
-                target_mode = HVACMode.AUTO
-            elif HVACMode.COOL in valid_modes:
+            if HVACMode.COOL in valid_modes:
                 target_mode = HVACMode.COOL
+            elif HVACMode.AUTO in valid_modes:
+                target_mode = HVACMode.AUTO
             target_temp = 16.0  # Force Open (Cool)
 
         else:
