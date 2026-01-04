@@ -151,8 +151,15 @@ class Reconciler:
 
         else:
             # OFF state
-            # Preference: Turn OFF if supported.
-            if HVACMode.OFF in valid_modes:
+            # Preference: Use AUTO mode with a low setpoint (7.0) to ensure the valve closes.
+            # Many TRVs (like Shelly) might not close fully or might stop reporting position correctly in OFF mode.
+            if HVACMode.AUTO in valid_modes:
+                target_mode = HVACMode.AUTO
+                target_temp = 7.0
+            elif HVACMode.HEAT in valid_modes:
+                target_mode = HVACMode.HEAT
+                target_temp = 7.0
+            elif HVACMode.OFF in valid_modes:
                 target_mode = HVACMode.OFF
             else:
                 # Fallback: Set to "safe" temp to close valve

@@ -95,6 +95,9 @@ async def test_kitchen_heater(hass: HomeAssistant) -> None:
         "thermostats": [],
         "coolers": [],
         "window_sensors": [],
+        "presence_sensors": [],
+        "occupancy_timeout_minutes": 30,
+        "occupancy_setback_temp": 2.0,
         "schedule": [
             {
                 "name": "Day",
@@ -140,6 +143,9 @@ async def test_office_dual(hass: HomeAssistant) -> None:
         "thermostats": [],
         "coolers": ["climate.office_ac"],
         "window_sensors": [],
+        "presence_sensors": [],
+        "occupancy_timeout_minutes": 30,
+        "occupancy_setback_temp": 2.0,
         "schedule": [
             {
                 "name": "Day",
@@ -205,6 +211,9 @@ async def test_guest_dial_sync(hass: HomeAssistant) -> None:
         "thermostats": ["climate.guest_dial"],
         "coolers": [],
         "window_sensors": [],
+        "presence_sensors": [],
+        "occupancy_timeout_minutes": 30,
+        "occupancy_setback_temp": 2.0,
         "schedule": [
             {
                 "name": "Day",
@@ -263,6 +272,9 @@ async def test_guest_room_actuation(hass: HomeAssistant) -> None:
         "thermostats": [GUEST_DIAL],
         "coolers": [GUEST_AC],
         "window_sensors": [],
+        "presence_sensors": [],
+        "occupancy_timeout_minutes": 30,
+        "occupancy_setback_temp": 2.0,
         "schedule": [
             {
                 "name": "Day",
@@ -341,16 +353,18 @@ async def test_guest_room_actuation(hass: HomeAssistant) -> None:
         # Simulate AC responding
         hass.states.async_set(GUEST_AC, HVACMode.COOL, {"hvac_modes": [HVACMode.OFF, HVACMode.COOL]})
 
-        # Verify TRV OFF
-        trv_off_calls = [
+        # Verify TRV OFF (Actually Force Closed via AUTO/HEAT + 7.0C)
+        trv_close_calls = [
             c
             for c in call_mock.call_args_list
             if c.args[0] == "climate"
             and c.args[2][ATTR_ENTITY_ID] == GUEST_TRV
-            and c.args[1] == "set_hvac_mode"
-            and c.args[2]["hvac_mode"] == HVACMode.OFF
+            and (
+                (c.args[1] == "set_hvac_mode" and c.args[2]["hvac_mode"] in (HVACMode.AUTO, HVACMode.HEAT))
+                or (c.args[1] == "set_temperature" and c.args[2][ATTR_TEMPERATURE] == 7.0)
+            )
         ]
-        assert len(trv_off_calls) > 0
+        assert len(trv_close_calls) > 0
 
 
 @pytest.mark.asyncio
@@ -406,17 +420,17 @@ async def test_window_safety(hass: HomeAssistant) -> None:
         assert zone.state == HVACMode.OFF
         assert zone.attributes["hvac_action"] == HVACAction.OFF
 
-        # Verify TRV OFF Command
+        # Verify TRV OFF Command (Actually Force Closed via AUTO/HEAT + 7.0C)
         trv_calls = [
             c
             for c in call_mock.call_args_list
             if c.args[0] == "climate"
             and c.args[2][ATTR_ENTITY_ID] == KITCHEN_TRV
-            and c.args[1] == "set_hvac_mode"
-            and c.args[2]["hvac_mode"] == HVACMode.OFF
+            and (
+                (c.args[1] == "set_hvac_mode" and c.args[2]["hvac_mode"] in (HVACMode.AUTO, HVACMode.HEAT))
+                or (c.args[1] == "set_temperature" and c.args[2][ATTR_TEMPERATURE] == 7.0)
+            )
         ]
-        # Or set_temp(7) if OFF not supported?
-        # We mocked TRV to support OFF.
         assert len(trv_calls) > 0
 
 
@@ -444,6 +458,9 @@ async def test_trv_revert_correction(hass: HomeAssistant) -> None:
         "thermostats": [],
         "coolers": [],
         "window_sensors": [],
+        "presence_sensors": [],
+        "occupancy_timeout_minutes": 30,
+        "occupancy_setback_temp": 2.0,
         "schedule": [
             {
                 "name": "Day",
@@ -498,6 +515,9 @@ async def test_override_expiration(hass: HomeAssistant) -> None:
         "thermostats": [],
         "coolers": [],
         "window_sensors": [],
+        "presence_sensors": [],
+        "occupancy_timeout_minutes": 30,
+        "occupancy_setback_temp": 2.0,
         "schedule": [{"name": "Day", "days": ["mon"], "start_time": "00:00", "temp_heat": 18.0, "temp_cool": 25.0}],
     }
 
@@ -575,6 +595,9 @@ async def test_heating_circuit_logic(hass: HomeAssistant) -> None:
         "thermostats": [],
         "coolers": [],
         "window_sensors": [],
+        "presence_sensors": [],
+        "occupancy_timeout_minutes": 30,
+        "occupancy_setback_temp": 2.0,
         "schedule": [],
     }
     z2_config = {
@@ -585,6 +608,9 @@ async def test_heating_circuit_logic(hass: HomeAssistant) -> None:
         "thermostats": [],
         "coolers": [],
         "window_sensors": [],
+        "presence_sensors": [],
+        "occupancy_timeout_minutes": 30,
+        "occupancy_setback_temp": 2.0,
         "schedule": [],
     }
     circuit_config = {
@@ -705,6 +731,9 @@ async def test_override_disabled(hass: HomeAssistant) -> None:
                 "thermostats": [],
                 "coolers": [],
                 "window_sensors": [],
+                "presence_sensors": [],
+                "occupancy_timeout_minutes": 30,
+                "occupancy_setback_temp": 2.0,
                 "schedule": [
                     {"name": "Day", "days": ["mon"], "start_time": "00:00", "temp_heat": 18.0, "temp_cool": 25.0}
                 ],
@@ -772,6 +801,9 @@ async def test_manual_dial_expiration(hass: HomeAssistant) -> None:
         "thermostats": [DIAL_ID],
         "coolers": [],
         "window_sensors": [],
+        "presence_sensors": [],
+        "occupancy_timeout_minutes": 30,
+        "occupancy_setback_temp": 2.0,
         "schedule": [{"name": "Day", "days": ["mon"], "start_time": "00:00", "temp_heat": 18.0, "temp_cool": 25.0}],
     }
 
@@ -852,6 +884,9 @@ async def test_away_mode_priority(hass: HomeAssistant) -> None:
         "thermostats": [],
         "coolers": [],
         "window_sensors": [],
+        "presence_sensors": [],
+        "occupancy_timeout_minutes": 30,
+        "occupancy_setback_temp": 2.0,
         "schedule": [{"name": "Day", "days": ["mon"], "start_time": "00:00", "temp_heat": 20.0, "temp_cool": 25.0}],
     }
 
@@ -930,6 +965,9 @@ async def test_dial_setpoint_conflict(hass: HomeAssistant) -> None:
         "thermostats": [DIAL_ID],
         "coolers": ["climate.dummy"],
         "window_sensors": [],
+        "presence_sensors": [],
+        "occupancy_timeout_minutes": 30,
+        "occupancy_setback_temp": 2.0,
         "schedule": [{"name": "Day", "days": ["mon"], "start_time": "00:00", "temp_heat": 21.0, "temp_cool": 24.0}],
     }
 
@@ -1001,6 +1039,9 @@ async def test_fallback_logic(
         "thermostats": [],
         "coolers": [],
         "window_sensors": [],
+        "presence_sensors": [],
+        "occupancy_timeout_minutes": 30,
+        "occupancy_setback_temp": 2.0,
         "schedule": [],
     }
 
@@ -1052,6 +1093,9 @@ async def test_fallback_safety_mode(
         "thermostats": [],
         "coolers": [],
         "window_sensors": [],
+        "presence_sensors": [],
+        "occupancy_timeout_minutes": 30,
+        "occupancy_setback_temp": 2.0,
         "schedule": [],
     }
 
