@@ -366,6 +366,40 @@ async def test_guest_room_actuation(hass: HomeAssistant) -> None:
         ]
         assert len(trv_close_calls) > 0
 
+        # --- IDLE (Stop Cooling) ---
+        # Raise Dial temp to 28.0 (Above 27.0)
+        call_mock.reset_mock()
+        hass.states.async_set(
+            GUEST_DIAL,
+            HVACMode.COOL,
+            {
+                ATTR_TEMPERATURE: 28.0,
+                "current_temperature": 27.0,
+                "hvac_modes": [HVACMode.OFF, HVACMode.HEAT, HVACMode.COOL],
+                "supported_features": ClimateEntityFeature.TARGET_TEMPERATURE,
+            },
+        )
+        await hass.async_block_till_done()
+
+        zone = hass.states.get(ENTITY_ID)
+        assert zone.attributes["hvac_action"] == HVACAction.IDLE
+
+        # Verify AC Force Closed (COOL + 30.0C) or OFF
+        ac_close_calls = [
+            c
+            for c in call_mock.call_args_list
+            if c.args[0] == "climate"
+            and c.args[2][ATTR_ENTITY_ID] == GUEST_AC
+            and (
+                (
+                    c.args[1] == "set_hvac_mode"
+                    and c.args[2]["hvac_mode"] in (HVACMode.COOL, HVACMode.AUTO, HVACMode.OFF)
+                )
+                or (c.args[1] == "set_temperature" and c.args[2][ATTR_TEMPERATURE] == 30.0)
+            )
+        ]
+        assert len(ac_close_calls) > 0
+
 
 @pytest.mark.asyncio
 async def test_window_safety(hass: HomeAssistant) -> None:

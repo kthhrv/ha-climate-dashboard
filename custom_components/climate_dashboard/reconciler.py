@@ -119,7 +119,11 @@ class Reconciler:
             await self.hass.services.async_call("switch", service, {ATTR_ENTITY_ID: entity_id})
 
     async def reconcile_climate_actuator(
-        self, entity_id: str, should_heat: bool = False, should_cool: bool = False
+        self,
+        entity_id: str,
+        should_heat: bool = False,
+        should_cool: bool = False,
+        is_cooler: bool = False,
     ) -> None:
         """
         Control a climate device acting as a dumb actuator.
@@ -151,22 +155,32 @@ class Reconciler:
 
         else:
             # OFF state
-            # Preference: Use AUTO mode with a low setpoint (7.0) to ensure the valve closes.
-            # Many TRVs (like Shelly) might not close fully or might stop reporting position correctly in OFF mode.
-            if HVACMode.AUTO in valid_modes:
-                target_mode = HVACMode.AUTO
-                target_temp = 7.0
-            elif HVACMode.HEAT in valid_modes:
-                target_mode = HVACMode.HEAT
-                target_temp = 7.0
-            elif HVACMode.OFF in valid_modes:
-                target_mode = HVACMode.OFF
+            if is_cooler:
+                # For Coolers: Set to COOL and High Temp (30C) to ensure it stops cooling (valve closes)
+                if HVACMode.COOL in valid_modes:
+                    target_mode = HVACMode.COOL
+                    target_temp = 30.0
+                elif HVACMode.AUTO in valid_modes:
+                    target_mode = HVACMode.AUTO
+                    target_temp = 30.0
+                elif HVACMode.OFF in valid_modes:
+                    target_mode = HVACMode.OFF
+                else:
+                    target_mode = state.state
+                    target_temp = 30.0
             else:
-                # Fallback: Set to "safe" temp to close valve
-                # If it was heating, set to min (7C). If cooling, set to max (30C).
-                # We assume heating default.
-                target_mode = state.state  # Keep current mode?
-                target_temp = 7.0
+                # For Heaters: Set to HEAT and Low Temp (7C) to ensure it stops heating (valve closes)
+                if HVACMode.HEAT in valid_modes:
+                    target_mode = HVACMode.HEAT
+                    target_temp = 7.0
+                elif HVACMode.AUTO in valid_modes:
+                    target_mode = HVACMode.AUTO
+                    target_temp = 7.0
+                elif HVACMode.OFF in valid_modes:
+                    target_mode = HVACMode.OFF
+                else:
+                    target_mode = state.state
+                    target_temp = 7.0
 
         # Execute
         commands = []

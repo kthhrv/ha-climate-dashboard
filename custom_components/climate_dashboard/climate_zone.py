@@ -753,7 +753,9 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             for eid in self._coolers:
                 domain = eid.split(".")[0]
                 if domain == "climate":
-                    await self._reconciler.reconcile_climate_actuator(eid, should_heat=False, should_cool=should_cool)
+                    await self._reconciler.reconcile_climate_actuator(
+                        eid, should_heat=False, should_cool=should_cool, is_cooler=True
+                    )
 
     @callback
     def _async_sensor_changed(self, event: Any) -> None:
