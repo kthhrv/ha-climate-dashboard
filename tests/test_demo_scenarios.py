@@ -1151,3 +1151,88 @@ async def test_fallback_safety_mode(
     assert state.attributes["current_temperature"] is None
     assert state.attributes["using_fallback_sensor"] is None
     assert state.attributes["safety_mode"] is True
+
+
+@pytest.mark.asyncio
+async def test_pid_window_control(hass: HomeAssistant) -> None:
+    """Scenario: PID-enabled Window Opener (Cooler) receives real setpoint."""
+    WINDOW_PID_ID = "climate.window_pid"
+    SENSOR_ID = "sensor.window_room_temp"
+
+    # 1. Setup Devices
+    hass.states.async_set(SENSOR_ID, "25.0")  # Hot
+    # PID Device with kp attribute
+    hass.states.async_set(
+        WINDOW_PID_ID,
+        HVACMode.OFF,
+        {
+            "hvac_modes": [HVACMode.OFF, HVACMode.COOL],
+            "kp": 10.0,  # Indicates PID
+            "supported_features": ClimateEntityFeature.TARGET_TEMPERATURE,
+        },
+    )
+
+    # 2. Setup Config
+    config: ClimateZoneConfig = {
+        "unique_id": "zone_pid_window",
+        "name": "PID Window Zone",
+        "temperature_sensor": SENSOR_ID,
+        "heaters": [],
+        "thermostats": [],
+        "coolers": [WINDOW_PID_ID],
+        "window_sensors": [],
+        "presence_sensors": [],
+        "occupancy_timeout_minutes": 30,
+        "occupancy_setback_temp": 2.0,
+        "schedule": [
+            {
+                "name": "Day",
+                "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+                "start_time": "00:00",
+                "temp_heat": 18.0,
+                "temp_cool": 22.0,
+            }
+        ],
+    }
+
+    # 3. Launch & Capture Calls
+    with patch("homeassistant.core.ServiceRegistry.async_call") as call_mock:
+        await setup_scenario(hass, [config])
+
+        # --- COOLING NEEDED ---
+        # Room=25.0, Target=22.0.
+        zone = hass.states.get("climate.zone_pid_window_zone")
+        assert zone.attributes["hvac_action"] == HVACAction.COOLING
+
+        # Verify Window received COOL command with REAL TARGET (22.0), not 16.0
+        pid_calls = [
+            c
+            for c in call_mock.call_args_list
+            if c.args[0] == "climate"
+            and c.args[2][ATTR_ENTITY_ID] == WINDOW_PID_ID
+            and c.args[1] == "set_temperature"
+            and c.args[2][ATTR_TEMPERATURE] == 22.0
+        ]
+        assert len(pid_calls) > 0, "PID device should receive real setpoint (22.0)"
+
+        # --- IDLE ---
+        # Drop temp to 21.0
+        call_mock.reset_mock()
+        hass.states.async_set(SENSOR_ID, "21.0")
+        await hass.async_block_till_done()
+
+        zone = hass.states.get("climate.zone_pid_window_zone")
+        assert zone.attributes["hvac_action"] == HVACAction.IDLE
+
+        # Verify Window OFF (Cool 30.0 or Off)
+        off_calls = [
+            c
+            for c in call_mock.call_args_list
+            if c.args[0] == "climate"
+            and c.args[2][ATTR_ENTITY_ID] == WINDOW_PID_ID
+            and (
+                (c.args[1] == "set_hvac_mode" and c.args[2]["hvac_mode"] == HVACMode.OFF)
+                or (c.args[1] == "set_temperature" and c.args[2][ATTR_TEMPERATURE] == 30.0)
+            )
+        ]
+        assert len(off_calls) > 0

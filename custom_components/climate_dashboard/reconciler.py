@@ -124,6 +124,7 @@ class Reconciler:
         should_heat: bool = False,
         should_cool: bool = False,
         is_cooler: bool = False,
+        device_setpoint: float | None = None,
     ) -> None:
         """
         Control a climate device acting as a dumb actuator.
@@ -136,6 +137,9 @@ class Reconciler:
         # Determine capabilities
         valid_modes = state.attributes.get("hvac_modes", [])
 
+        # Detect PID Controller (Smart Thermostat)
+        is_pid = "kp" in state.attributes or "pid_mode" in state.attributes
+
         target_mode = HVACMode.OFF
         target_temp = None
 
@@ -144,14 +148,24 @@ class Reconciler:
                 target_mode = HVACMode.HEAT
             elif HVACMode.AUTO in valid_modes:
                 target_mode = HVACMode.AUTO
-            target_temp = 30.0  # Force Open
+
+            # If PID, pass the real setpoint. Else force open.
+            if is_pid and device_setpoint is not None:
+                target_temp = device_setpoint
+            else:
+                target_temp = 30.0  # Force Open
 
         elif should_cool:
             if HVACMode.COOL in valid_modes:
                 target_mode = HVACMode.COOL
             elif HVACMode.AUTO in valid_modes:
                 target_mode = HVACMode.AUTO
-            target_temp = 16.0  # Force Open (Cool)
+
+            # If PID, pass the real setpoint. Else force open.
+            if is_pid and device_setpoint is not None:
+                target_temp = device_setpoint
+            else:
+                target_temp = 16.0  # Force Open (Cool)
 
         else:
             # OFF state

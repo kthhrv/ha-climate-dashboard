@@ -739,6 +739,13 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             should_heat = desired.action == HVACAction.HEATING
             should_cool = desired.action == HVACAction.COOLING
 
+            # Determine correct setpoint for PID devices
+            device_setpoint = desired.setpoints.target
+            if should_heat and device_setpoint is None:
+                device_setpoint = desired.setpoints.low
+            elif should_cool and device_setpoint is None:
+                device_setpoint = desired.setpoints.high
+
             # Heaters
             for eid in self._heaters:
                 domain = eid.split(".")[0]
@@ -747,14 +754,23 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                 elif domain == "climate":
                     # For TRVs: if heating, force open (30C). If not, force closed (7C).
                     # But if we are cooling, we MUST force closed.
-                    await self._reconciler.reconcile_climate_actuator(eid, should_heat=should_heat, should_cool=False)
+                    await self._reconciler.reconcile_climate_actuator(
+                        eid,
+                        should_heat=should_heat,
+                        should_cool=False,
+                        device_setpoint=device_setpoint,
+                    )
 
             # Coolers
             for eid in self._coolers:
                 domain = eid.split(".")[0]
                 if domain == "climate":
                     await self._reconciler.reconcile_climate_actuator(
-                        eid, should_heat=False, should_cool=should_cool, is_cooler=True
+                        eid,
+                        should_heat=False,
+                        should_cool=should_cool,
+                        is_cooler=True,
+                        device_setpoint=device_setpoint,
                     )
 
     @callback
