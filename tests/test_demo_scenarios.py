@@ -1215,6 +1215,17 @@ async def test_pid_window_control(hass: HomeAssistant) -> None:
         ]
         assert len(pid_calls) > 0, "PID device should receive real setpoint (22.0)"
 
+        # Simulate Device Responding
+        hass.states.async_set(
+            WINDOW_PID_ID,
+            HVACMode.COOL,
+            {
+                "hvac_modes": [HVACMode.OFF, HVACMode.COOL],
+                "kp": 10.0,
+                "supported_features": ClimateEntityFeature.TARGET_TEMPERATURE,
+            },
+        )
+
         # --- IDLE ---
         # Drop temp to 21.0
         call_mock.reset_mock()
@@ -1236,3 +1247,93 @@ async def test_pid_window_control(hass: HomeAssistant) -> None:
             )
         ]
         assert len(off_calls) > 0
+
+
+@pytest.mark.asyncio
+async def test_trv_force_actuation(hass: HomeAssistant) -> None:
+    """Scenario: TRV with force select entity is correctly managed."""
+    TRV_ID = "climate.force_trv"
+    FORCE_ID = "select.force_trv_force"
+    SENSOR_ID = "sensor.force_room_temp"
+
+    # 1. Setup Devices
+    hass.states.async_set(SENSOR_ID, "19.0")  # Cold
+    hass.states.async_set(TRV_ID, HVACMode.OFF, {"hvac_modes": [HVACMode.OFF, HVACMode.HEAT]})
+    hass.states.async_set(FORCE_ID, "normal")
+
+    # 2. Setup Config
+    config: ClimateZoneConfig = {
+        "unique_id": "zone_force",
+        "name": "Force Zone",
+        "temperature_sensor": SENSOR_ID,
+        "heaters": [TRV_ID],
+        "thermostats": [],
+        "coolers": [],
+        "window_sensors": [],
+        "presence_sensors": [],
+        "occupancy_timeout_minutes": 30,
+        "occupancy_setback_temp": 2.0,
+        "schedule": [
+            {
+                "name": "Day",
+                "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+                "start_time": "00:00",
+                "temp_heat": 21.0,
+                "temp_cool": 25.0,
+            }
+        ],
+    }
+
+    # 3. Launch & Capture Calls
+    with patch("homeassistant.core.ServiceRegistry.async_call") as call_mock:
+        await setup_scenario(hass, [config])
+
+        # --- HEATING NEEDED ---
+        # Room=19.0, Target=21.0.
+        zone = hass.states.get("climate.zone_force_zone")
+        assert zone.attributes["hvac_action"] == HVACAction.HEATING
+
+        # Verify Force Open Command
+        force_calls = [
+            c
+            for c in call_mock.call_args_list
+            if c.args[0] == "select"
+            and c.args[2][ATTR_ENTITY_ID] == FORCE_ID
+            and c.args[1] == "select_option"
+            and c.args[2]["option"] == "open"
+        ]
+        assert len(force_calls) > 0, "Should force open the TRV"
+
+        # Simulate Device Responding
+        hass.states.async_set(TRV_ID, HVACMode.HEAT, {"hvac_modes": [HVACMode.OFF, HVACMode.HEAT]})
+        hass.states.async_set(FORCE_ID, "open")
+
+        # --- IDLE ---
+        # Raise temp to 22.0
+        call_mock.reset_mock()
+        hass.states.async_set(SENSOR_ID, "22.0")
+        await hass.async_block_till_done()
+
+        zone = hass.states.get("climate.zone_force_zone")
+        assert zone.attributes["hvac_action"] == HVACAction.IDLE
+
+        # Verify Force Close Command AND Mode OFF
+        close_calls = [
+            c
+            for c in call_mock.call_args_list
+            if c.args[0] == "select"
+            and c.args[2][ATTR_ENTITY_ID] == FORCE_ID
+            and c.args[1] == "select_option"
+            and c.args[2]["option"] == "close"
+        ]
+        assert len(close_calls) > 0, "Should force close the TRV"
+
+        off_calls = [
+            c
+            for c in call_mock.call_args_list
+            if c.args[0] == "climate"
+            and c.args[2][ATTR_ENTITY_ID] == TRV_ID
+            and c.args[1] == "set_hvac_mode"
+            and c.args[2]["hvac_mode"] == HVACMode.OFF
+        ]
+        assert len(off_calls) > 0, "Should set mode to OFF when force is available"

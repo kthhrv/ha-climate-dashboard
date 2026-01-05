@@ -140,6 +140,10 @@ class Reconciler:
         # Detect PID Controller (Smart Thermostat)
         is_pid = "kp" in state.attributes or "pid_mode" in state.attributes
 
+        # Detect Hardware Force Entity (Zigbee2MQTT TRVs)
+        force_entity_id = entity_id.replace("climate.", "select.") + "_force"
+        force_state = self.hass.states.get(force_entity_id)
+
         target_mode = HVACMode.OFF
         target_temp = None
 
@@ -155,6 +159,14 @@ class Reconciler:
             else:
                 target_temp = 30.0  # Force Open
 
+            if force_state:
+                option = "normal" if is_pid else "open"
+                if force_state.state != option:
+                    _LOGGER.debug("Reconciler: Force Actuator %s -> %s", force_entity_id, option)
+                    await self.hass.services.async_call(
+                        "select", "select_option", {ATTR_ENTITY_ID: force_entity_id, "option": option}
+                    )
+
         elif should_cool:
             if HVACMode.COOL in valid_modes:
                 target_mode = HVACMode.COOL
@@ -167,9 +179,38 @@ class Reconciler:
             else:
                 target_temp = 16.0  # Force Open (Cool)
 
+            if force_state:
+                option = "normal"  # Cooling usually doesn't use 'open' force
+                if force_state.state != option:
+                    _LOGGER.debug("Reconciler: Force Actuator %s -> %s", force_entity_id, option)
+                    await self.hass.services.async_call(
+                        "select", "select_option", {ATTR_ENTITY_ID: force_entity_id, "option": option}
+                    )
+
         else:
             # OFF state
-            if is_cooler:
+
+            # For PID Controllers (Smart Thermostats), prioritize OFF mode if available.
+            if is_pid and HVACMode.OFF in valid_modes:
+                target_mode = HVACMode.OFF
+                target_temp = None
+
+            # For Hardware with Force Support: Use 'close' and 'OFF' mode.
+            elif force_state:
+                if force_state.state != "close":
+                    _LOGGER.debug("Reconciler: Force Actuator %s -> close", force_entity_id)
+                    await self.hass.services.async_call(
+                        "select", "select_option", {ATTR_ENTITY_ID: force_entity_id, "option": "close"}
+                    )
+                if HVACMode.OFF in valid_modes:
+                    target_mode = HVACMode.OFF
+                    target_temp = None
+                else:
+                    # Fallback if OFF not supported
+                    target_mode = state.state
+                    target_temp = 30.0 if is_cooler else 7.0
+
+            elif is_cooler:
                 # For Coolers: Set to COOL and High Temp (30C) to ensure it stops cooling (valve closes)
                 if HVACMode.COOL in valid_modes:
                     target_mode = HVACMode.COOL
