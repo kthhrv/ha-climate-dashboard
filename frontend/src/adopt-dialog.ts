@@ -240,8 +240,13 @@ export class AdoptDialog extends LitElement {
 
   render() {
     const heaterCandidates = this._getEntityList(["climate", "switch"]);
-    const thermostatCandidates = this._getEntityList(["climate"]);
     const coolerCandidates = this._getEntityList(["climate"]);
+
+    // Wall dials only on single-mode zones — clear if zone became mixed
+    if (this._heaters.size > 0 && this._coolers.size > 0) {
+      this._thermostats.clear();
+    }
+    const thermostatCandidates = this._getEntityList(["climate"]);
     const windowCandidates = this._getEntityList(["binary_sensor"]);
     const sensorCandidates = this._getSensors();
 
@@ -319,30 +324,6 @@ export class AdoptDialog extends LitElement {
         </div>
 
         <div class="field">
-          <label>Thermostats (Wall Dials)</label>
-          <div class="checkbox-list">
-            ${thermostatCandidates.map(
-              (e) => html`
-                <div class="checkbox-item">
-                  <input
-                    type="checkbox"
-                    ?checked=${this._thermostats.has(e.entity_id)}
-                    @change=${() =>
-                      this._toggleSet(this._thermostats, e.entity_id)}
-                  />
-                  <span>${e.name || e.entity_id}</span>
-                </div>
-              `,
-            )}
-            ${thermostatCandidates.length === 0
-              ? html`<div style="color:var(--secondary-text-color)">
-                  No thermostats found in this area
-                </div>`
-              : ""}
-          </div>
-        </div>
-
-        <div class="field">
           <label>Heaters</label>
           <div class="checkbox-list">
             ${heaterCandidates.map(
@@ -387,6 +368,34 @@ export class AdoptDialog extends LitElement {
               : ""}
           </div>
         </div>
+
+        ${this._heaters.size === 0 || this._coolers.size === 0
+          ? html`
+              <div class="field">
+                <label>Thermostats (Wall Dials)</label>
+                <div class="checkbox-list">
+                  ${thermostatCandidates.map(
+                    (e) => html`
+                      <div class="checkbox-item">
+                        <input
+                          type="checkbox"
+                          ?checked=${this._thermostats.has(e.entity_id)}
+                          @change=${() =>
+                            this._toggleSet(this._thermostats, e.entity_id)}
+                        />
+                        <span>${e.name || e.entity_id}</span>
+                      </div>
+                    `,
+                  )}
+                  ${thermostatCandidates.length === 0
+                    ? html`<div style="color:var(--secondary-text-color)">
+                        No thermostats found in this area
+                      </div>`
+                    : ""}
+                </div>
+              </div>
+            `
+          : ""}
 
         <div class="field">
           <label>Window Sensors</label>

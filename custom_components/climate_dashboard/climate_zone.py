@@ -545,33 +545,11 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         if new_temp is not None:
             _LOGGER.info("Upstream Sync: User adjusted %s to %s", new_state.entity_id, new_temp)
 
-            # Map based on current mode (Windowing logic in reverse)
-            target = self._attr_target_temperature
-            low = self._attr_target_temperature_low
-            high = self._attr_target_temperature_high
-
-            # Determine Intent Mode
-            # If Zone is already AUTO, we interpret HEAT/COOL inputs as setpoint adjustments within AUTO.
+            # Direct passthrough — on a mode-matched zone, dial mode == zone mode
             intent_mode = new_mode
-            if self._attr_hvac_mode == HVACMode.AUTO and new_mode in (HVACMode.HEAT, HVACMode.COOL):
-                intent_mode = HVACMode.AUTO
-
-            # Only update setpoints if mode DID NOT change (i.e. user turned the dial)
-            # If mode changed, we assume user just switched context, so we preserve current setpoints.
-            if not mode_changed:
-                min_diff = 1.0
-                if new_mode == HVACMode.COOL:
-                    high = new_temp
-                    if low is not None and high < (low + min_diff):
-                        low = high - min_diff
-                else:
-                    # If we are in AUTO but switched to HEAT side, update LOW
-                    if intent_mode == HVACMode.AUTO:
-                        low = new_temp
-                        if high is not None and low > (high - min_diff):
-                            high = low + min_diff
-                    else:
-                        target = new_temp
+            target = new_temp
+            low = None
+            high = None
 
             # Determine Expiration for Dial Overrides
             settings = self._storage.settings

@@ -9,7 +9,6 @@ from typing import Any
 
 from homeassistant.components.climate import (
     ClimateEntityFeature,
-    HVACAction,
     HVACMode,
 )
 from homeassistant.const import ATTR_ENTITY_ID, ATTR_TEMPERATURE
@@ -47,10 +46,7 @@ class Reconciler:
         return self._latches[entity_id]
 
     async def reconcile_hmi(self, entity_id: str, desired: DesiredState) -> bool:
-        """
-        Sync state to a Human Interface (Dial/Display).
-        Implements the 'Windowing' logic for AUTO mode.
-        """
+        """Sync state to a Human Interface (Dial/Display)."""
         state = self.hass.states.get(entity_id)
         if not state:
             return False
@@ -58,29 +54,21 @@ class Reconciler:
         valid_modes = state.attributes.get("hvac_modes", [])
         features = state.attributes.get("supported_features", 0)
 
-        # 1. Determine Target Mode for the HMI
-        # A Dial might not support AUTO, so we map AUTO to the active boundary.
+        # Dials are restricted to mode-matched zones (heat-only or cool-only).
+        # When the zone is AUTO but only has one capability, map to the matching mode.
         target_mode = desired.mode
         target_temp = desired.setpoints.target
 
         if desired.mode == HVACMode.AUTO and HVACMode.AUTO not in valid_modes:
-            # WINDOWING LOGIC:
-            # If the zone is AUTO but dial is single-mode, show the relevant side.
-            # Preference: If Dial is already in a mode that matches a side, stick to it.
-            if state.state == HVACMode.COOL:
-                use_cool = True
-            elif state.state == HVACMode.HEAT:
-                use_cool = False
-            else:
-                # Fallback to Zone Action if Dial is OFF or other
-                use_cool = desired.action == HVACAction.COOLING
-
-            if use_cool:
+            if HVACMode.HEAT in valid_modes and desired.setpoints.low is not None:
+                target_mode = HVACMode.HEAT
+                target_temp = desired.setpoints.low
+            elif HVACMode.COOL in valid_modes and desired.setpoints.high is not None:
                 target_mode = HVACMode.COOL
                 target_temp = desired.setpoints.high
             else:
-                target_mode = HVACMode.HEAT
-                target_temp = desired.setpoints.low
+                _LOGGER.warning("HMI %s cannot represent zone mode — skipping sync", entity_id)
+                return False
 
         # 2. Build Commands
         commands = []

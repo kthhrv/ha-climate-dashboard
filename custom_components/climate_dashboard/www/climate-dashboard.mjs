@@ -643,7 +643,9 @@ const Ie = class Ie extends D {
     }), this.dispatchEvent(new CustomEvent("close"));
   }
   render() {
-    const e = this._getEntityList(["climate", "switch"]), t = this._getEntityList(["climate"]), i = this._getEntityList(["climate"]), s = this._getEntityList(["binary_sensor"]), r = this._getSensors();
+    const e = this._getEntityList(["climate", "switch"]), t = this._getEntityList(["climate"]);
+    this._heaters.size > 0 && this._coolers.size > 0 && this._thermostats.clear();
+    const i = this._getEntityList(["climate"]), s = this._getEntityList(["binary_sensor"]), r = this._getSensors();
     return n`
       <div class="dialog">
         <div class="dialog-header">
@@ -715,27 +717,6 @@ const Ie = class Ie extends D {
         </div>
 
         <div class="field">
-          <label>Thermostats (Wall Dials)</label>
-          <div class="checkbox-list">
-            ${t.map(
-      (o) => n`
-                <div class="checkbox-item">
-                  <input
-                    type="checkbox"
-                    ?checked=${this._thermostats.has(o.entity_id)}
-                    @change=${() => this._toggleSet(this._thermostats, o.entity_id)}
-                  />
-                  <span>${o.name || o.entity_id}</span>
-                </div>
-              `
-    )}
-            ${t.length === 0 ? n`<div style="color:var(--secondary-text-color)">
-                  No thermostats found in this area
-                </div>` : ""}
-          </div>
-        </div>
-
-        <div class="field">
           <label>Heaters</label>
           <div class="checkbox-list">
             ${e.map(
@@ -759,7 +740,7 @@ const Ie = class Ie extends D {
         <div class="field">
           <label>Coolers</label>
           <div class="checkbox-list">
-            ${i.map(
+            ${t.map(
       (o) => n`
                 <div class="checkbox-item">
                   <input
@@ -771,11 +752,34 @@ const Ie = class Ie extends D {
                 </div>
               `
     )}
-            ${i.length === 0 ? n`<div style="color:var(--secondary-text-color)">
+            ${t.length === 0 ? n`<div style="color:var(--secondary-text-color)">
                   No coolers found in this area
                 </div>` : ""}
           </div>
         </div>
+
+        ${this._heaters.size === 0 || this._coolers.size === 0 ? n`
+              <div class="field">
+                <label>Thermostats (Wall Dials)</label>
+                <div class="checkbox-list">
+                  ${i.map(
+      (o) => n`
+                      <div class="checkbox-item">
+                        <input
+                          type="checkbox"
+                          ?checked=${this._thermostats.has(o.entity_id)}
+                          @change=${() => this._toggleSet(this._thermostats, o.entity_id)}
+                        />
+                        <span>${o.name || o.entity_id}</span>
+                      </div>
+                    `
+    )}
+                  ${i.length === 0 ? n`<div style="color:var(--secondary-text-color)">
+                        No thermostats found in this area
+                      </div>` : ""}
+                </div>
+              </div>
+            ` : ""}
 
         <div class="field">
           <label>Window Sensors</label>
@@ -2391,7 +2395,9 @@ const Oe = class Oe extends D {
   render() {
     if (this._loading) return n`<div class="card">Loading...</div>`;
     if (this._error) return n`<div class="card">Error: ${this._error}</div>`;
-    const e = this._getEntityList(["climate", "switch"]), t = this._getEntityList(["climate"]), i = this._getEntityList(["climate"]), s = this._getEntityList(["binary_sensor"]);
+    const e = this._getEntityList(["climate", "switch"]), t = this._getEntityList(["climate"]);
+    this._heaters.size > 0 && this._coolers.size > 0 && this._thermostats.clear();
+    const i = this._getEntityList(["climate"]), s = this._getEntityList(["binary_sensor"]);
     let r = this.allEntities.filter(
       (o) => o.domain === "sensor" && o.device_class === "temperature" || o.domain === "climate"
     );
@@ -2487,27 +2493,9 @@ const Oe = class Oe extends D {
         </div>
 
         <div class="field">
-          <label>Thermostats (Wall Dials)</label>
-          <div class="checkbox-list">
-            ${t.map(
-      (o) => n`
-                <div class="checkbox-item">
-                  <input
-                    type="checkbox"
-                    ?checked=${this._thermostats.has(o.entity_id)}
-                    @change=${() => this._toggleSet(this._thermostats, o.entity_id)}
-                  />
-                  <span>${o.name || o.entity_id}</span>
-                </div>
-              `
-    )}
-          </div>
-        </div>
-
-        <div class="field">
           <label>Coolers</label>
           <div class="checkbox-list">
-            ${i.map(
+            ${t.map(
       (o) => n`
                 <div class="checkbox-item">
                   <input
@@ -2521,6 +2509,26 @@ const Oe = class Oe extends D {
     )}
           </div>
         </div>
+
+        ${this._heaters.size === 0 || this._coolers.size === 0 ? n`
+              <div class="field">
+                <label>Thermostats (Wall Dials)</label>
+                <div class="checkbox-list">
+                  ${i.map(
+      (o) => n`
+                      <div class="checkbox-item">
+                        <input
+                          type="checkbox"
+                          ?checked=${this._thermostats.has(o.entity_id)}
+                          @change=${() => this._toggleSet(this._thermostats, o.entity_id)}
+                        />
+                        <span>${o.name || o.entity_id}</span>
+                      </div>
+                    `
+    )}
+                </div>
+              </div>
+            ` : ""}
 
         <div class="field">
           <label>Window Sensors</label>

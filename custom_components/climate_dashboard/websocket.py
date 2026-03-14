@@ -55,6 +55,15 @@ async def _async_adopt_zone(hass: HomeAssistant, connection: ActiveConnection, m
     window_sensors = msg["window_sensors"]
     room_type = msg.get("room_type", "generic")
 
+    # Wall dials only work on single-mode zones (heat-only or cool-only)
+    if msg.get("thermostats") and heaters and coolers:
+        connection.send_error(
+            msg["id"],
+            "invalid_config",
+            "Thermostats (wall dials) cannot be used on zones with both heaters and coolers",
+        )
+        return
+
     # Create Zone Config
     unique_id = f"zone_{uuid.uuid4().hex[:8]}"
 
@@ -175,6 +184,15 @@ async def _async_update_zone(hass: HomeAssistant, connection: ActiveConnection, 
             "window_sensors": msg["window_sensors"],
         }
     )
+
+    # Wall dials only work on single-mode zones (heat-only or cool-only)
+    if updated_config.get("thermostats") and updated_config.get("heaters") and updated_config.get("coolers"):
+        connection.send_error(
+            msg["id"],
+            "invalid_config",
+            "Thermostats (wall dials) cannot be used on zones with both heaters and coolers",
+        )
+        return
 
     if "presence_sensors" in msg:
         updated_config["presence_sensors"] = msg["presence_sensors"]

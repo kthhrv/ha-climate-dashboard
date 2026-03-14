@@ -162,3 +162,29 @@ async def test_scan_filters_existing_zones(hass: HomeAssistant, hass_ws_client: 
     # The adopt command should have created it.
     assert hass.states.get("climate.zone_my_zone") is not None
     assert "climate.zone_my_zone" not in ids
+
+
+async def test_adopt_rejects_thermostat_on_mixed_zone(hass: HomeAssistant, hass_ws_client: Any) -> None:
+    """Test that adopting a zone with thermostats + both heaters and coolers is rejected."""
+    client = await hass_ws_client(hass)
+
+    hass.states.async_set("sensor.temp", "20", {"unit_of_measurement": "C"})
+    hass.states.async_set("switch.heater", "off")
+    hass.states.async_set("climate.ac", "off", {"hvac_modes": ["cool", "off"]})
+    hass.states.async_set("climate.dial", "heat", {"hvac_modes": ["heat", "off"]})
+
+    await client.send_json(
+        {
+            "id": 1,
+            "type": "climate_dashboard/adopt",
+            "name": "Bad Zone",
+            "temperature_sensor": "sensor.temp",
+            "heaters": ["switch.heater"],
+            "thermostats": ["climate.dial"],
+            "coolers": ["climate.ac"],
+            "window_sensors": [],
+        }
+    )
+    resp = await client.receive_json()
+    assert not resp["success"]
+    assert "wall dials" in resp["error"]["message"].lower()
