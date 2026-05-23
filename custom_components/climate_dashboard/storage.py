@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any, Callable, Final, TypedDict
+from typing import Any, Callable, Final, NotRequired, TypedDict
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
@@ -66,6 +66,7 @@ class ClimateZoneConfig(TypedDict):
     occupancy_timeout_minutes: int
     occupancy_setback_temp: float
     schedule: list[ScheduleBlock]
+    ac_units: NotRequired[list[dict[str, str]]]
 
 
 @dataclass
