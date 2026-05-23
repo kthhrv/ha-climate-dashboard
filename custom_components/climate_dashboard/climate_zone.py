@@ -73,6 +73,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         occupancy_timeout_minutes: int,
         occupancy_setback_temp: float,
         schedule: list[ScheduleBlock] | None = None,
+        ac_units: list[dict[str, str]] | None = None,
     ) -> None:
         """Initialize the climate zone.
 
@@ -90,6 +91,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             occupancy_timeout_minutes: Minutes to wait before setback.
             occupancy_setback_temp: Temperature for setback.
             schedule: List of schedule blocks.
+            ac_units: List of AC unit configs (direct control).
         """
         self.hass = hass
         self._storage = storage
@@ -133,6 +135,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self._heaters = heaters
         self._thermostats = thermostats
         self._coolers = coolers
+        self._ac_units = ac_units or []
         self._window_sensors = window_sensors
         self._presence_sensors = presence_sensors
         self._occupancy_timeout_minutes = occupancy_timeout_minutes
@@ -200,6 +203,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         occupancy_timeout_minutes: int,
         occupancy_setback_temp: float,
         schedule: list[ScheduleBlock] | None = None,
+        ac_units: list[dict[str, str]] | None = None,
     ) -> None:
         """Update configuration dynamically.
 
@@ -213,6 +217,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             occupancy_timeout_minutes: New timeout.
             occupancy_setback_temp: New setback temperature.
             schedule: New schedule list (optional).
+            ac_units: New list of AC unit configs (direct control).
         """
         self._attr_name = name
 
@@ -242,6 +247,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self._heaters = heaters
         self._thermostats = thermostats
         self._coolers = coolers
+        self._ac_units = ac_units or []
         self._window_sensors = window_sensors
         self._presence_sensors = presence_sensors
         self._occupancy_timeout_minutes = occupancy_timeout_minutes
@@ -290,8 +296,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
 
     def _has_cooling_capability(self) -> bool:
         """Check if this zone has any cooling capability."""
-        # Note: We don't currently have "Cooling Circuits", so just check local coolers
-        return bool(self._coolers)
+        return bool(self._coolers) or bool(self._ac_units)
 
     @property
     def supported_features(self) -> ClimateEntityFeature:
@@ -319,6 +324,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             "heaters": self._heaters,
             "thermostats": self._thermostats,
             "coolers": self._coolers,
+            "ac_units": self._ac_units,
             "window_sensors": self._window_sensors,
             "presence_sensors": self._presence_sensors,
             "occupancy_timeout_minutes": self._occupancy_timeout_minutes,
@@ -749,6 +755,16 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                         should_cool=should_cool,
                         is_cooler=True,
                         device_setpoint=device_setpoint,
+                    )
+
+            # AC Units (direct control)
+            if self._ac_units and self._attr_current_temperature is not None and device_setpoint is not None:
+                for ac_config in self._ac_units:
+                    await self._reconciler.reconcile_ac_unit(
+                        ac_config,
+                        should_cool=should_cool,
+                        current_temp=self._attr_current_temperature,
+                        target_temp=device_setpoint,
                     )
 
     @callback

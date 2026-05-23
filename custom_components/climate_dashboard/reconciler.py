@@ -253,6 +253,67 @@ class Reconciler:
             latch.timestamp = datetime.now()
             await self.hass.services.async_call("climate", service, data)
 
+    async def reconcile_ac_unit(
+        self,
+        ac_config: dict[str, str],
+        should_cool: bool,
+        current_temp: float,
+        target_temp: float,
+    ) -> None:
+        """Control a portable AC unit via its LocalTuya switch and select entities."""
+        power_eid = ac_config["power"]
+        mode_eid = ac_config["mode"]
+        fan_eid = ac_config["fan_speed"]
+
+        power_state = self.hass.states.get(power_eid)
+        mode_state = self.hass.states.get(mode_eid)
+        fan_state = self.hass.states.get(fan_eid)
+
+        if not power_state or not mode_state or not fan_state:
+            _LOGGER.warning("AC unit entity missing: %s", ac_config)
+            return
+
+        if should_cool:
+            if current_temp > target_temp - 1:
+                desired_power = "on"
+            else:
+                desired_power = "off"
+
+            if current_temp > target_temp + 1:
+                desired_fan = "high"
+            else:
+                desired_fan = "low"
+
+            if current_temp > target_temp:
+                desired_mode = "COOL"
+            else:
+                desired_mode = "FAN"
+        else:
+            desired_power = "off"
+            desired_mode = "FAN"
+            desired_fan = "low"
+
+        if power_state.state != desired_power:
+            service = f"turn_{desired_power}"
+            _LOGGER.debug("Reconciler: AC power %s -> %s", power_eid, service)
+            await self.hass.services.async_call("switch", service, {ATTR_ENTITY_ID: power_eid})
+
+        if mode_state.state != desired_mode:
+            _LOGGER.debug("Reconciler: AC mode %s -> %s", mode_eid, desired_mode)
+            await self.hass.services.async_call(
+                "select",
+                "select_option",
+                {ATTR_ENTITY_ID: mode_eid, "option": desired_mode},
+            )
+
+        if fan_state.state != desired_fan:
+            _LOGGER.debug("Reconciler: AC fan %s -> %s", fan_eid, desired_fan)
+            await self.hass.services.async_call(
+                "select",
+                "select_option",
+                {ATTR_ENTITY_ID: fan_eid, "option": desired_fan},
+            )
+
     def is_echo(self, entity_id: str, new_state: Any) -> bool:
         """
         Detect if an incoming state change is an echo of our last command.

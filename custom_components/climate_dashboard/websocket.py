@@ -74,6 +74,7 @@ async def _async_adopt_zone(hass: HomeAssistant, connection: ActiveConnection, m
         "heaters": heaters,
         "thermostats": msg["thermostats"],
         "coolers": coolers,
+        "ac_units": msg.get("ac_units", []),
         "window_sensors": window_sensors,
         "presence_sensors": msg.get("presence_sensors", []),
         "occupancy_timeout_minutes": msg.get("occupancy_timeout_minutes", 30),
@@ -203,6 +204,9 @@ async def _async_update_zone(hass: HomeAssistant, connection: ActiveConnection, 
 
     if "schedule" in msg:
         updated_config["schedule"] = msg["schedule"]
+
+    if "ac_units" in msg:
+        updated_config["ac_units"] = msg["ac_units"]
 
     if "restore_delay_minutes" in msg:
         updated_config["restore_delay_minutes"] = msg["restore_delay_minutes"]
@@ -444,6 +448,13 @@ def async_register_api(hass: HomeAssistant) -> None:
                 vol.Optional("heaters", default=[]): [str],
                 vol.Optional("thermostats", default=[]): [str],
                 vol.Optional("coolers", default=[]): [str],
+                vol.Optional("ac_units", default=[]): [
+                    {
+                        vol.Required("power"): str,
+                        vol.Required("mode"): str,
+                        vol.Required("fan_speed"): str,
+                    }
+                ],
                 vol.Optional("window_sensors", default=[]): [str],
                 vol.Optional("presence_sensors", default=[]): [str],
                 vol.Optional("occupancy_timeout_minutes", default=30): int,
@@ -467,6 +478,13 @@ def async_register_api(hass: HomeAssistant) -> None:
                 vol.Optional("heaters", default=[]): [str],
                 vol.Optional("thermostats", default=[]): [str],
                 vol.Optional("coolers", default=[]): [str],
+                vol.Optional("ac_units"): [
+                    {
+                        vol.Required("power"): str,
+                        vol.Required("mode"): str,
+                        vol.Required("fan_speed"): str,
+                    }
+                ],
                 vol.Optional("window_sensors", default=[]): [str],
                 vol.Optional("presence_sensors"): [str],
                 vol.Optional("occupancy_timeout_minutes"): int,

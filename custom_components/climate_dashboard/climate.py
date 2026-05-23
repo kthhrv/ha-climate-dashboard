@@ -70,6 +70,7 @@ async def async_setup_entry(
                         occupancy_timeout_minutes=zone_config.get("occupancy_timeout_minutes", 30),
                         occupancy_setback_temp=zone_config.get("occupancy_setback_temp", 2.0),
                         schedule=zone_config.get("schedule"),
+                        ac_units=zone_config.get("ac_units", []),
                     )
                 )
             else:
@@ -88,6 +89,7 @@ async def async_setup_entry(
                     occupancy_timeout_minutes=zone_config.get("occupancy_timeout_minutes", 30),
                     occupancy_setback_temp=zone_config.get("occupancy_setback_temp", 2.0),
                     schedule=zone_config.get("schedule"),
+                    ac_units=zone_config.get("ac_units", []),
                 )
                 loaded_entities[uid] = entity
                 new_entities.append(entity)
