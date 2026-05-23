@@ -279,10 +279,13 @@ class Reconciler:
             else:
                 desired_power = "off"
 
-            if current_temp > target_temp + 1:
+            # Fan speed with hysteresis deadband to prevent oscillation
+            if current_temp > target_temp + 1.2:
                 desired_fan = "high"
-            else:
+            elif current_temp < target_temp + 0.8:
                 desired_fan = "low"
+            else:
+                desired_fan = fan_state.state  # hold current
 
             if current_temp > target_temp:
                 desired_mode = "COOL"
@@ -290,15 +293,15 @@ class Reconciler:
                 desired_mode = "FAN"
         else:
             desired_power = "off"
-            desired_mode = "FAN"
-            desired_fan = "low"
+            desired_mode = None
+            desired_fan = None
 
         if power_state.state != desired_power:
             service = f"turn_{desired_power}"
             _LOGGER.debug("Reconciler: AC power %s -> %s", power_eid, service)
             await self.hass.services.async_call("switch", service, {ATTR_ENTITY_ID: power_eid})
 
-        if mode_state.state != desired_mode:
+        if desired_mode is not None and mode_state.state != desired_mode:
             _LOGGER.debug("Reconciler: AC mode %s -> %s", mode_eid, desired_mode)
             await self.hass.services.async_call(
                 "select",
@@ -306,7 +309,7 @@ class Reconciler:
                 {ATTR_ENTITY_ID: mode_eid, "option": desired_mode},
             )
 
-        if fan_state.state != desired_fan:
+        if desired_fan is not None and fan_state.state != desired_fan:
             _LOGGER.debug("Reconciler: AC fan %s -> %s", fan_eid, desired_fan)
             await self.hass.services.async_call(
                 "select",
