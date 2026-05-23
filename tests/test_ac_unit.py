@@ -41,13 +41,14 @@ async def test_cooling_ramp_down_sequence(hass: HomeAssistant, reconciler: Recon
     _set_state(hass, "select.pb5000_fan_speed", "low")
 
     # Reconciler thresholds (target=22.0):
-    #   power on  when current_temp > target - 1  (> 21.0)
-    #   mode COOL when current_temp > target       (> 22.0)
-    #   fan high  when current_temp > target + 1   (> 23.0)
+    #   power on  when current_temp > target - 1   (> 21.0)
+    #   mode COOL when current_temp > target        (> 22.0)
+    #   fan high  when current_temp > target + 1.2  (> 23.2)
+    #   fan low   when current_temp < target + 0.8  (< 22.8)
+    #   fan hold  when 22.8 <= current_temp <= 23.2 (deadband)
     temps_and_expected = [
         (27.0, "on", "COOL", "high"),
-        (23.0, "on", "COOL", "low"),  # 23.0 is not > 23.0, so fan=low
-        (22.5, "on", "COOL", "low"),
+        (22.5, "on", "COOL", "low"),  # 22.5 < 22.8 → low
         (21.5, "on", "FAN", "low"),
         (20.5, "off", "FAN", "low"),
     ]
