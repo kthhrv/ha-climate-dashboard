@@ -151,9 +151,9 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self._attr_hvac_modes = [HVACMode.OFF]
         if self._heaters:
             self._attr_hvac_modes.append(HVACMode.HEAT)
-        if self._coolers:
+        if self._has_cooling_capability():
             self._attr_hvac_modes.append(HVACMode.COOL)
-        if self._heaters or self._coolers:
+        if self._heaters or self._has_cooling_capability():
             self._attr_hvac_modes.append(HVACMode.AUTO)
 
         self._attr_next_scheduled_change: str | None = None
@@ -305,7 +305,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         features = ClimateEntityFeature.TURN_OFF | ClimateEntityFeature.TURN_ON
 
         # If we have heaters AND coolers, we support range (AUTO mode)
-        if self._heaters and self._coolers:
+        if self._heaters and self._has_cooling_capability():
             features |= ClimateEntityFeature.TARGET_TEMPERATURE_RANGE
             features |= ClimateEntityFeature.TARGET_TEMPERATURE
         else:
