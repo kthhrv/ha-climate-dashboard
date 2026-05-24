@@ -757,15 +757,19 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                         device_setpoint=device_setpoint,
                     )
 
-            # AC Units (direct control)
-            if self._ac_units and self._attr_current_temperature is not None and device_setpoint is not None:
-                for ac_config in self._ac_units:
-                    await self._reconciler.reconcile_ac_unit(
-                        ac_config,
-                        should_cool=should_cool,
-                        current_temp=self._attr_current_temperature,
-                        target_temp=device_setpoint,
-                    )
+            # AC Units need cooling target even when idle (for FAN circulation)
+            if self._ac_units and self._attr_current_temperature is not None:
+                cooling_setpoint = desired.setpoints.high
+                if cooling_setpoint is None:
+                    cooling_setpoint = desired.setpoints.target
+                if cooling_setpoint is not None:
+                    for ac_config in self._ac_units:
+                        await self._reconciler.reconcile_ac_unit(
+                            ac_config,
+                            should_cool=should_cool,
+                            current_temp=self._attr_current_temperature,
+                            target_temp=cooling_setpoint,
+                        )
 
     @callback
     def _async_sensor_changed(self, event: Any) -> None:
