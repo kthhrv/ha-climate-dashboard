@@ -12,8 +12,7 @@ interface CircuitConfig {
   member_zones: string[];
 }
 // import { fireEvent } from "./fire-event";
-// mwc-button is provided by HA's frontend — importing it here would
-// re-register mwc-icon and collide with HA's registry.
+import "@material/mwc-button";
 
 export class ZoneEditor extends LitElement {
   @property({ attribute: false }) public hass!: any;
