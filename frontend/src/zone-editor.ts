@@ -12,7 +12,7 @@ interface CircuitConfig {
   member_zones: string[];
 }
 // import { fireEvent } from "./fire-event";
-// import "@material/mwc-button";
+import "@material/mwc-button";
 
 export class ZoneEditor extends LitElement {
   @property({ attribute: false }) public hass!: any;
@@ -120,23 +120,8 @@ export class ZoneEditor extends LitElement {
       background: var(--primary-color, #03a9f4);
       color: white;
     }
-    .dialog-btn {
-      background: transparent;
-      border: none;
-      color: var(--primary-color, #03a9f4);
-      font-weight: 500;
-      text-transform: uppercase;
-      padding: 10px 16px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.875rem;
-      letter-spacing: 0.0892857143em;
-    }
-    .dialog-btn.delete-confirm {
-      color: var(--error-color, #f44336);
-    }
-    .dialog-btn:hover {
-      background: rgba(0, 0, 0, 0.04);
+    .delete-confirm {
+      --mdc-theme-primary: var(--error-color, #f44336);
     }
     .delete {
       background: var(--error-color, #f44336);
@@ -582,22 +567,20 @@ export class ZoneEditor extends LitElement {
             Are you sure you want to delete <strong>${this._name}</strong>? This
             action cannot be undone.
           </div>
-          <div slot="secondaryAction">
-            <button
-              class="dialog-btn"
-              @click=${() => (this._showDeleteDialog = false)}
-            >
-              Cancel
-            </button>
-          </div>
-          <div slot="primaryAction">
-            <button
-              class="dialog-btn delete-confirm"
-              @click=${this._deleteConfirm}
-            >
-              Delete
-            </button>
-          </div>
+          <mwc-button
+            slot="secondaryAction"
+            dialogAction="cancel"
+            @click=${() => (this._showDeleteDialog = false)}
+          >
+            Cancel
+          </mwc-button>
+          <mwc-button
+            slot="primaryAction"
+            class="delete-confirm"
+            @click=${this._deleteConfirm}
+          >
+            Delete
+          </mwc-button>
         </ha-dialog>
       </div>
     `;
