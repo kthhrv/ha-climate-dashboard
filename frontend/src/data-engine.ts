@@ -123,7 +123,9 @@ export class DataEngine {
 
     // Zone Capabilities (Heat/Cool/Auto)
     const hasHeaters = (zone.attributes.heaters || []).length > 0;
-    const hasCoolers = (zone.attributes.coolers || []).length > 0;
+    const hasCoolers =
+      (zone.attributes.coolers || []).length > 0 ||
+      (zone.attributes.ac_units || []).length > 0;
 
     let zoneMode = "off";
     if (hasHeaters && hasCoolers) {

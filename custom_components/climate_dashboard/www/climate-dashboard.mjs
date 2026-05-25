@@ -1536,7 +1536,7 @@ class ue {
    * Handles "Carry Over" logic (looking back at previous days to fill 00:00 gap).
    */
   static getTimelineBlocks(e, t) {
-    const i = e.attributes.schedule || [], s = (e.attributes.heaters || []).length > 0, r = (e.attributes.coolers || []).length > 0;
+    const i = e.attributes.schedule || [], s = (e.attributes.heaters || []).length > 0, r = (e.attributes.coolers || []).length > 0 || (e.attributes.ac_units || []).length > 0;
     let o = "off";
     s && r ? o = "auto" : s ? o = "heat" : r && (o = "cool");
     const c = i.filter(
@@ -2813,7 +2813,7 @@ const It = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], Me = class Me exte
             name: t.attributes.friendly_name,
             temperature_sensor: t.attributes.temperature_sensor,
             heaters: t.attributes.heaters || [],
-            coolers: t.attributes.coolers || [],
+            coolers: (t.attributes.coolers || []).length > 0 ? t.attributes.coolers : t.attributes.ac_units || [],
             window_sensors: t.attributes.window_sensors || []
           };
         }
