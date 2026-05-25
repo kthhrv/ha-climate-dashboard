@@ -258,6 +258,15 @@ class ClimateZone(ClimateEntity, RestoreEntity):
             self.hass, self._storage, self.unique_id, self._window_sensors, self._temperature_sensor
         )
 
+        # Rebuild hvac_modes based on current capabilities
+        self._attr_hvac_modes = [HVACMode.OFF]
+        if self._heaters:
+            self._attr_hvac_modes.append(HVACMode.HEAT)
+        if self._has_cooling_capability():
+            self._attr_hvac_modes.append(HVACMode.COOL)
+        if self._heaters or self._has_cooling_capability():
+            self._attr_hvac_modes.append(HVACMode.AUTO)
+
         # Re-setup listeners
         self.async_on_remove(
             async_track_state_change_event(self.hass, self._presence_sensors, self._async_presence_changed)
