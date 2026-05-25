@@ -1659,7 +1659,7 @@ class ue {
           hour: "2-digit",
           minute: "2-digit"
         }
-      ), r = (i.heaters || []).length > 0, o = (i.coolers || []).length > 0;
+      ), r = (i.heaters || []).length > 0, o = (i.coolers || []).length > 0 || (i.ac_units || []).length > 0;
       let c;
       return r && o && i.next_scheduled_temp_heat && i.next_scheduled_temp_cool ? c = n`<span
             style="color: var(--deep-orange-color, #ff5722)"
@@ -2813,7 +2813,8 @@ const It = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], Me = class Me exte
             name: t.attributes.friendly_name,
             temperature_sensor: t.attributes.temperature_sensor,
             heaters: t.attributes.heaters || [],
-            coolers: (t.attributes.coolers || []).length > 0 ? t.attributes.coolers : t.attributes.ac_units || [],
+            coolers: t.attributes.coolers || [],
+            hasCooling: (t.attributes.coolers || []).length > 0 || (t.attributes.ac_units || []).length > 0,
             window_sensors: t.attributes.window_sensors || []
           };
         }
@@ -2913,7 +2914,7 @@ const It = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], Me = class Me exte
                           />
                         </div>
                       ` : ""}
-                  ${this._config.coolers.length > 0 ? n`
+                  ${this._config.hasCooling ? n`
                         <div class="field">
                           <label>Cool To (°C)</label>
                           <input

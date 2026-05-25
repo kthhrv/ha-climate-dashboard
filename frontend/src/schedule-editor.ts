@@ -190,10 +190,10 @@ export class ScheduleEditor extends LitElement {
           name: state.attributes.friendly_name,
           temperature_sensor: state.attributes.temperature_sensor,
           heaters: state.attributes.heaters || [],
-          coolers:
-            (state.attributes.coolers || []).length > 0
-              ? state.attributes.coolers
-              : state.attributes.ac_units || [],
+          coolers: state.attributes.coolers || [],
+          hasCooling:
+            (state.attributes.coolers || []).length > 0 ||
+            (state.attributes.ac_units || []).length > 0,
           window_sensors: state.attributes.window_sensors || [],
         };
       }
@@ -310,7 +310,7 @@ export class ScheduleEditor extends LitElement {
                         </div>
                       `
                     : ""}
-                  ${this._config.coolers.length > 0
+                  ${this._config.hasCooling
                     ? html`
                         <div class="field">
                           <label>Cool To (°C)</label>

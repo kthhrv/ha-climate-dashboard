@@ -324,7 +324,8 @@ export class DataEngine {
       );
 
       const hasHeaters = (attrs.heaters || []).length > 0;
-      const hasCoolers = (attrs.coolers || []).length > 0;
+      const hasCoolers =
+        (attrs.coolers || []).length > 0 || (attrs.ac_units || []).length > 0;
 
       let nextTempDisplay;
       if (

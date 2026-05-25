@@ -56,7 +56,8 @@ async def _async_adopt_zone(hass: HomeAssistant, connection: ActiveConnection, m
     room_type = msg.get("room_type", "generic")
 
     # Wall dials only work on single-mode zones (heat-only or cool-only)
-    if msg.get("thermostats") and heaters and coolers:
+    has_cooling = bool(coolers) or bool(msg.get("ac_units", []))
+    if msg.get("thermostats") and heaters and has_cooling:
         connection.send_error(
             msg["id"],
             "invalid_config",
@@ -187,7 +188,8 @@ async def _async_update_zone(hass: HomeAssistant, connection: ActiveConnection, 
     )
 
     # Wall dials only work on single-mode zones (heat-only or cool-only)
-    if updated_config.get("thermostats") and updated_config.get("heaters") and updated_config.get("coolers"):
+    has_cooling = bool(updated_config.get("coolers")) or bool(updated_config.get("ac_units"))
+    if updated_config.get("thermostats") and updated_config.get("heaters") and has_cooling:
         connection.send_error(
             msg["id"],
             "invalid_config",
