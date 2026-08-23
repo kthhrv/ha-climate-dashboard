@@ -93,7 +93,7 @@ async def test_ac_unit_fan_speed_hysteresis_holds_current(
 async def test_ac_unit_fan_circulation_with_should_cool(
     hass: HomeAssistant, reconciler: Reconciler, ac_config: dict
 ) -> None:
-    """When should_cool and target - 1 < current <= target, FAN circulation."""
+    """When should_cool and target - 0.8 < current <= target, FAN circulation."""
     _set_state(hass, "switch.test_ac_power", "off")
     _set_state(hass, "select.test_ac_mode", "COOL")
     _set_state(hass, "select.test_ac_fan_speed", "high")
@@ -110,7 +110,7 @@ async def test_ac_unit_fan_circulation_with_should_cool(
 async def test_ac_unit_fan_circulation_without_should_cool(
     hass: HomeAssistant, reconciler: Reconciler, ac_config: dict
 ) -> None:
-    """When should_cool=False but current > target - 1, FAN circulation still runs."""
+    """When should_cool=False but current > target - 0.8, FAN circulation still runs."""
     _set_state(hass, "switch.test_ac_power", "off")
     _set_state(hass, "select.test_ac_mode", "COOL")
     _set_state(hass, "select.test_ac_fan_speed", "high")
@@ -145,7 +145,7 @@ async def test_ac_unit_no_cool_mode_without_should_cool(
 
 
 async def test_ac_unit_powers_off_below_threshold(hass: HomeAssistant, reconciler: Reconciler, ac_config: dict) -> None:
-    """When current <= target - 1, power off with no mode/fan commands."""
+    """When current <= target - 1.2, power off with no mode/fan commands."""
     _set_state(hass, "switch.test_ac_power", "on")
     _set_state(hass, "select.test_ac_mode", "COOL")
     _set_state(hass, "select.test_ac_fan_speed", "high")
@@ -162,7 +162,7 @@ async def test_ac_unit_powers_off_below_threshold(hass: HomeAssistant, reconcile
 async def test_ac_unit_powers_off_without_should_cool_below_threshold(
     hass: HomeAssistant, reconciler: Reconciler, ac_config: dict
 ) -> None:
-    """When should_cool=False and current <= target - 1, power off."""
+    """When should_cool=False and current <= target - 1.2, power off."""
     _set_state(hass, "switch.test_ac_power", "on")
     _set_state(hass, "select.test_ac_mode", "FAN")
     _set_state(hass, "select.test_ac_fan_speed", "low")
@@ -174,6 +174,66 @@ async def test_ac_unit_powers_off_without_should_cool_below_threshold(
         assert ("switch", "turn_off", (("entity_id", "switch.test_ac_power"),)) in calls
         domains = _extract_domains(mock_call)
         assert ("select", "select_option") not in domains
+
+
+# --- Unavailable entity handling ---
+
+
+async def test_ac_unit_unavailable_power_state_no_commands(
+    hass: HomeAssistant, reconciler: Reconciler, ac_config: dict
+) -> None:
+    """When the power switch is unavailable, no commands are sent (not even turn_off)."""
+    _set_state(hass, "switch.test_ac_power", "unavailable")
+    _set_state(hass, "select.test_ac_mode", "FAN")
+    _set_state(hass, "select.test_ac_fan_speed", "low")
+
+    with patch("homeassistant.core.ServiceRegistry.async_call", new_callable=AsyncMock) as mock_call:
+        await reconciler.reconcile_ac_unit(ac_config, should_cool=True, current_temp=21.0, target_temp=22.0)
+
+        mock_call.assert_not_called()
+
+
+async def test_ac_unit_unavailable_fan_state_no_commands(
+    hass: HomeAssistant, reconciler: Reconciler, ac_config: dict
+) -> None:
+    """When the fan select is unavailable, no commands are sent."""
+    _set_state(hass, "switch.test_ac_power", "off")
+    _set_state(hass, "select.test_ac_mode", "FAN")
+    _set_state(hass, "select.test_ac_fan_speed", "unavailable")
+
+    with patch("homeassistant.core.ServiceRegistry.async_call", new_callable=AsyncMock) as mock_call:
+        await reconciler.reconcile_ac_unit(ac_config, should_cool=True, current_temp=26.0, target_temp=22.0)
+
+        mock_call.assert_not_called()
+
+
+# --- Power deadband holds everything ---
+
+
+async def test_ac_unit_deadband_holds_all_commands(
+    hass: HomeAssistant, reconciler: Reconciler, ac_config: dict
+) -> None:
+    """In the power deadband (target - 1.2 < current <= target - 0.8), nothing is commanded."""
+    _set_state(hass, "switch.test_ac_power", "on")
+    _set_state(hass, "select.test_ac_mode", "COOL")
+    _set_state(hass, "select.test_ac_fan_speed", "high")
+
+    with patch("homeassistant.core.ServiceRegistry.async_call", new_callable=AsyncMock) as mock_call:
+        await reconciler.reconcile_ac_unit(ac_config, should_cool=True, current_temp=21.0, target_temp=22.0)
+
+        mock_call.assert_not_called()
+
+
+async def test_ac_unit_deadband_holds_off_state(hass: HomeAssistant, reconciler: Reconciler, ac_config: dict) -> None:
+    """In the power deadband with the unit off, it stays off with no commands."""
+    _set_state(hass, "switch.test_ac_power", "off")
+    _set_state(hass, "select.test_ac_mode", "FAN")
+    _set_state(hass, "select.test_ac_fan_speed", "low")
+
+    with patch("homeassistant.core.ServiceRegistry.async_call", new_callable=AsyncMock) as mock_call:
+        await reconciler.reconcile_ac_unit(ac_config, should_cool=True, current_temp=21.0, target_temp=22.0)
+
+        mock_call.assert_not_called()
 
 
 # --- Redundant call prevention ---
