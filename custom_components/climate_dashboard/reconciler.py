@@ -273,9 +273,19 @@ class Reconciler:
             _LOGGER.warning("AC unit entity missing: %s", ac_config)
             return
 
-        # FAN circulation runs when current > target - 1, regardless of should_cool.
+        # FAN circulation runs around target - 1, regardless of should_cool.
         # COOL mode (compressor) only runs when should_cool is True.
-        if current_temp > target_temp - 1:
+        # Power on/off uses a hysteresis deadband centred on target - 1: a
+        # single-point threshold flaps the power on every sensor report when
+        # the room settles exactly at the boundary (Gaspard 2026-08-23).
+        if current_temp > target_temp - 0.8:
+            power_should_run = True
+        elif current_temp <= target_temp - 1.2:
+            power_should_run = False
+        else:
+            power_should_run = power_state.state == "on"  # hold current
+
+        if power_should_run:
             desired_power = "on"
 
             if should_cool and current_temp > target_temp:
