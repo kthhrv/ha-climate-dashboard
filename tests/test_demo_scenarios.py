@@ -1106,3 +1106,66 @@ async def test_trv_force_actuation(hass: HomeAssistant) -> None:
             and c.args[2]["hvac_mode"] == HVACMode.OFF
         ]
         assert len(off_calls) > 0, "Should set mode to OFF when force is available"
+
+
+@pytest.mark.asyncio
+async def test_override_made_while_window_open_does_not_switch_zone_off(hass: HomeAssistant) -> None:
+    """A temperature set while a window is open must not be recorded as 'zone off'.
+
+    The window forces the zone's hvac_mode to OFF. Setting a temperature in that
+    state used to copy that forced OFF into the override, so the zone stayed off
+    after the window closed until the override expired.
+    """
+    hass.states.async_set("sensor.window_room_temp", "19.7")
+    hass.states.async_set("binary_sensor.window_room_contact", "on")
+    hass.states.async_set(
+        "climate.window_room_trv",
+        HVACMode.OFF,
+        {
+            "hvac_modes": [HVACMode.OFF, HVACMode.HEAT, HVACMode.AUTO],
+            "supported_features": ClimateEntityFeature.TARGET_TEMPERATURE,
+            "min_temp": 7,
+            "max_temp": 30,
+        },
+    )
+    config = {
+        "unique_id": "zone_window_room",
+        "name": "Window Room",
+        "temperature_sensor": "sensor.window_room_temp",
+        "heaters": ["climate.window_room_trv"],
+        "thermostats": [],
+        "coolers": [],
+        "window_sensors": ["binary_sensor.window_room_contact"],
+        "presence_sensors": [],
+        "occupancy_timeout_minutes": 30,
+        "occupancy_setback_temp": 2.0,
+        "schedule": [
+            {
+                "name": "Night",
+                "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+                "start_time": "00:00",
+                "temp_heat": 19.0,
+                "temp_cool": 19.5,
+            }
+        ],
+    }
+
+    with patch("homeassistant.core.ServiceRegistry.async_call"):
+        await setup_scenario(hass, [config])  # type: ignore
+
+        zone = hass.states.get("climate.zone_window_room")
+        assert zone is not None
+        assert zone.state == HVACMode.OFF
+        assert zone.attributes["open_window_sensor"] is not None
+
+        entity = hass.data["entity_components"]["climate"].get_entity("climate.zone_window_room")
+        await entity.async_set_temperature(**{ATTR_TEMPERATURE: 18.5})
+        await hass.async_block_till_done()
+
+        hass.states.async_set("binary_sensor.window_room_contact", "off")
+        await hass.async_block_till_done()
+
+        zone = hass.states.get("climate.zone_window_room")
+        assert zone is not None
+        assert zone.state == HVACMode.AUTO
+        assert zone.attributes["temperature"] == 18.5

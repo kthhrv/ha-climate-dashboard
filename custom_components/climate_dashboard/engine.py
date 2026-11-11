@@ -71,6 +71,27 @@ class ReconciliationEngine:
     def __init__(self, tolerance: float = 0.3):
         self.tolerance = tolerance
 
+    @staticmethod
+    def select_winner(intents: list[ClimateIntent], now: datetime) -> ClimateIntent | None:
+        """Pick the winning intent: unexpired, highest-priority source, then newest.
+
+        Independent of window state, so callers can ask what the zone has chosen
+        even while an open window forces the hardware off.
+        """
+        active_intents = [i for i in intents if i.expires_at is None or i.expires_at > now]
+        if not active_intents:
+            return None
+
+        priority_map = {
+            IntentSource.SAFETY: 0,
+            IntentSource.AWAY_MODE: 1,
+            IntentSource.OCCUPANCY_SETBACK: 2,
+            IntentSource.MANUAL_APP: 3,
+            IntentSource.MANUAL_DIAL: 3,
+            IntentSource.SCHEDULE: 4,
+        }
+        return min(active_intents, key=lambda i: (priority_map.get(i.source, 99), -i.created_at.timestamp()))
+
     def calculate_desired_state(
         self,
         intents: list[ClimateIntent],
@@ -96,29 +117,12 @@ class ReconciliationEngine:
                 mode=HVACMode.OFF, setpoints=TargetSetpoints(), action=HVACAction.OFF, reason="Window Open"
             )
 
-        # Filter Expired Intents
-        active_intents = [i for i in intents if i.expires_at is None or i.expires_at > now]
+        winner = self.select_winner(intents, now)
 
-        if not active_intents:
+        if winner is None:
             return DesiredState(
                 mode=HVACMode.OFF, setpoints=TargetSetpoints(), action=HVACAction.OFF, reason="No Active Intents"
             )
-
-        # 2. Find Winning Intent (highest priority source, then newest)
-        # Sort by IntentSource priority and then age
-        priority_map = {
-            IntentSource.SAFETY: 0,
-            IntentSource.AWAY_MODE: 1,
-            IntentSource.OCCUPANCY_SETBACK: 2,
-            IntentSource.MANUAL_APP: 3,
-            IntentSource.MANUAL_DIAL: 3,
-            IntentSource.SCHEDULE: 4,
-        }
-
-        sorted_intents = sorted(
-            active_intents, key=lambda i: (priority_map.get(i.source, 99), -i.created_at.timestamp())
-        )
-        winner = sorted_intents[0]
 
         # 3. Calculate Action based on Current Temp and Hysteresis
         action = HVACAction.IDLE

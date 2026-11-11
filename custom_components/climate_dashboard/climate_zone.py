@@ -126,6 +126,7 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         self._engine = ReconciliationEngine(tolerance=DEFAULT_TOLERANCE)
         self._reconciler = Reconciler(self.hass)
         self._intents: list[ClimateIntent] = []
+        self._chosen_mode: HVACMode = HVACMode.OFF
         self._active_intent: ClimateIntent | None = None
 
         # Initialize schedule state
@@ -681,6 +682,10 @@ class ClimateZone(ClimateEntity, RestoreEntity):
                 is_window_open=is_window_open,
             )
 
+            # The mode the zone has chosen, ignoring a window that is forcing it off
+            chosen = self._engine.select_winner(all_intents, now)
+            self._chosen_mode = chosen.mode if chosen else HVACMode.OFF
+
             # Validate Action against Hardware (Engine doesn't know about hardware/circuits)
             if desired.action == HVACAction.HEATING and not self._has_heating_capability():
                 desired.action = HVACAction.IDLE
@@ -978,7 +983,9 @@ class ClimateZone(ClimateEntity, RestoreEntity):
         """Set new target temperature."""
         mode = kwargs.get("hvac_mode")
         if mode is None:
-            mode = self._attr_hvac_mode
+            # An open window forces hvac_mode to OFF. An override made meanwhile
+            # keeps the mode the zone had chosen, rather than recording that OFF.
+            mode = self._chosen_mode if self._attr_open_window_sensor else self._attr_hvac_mode
 
         target = kwargs.get(ATTR_TEMPERATURE)
         low = kwargs.get("target_temp_low")
